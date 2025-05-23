@@ -1,16 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
-  getDocs,
-  Timestamp 
-} from 'firebase/firestore';
-import { db } from '../firebase';
 import {
   Line,
   XAxis,
@@ -24,624 +12,507 @@ import {
   ComposedChart
 } from 'recharts';
 
-export default function Dashboard() {
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
-  const { currentUser, logout } = useAuth();
-  const navigate = useNavigate();
-
-  // Data states
-  const [dashboardData, setDashboardData] = useState({
-    sleepStressData: [],
-    headacheData: [],
-    todayStats: {
-      lastSleep: null,
-      todayStress: null,
-      weekHeadaches: 0,
-      todayWater: 0
-    }
-  });
-
-  // Fetch last 7 days of data
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      if (!currentUser) return;
-
-      try {
-        setLoading(true);
-        
-        // Calculate date 7 days ago
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        
-        // Fetch sleep data
-        const sleepQuery = query(
-          collection(db, 'users', currentUser.uid, 'sleep'),
-          where('date', '>=', Timestamp.fromDate(sevenDaysAgo)),
-          orderBy('date', 'asc'),
-          limit(7)
-        );
-        const sleepSnapshot = await getDocs(sleepQuery);
-        const sleepData = sleepSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date.toDate()
-        }));
-
-        // Fetch stress data
-        const stressQuery = query(
-          collection(db, 'users', currentUser.uid, 'stress'),
-          where('date', '>=', Timestamp.fromDate(sevenDaysAgo)),
-          orderBy('date', 'asc'),
-          limit(7)
-        );
-        const stressSnapshot = await getDocs(stressQuery);
-        const stressData = stressSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date.toDate()
-        }));
-
-        // Fetch headache data
-        const headacheQuery = query(
-          collection(db, 'users', currentUser.uid, 'headaches'),
-          where('time', '>=', Timestamp.fromDate(sevenDaysAgo)),
-          orderBy('time', 'asc')
-        );
-        const headacheSnapshot = await getDocs(headacheQuery);
-        const headacheData = headacheSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          time: doc.data().time.toDate()
-        }));
-
-        // Process data for charts
-        const chartData = processChartData(sleepData, stressData, headacheData);
-        
-        setDashboardData(chartData);
-        
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, [currentUser]);
-
-  // Process data for visualization
-  const processChartData = (sleepData, stressData, headacheData) => {
-    // Create array of last 7 days
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      days.push({
-        date: date.toDateString(),
-        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
-        fullDate: date
-      });
-    }
-
-    // Calculate personal worst day for percentage baseline
-    const dailyHeadacheScores = [];
-    
-    // Group headaches by day and calculate daily pain scores
-    const headachesByDay = {};
-    headacheData.forEach(headache => {
-      const dayKey = headache.time.toDateString();
-      if (!headachesByDay[dayKey]) {
-        headachesByDay[dayKey] = [];
-      }
-      headachesByDay[dayKey].push(headache);
-    });
-
-    // Calculate pain scores for each day
-    Object.keys(headachesByDay).forEach(day => {
-      const dayHeadaches = headachesByDay[day];
-      const dailyScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
-      dailyHeadacheScores.push(dailyScore);
-    });
-
-    // Find personal worst day (highest pain score)
-    const personalWorstDay = Math.max(...dailyHeadacheScores, 1); // minimum 1 to avoid division by zero
-
-    // Combine sleep, stress, and headache data
-    const sleepStressData = days.map(day => {
-      const dayStr = day.date;
-      
-      // Find sleep data for this day
-      const sleepEntry = sleepData.find(sleep => 
-        sleep.date.toDateString() === dayStr
-      );
-      
-      // Find stress data for this day
-      const stressEntry = stressData.find(stress => 
-        stress.date.toDateString() === dayStr
-      );
-      
-      // Get headaches for this day with intensity grouping
-      const dayHeadaches = headacheData.filter(headache => 
-        headache.time.toDateString() === dayStr
-      );
-
-      // Group headaches by intensity level
-      const headachesByIntensity = {};
-      dayHeadaches.forEach(headache => {
-        const intensity = headache.painLevel || 0;
-        if (!headachesByIntensity[intensity]) {
-          headachesByIntensity[intensity] = 0;
-        }
-        headachesByIntensity[intensity]++;
-      });
-
-      // Calculate total daily pain score and percentage
-      const dailyPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
-      const painPercentage = personalWorstDay > 0 ? (dailyPainScore / personalWorstDay) * 100 : 0;
-
-      return {
-        day: day.dayName,
-        sleepHours: sleepEntry ? sleepEntry.hoursSlept || 0 : 0,
-        sleepQuality: sleepEntry ? sleepEntry.sleepQuality || 0 : 0,
-        sleepQualityPercent: sleepEntry ? ((sleepEntry.sleepQuality || 0) * 10) : 0, // Convert 0-10 to 0-100%
-        stressLevel: stressEntry ? stressEntry.stressLevel || 0 : 0,
-        stressPercent: stressEntry ? ((stressEntry.stressLevel || 0) * 10) : 0, // Convert 0-10 to 0-100%
-        headaches: dayHeadaches.length,
-        headachesByIntensity,
-        dailyPainScore,
-        painPercentage: Math.round(painPercentage),
-        personalWorstDay,
-        hasData: !!(sleepEntry || stressEntry || dayHeadaches.length > 0)
-      };
-    });
-
-    // Calculate today's stats
-    const todayStats = {
-      lastSleep: sleepData.length > 0 ? sleepData[sleepData.length - 1] : null,
-      todayStress: stressData.length > 0 ? stressData[stressData.length - 1] : null,
-      weekHeadaches: headacheData.length,
-      todayWater: 0, // This would come from nutrition data
-      personalWorstDay
-    };
-
-    return {
-      sleepStressData,
-      headacheData: days.map(day => ({
-        day: day.dayName,
-        headaches: headacheData.filter(h => 
-          h.time.toDateString() === day.date
-        ).length
-      })),
-      todayStats
-    };
-  };
-
-  // Custom tooltip for the chart
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0]?.payload;
-      return (
-        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-          <p className="font-semibold">{`${label}`}</p>
-          {payload.map((entry, index) => {
-            if (entry.dataKey === 'painPercentage') {
-              return (
-                <p key={index} style={{ color: '#888' }}>
-                  Daily Pain: {entry.value}% of your worst day
-                </p>
-              );
-            }
-            return (
-              <p key={index} style={{ color: entry.color }}>
-                {entry.name}: {entry.value}
-                {entry.dataKey === 'sleepHours' && ' hours'}
-                {(entry.dataKey === 'sleepQuality' || entry.dataKey === 'stressLevel') && '/10'}
-                {entry.dataKey === 'headaches' && (entry.value === 1 ? ' headache' : ' headaches')}
-              </p>
-            );
-          })}
-          
-          {/* Show headache details */}
-          {data?.headachesByIntensity && Object.keys(data.headachesByIntensity).length > 0 && (
-            <div style={{ marginTop: '8px', padding: '4px', background: '#fff5f5', borderRadius: '4px', fontSize: '0.8rem' }}>
-              <strong>Headache Details:</strong>
-              {Object.entries(data.headachesByIntensity).map(([intensity, count]) => (
-                <div key={intensity}>
-                  {count} headache{count > 1 ? 's' : ''} at {intensity}/10 pain
-                </div>
-              ))}
-              {data.dailyPainScore > 0 && (
-                <div style={{ color: '#666', marginTop: '4px' }}>
-                  Total pain score: {data.dailyPainScore} ({data.painPercentage}% of worst day)
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Show correlation insights */}
-          {payload.length >= 3 && (
-            <div style={{ marginTop: '8px', padding: '4px', background: '#f8f9fa', borderRadius: '4px', fontSize: '0.8rem' }}>
-              {getTooltipInsight(data)}
-            </div>
-          )}
-        </div>
-      );
-    }
-    return null;
-  };
-
-  async function handleLogout() {
-    setError('');
-    try {
-      await logout();
-      navigate('/login');
-    } catch {
-      setError('Failed to log out');
-    }
+// Mock data for demonstration
+const mockDashboardData = {
+  sleepStressData: [
+    { day: 'Mon', sleepHours: 7.5, sleepQualityPercent: 80, stressPercent: 30, headaches: 0, painPercentage: 0, hasData: true },
+    { day: 'Tue', sleepHours: 6.2, sleepQualityPercent: 60, stressPercent: 70, headaches: 2, painPercentage: 45, hasData: true, headachesByIntensity: { '6': 1, '4': 1 }, dailyPainScore: 10 },
+    { day: 'Wed', sleepHours: 8.1, sleepQualityPercent: 90, stressPercent: 20, headaches: 0, painPercentage: 0, hasData: true },
+    { day: 'Thu', sleepHours: 7.0, sleepQualityPercent: 70, stressPercent: 50, headaches: 1, painPercentage: 25, hasData: true, headachesByIntensity: { '5': 1 }, dailyPainScore: 5 },
+    { day: 'Fri', sleepHours: 5.8, sleepQualityPercent: 40, stressPercent: 80, headaches: 3, painPercentage: 85, hasData: true, headachesByIntensity: { '8': 1, '6': 2 }, dailyPainScore: 20 },
+    { day: 'Sat', sleepHours: 9.2, sleepQualityPercent: 95, stressPercent: 15, headaches: 0, painPercentage: 0, hasData: true },
+    { day: 'Sun', sleepHours: 8.0, sleepQualityPercent: 85, stressPercent: 25, headaches: 1, painPercentage: 15, hasData: true, headachesByIntensity: { '3': 1 }, dailyPainScore: 3 }
+  ],
+  headacheData: [
+    { day: 'Mon', headaches: 0 },
+    { day: 'Tue', headaches: 2 },
+    { day: 'Wed', headaches: 0 },
+    { day: 'Thu', headaches: 1 },
+    { day: 'Fri', headaches: 3 },
+    { day: 'Sat', headaches: 0 },
+    { day: 'Sun', headaches: 1 }
+  ],
+  todayStats: {
+    lastSleep: { hoursSlept: 8.0, sleepQuality: 8.5 },
+    todayStress: { stressLevel: 2.5 },
+    weekHeadaches: 7,
+    todayWater: 6,
+    personalWorstDay: 24
   }
+};
 
-  if (loading) {
-    return (
-      <div className="dashboard">
-        <div className="loading">
-          <h2>Loading your health insights...</h2>
-          <p>Analyzing your sleep, stress, and headache patterns</p>
+// Circular Progress Component
+const CircularProgress = ({ percentage, size = 100, strokeWidth = 8, color = '#ff6b35', label, value, unit = '', showPercentage = false }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="circular-progress" style={{ position: 'relative', width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="rgba(255, 255, 255, 0.1)"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }}
+        />
+      </svg>
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        textAlign: 'center',
+        color: 'white'
+      }}>
+        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', lineHeight: '1' }}>
+          {showPercentage ? `${Math.round(percentage)}%` : `${value}${unit}`}
         </div>
+        <div style={{ fontSize: '0.7rem', opacity: 0.8, marginTop: '2px' }}>{label}</div>
+      </div>
+    </div>
+  );
+};
+
+// Action Button Component
+const ActionButton = ({ icon, label, primary = false, onClick }) => (
+  <button
+    onClick={onClick}
+    style={{
+      background: primary 
+        ? 'linear-gradient(135deg, #ff6b35 0%, #cc4a1a 100%)' 
+        : 'rgba(255, 255, 255, 0.1)',
+      border: primary ? 'none' : '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '12px',
+      color: 'white',
+      padding: '1rem',
+      cursor: 'pointer',
+      fontSize: '0.9rem',
+      fontWeight: primary ? '600' : '500',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem',
+      backdropFilter: 'blur(10px)',
+      transition: 'all 0.2s ease',
+      minHeight: '50px'
+    }}
+    onMouseEnter={(e) => {
+      e.target.style.transform = 'translateY(-2px)';
+      e.target.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)';
+    }}
+    onMouseLeave={(e) => {
+      e.target.style.transform = 'translateY(0)';
+      e.target.style.boxShadow = 'none';
+    }}
+  >
+    <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+    {label}
+  </button>
+);
+
+// Progress Card Component  
+const ProgressCard = ({ title, icon, children, gradient }) => (
+  <div style={{
+    background: gradient || 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '16px',
+    padding: '1.5rem',
+    color: 'white',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    textAlign: 'center',
+    position: 'relative',
+    overflow: 'hidden'
+  }}>
+    <div style={{ position: 'relative', zIndex: 2, width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+        <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+        <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '600', opacity: 0.9 }}>{title}</h3>
+      </div>
+      {children}
+    </div>
+    <div style={{
+      position: 'absolute',
+      top: '-20px',
+      right: '-20px',
+      width: '80px',
+      height: '80px',
+      background: 'radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%)',
+      borderRadius: '50%'
+    }} />
+  </div>
+);
+
+// Custom Tooltip inspired by Garmin
+const GarminTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0]?.payload;
+    return (
+      <div style={{
+        background: 'rgba(26, 26, 26, 0.95)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        borderRadius: '12px',
+        padding: '1rem',
+        color: 'white',
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+        fontSize: '0.85rem'
+      }}>
+        <p style={{ fontWeight: 'bold', marginBottom: '0.5rem', color: '#ff6b35' }}>{label}</p>
+        
+        {payload.map((entry, index) => {
+          if (entry.dataKey === 'painPercentage') {
+            return (
+              <div key={index} style={{ margin: '0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
+                <span style={{ color: '#ccc' }}>Daily Pain: {entry.value}%</span>
+              </div>
+            );
+          }
+          return (
+            <div key={index} style={{ margin: '0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
+              <span style={{ color: entry.color }}>
+                {entry.name}: {entry.value}
+                {entry.dataKey === 'sleepHours' && ' hrs'}
+                {(entry.dataKey === 'sleepQuality' || entry.dataKey === 'stressLevel') && '/10'}
+              </span>
+            </div>
+          );
+        })}
+        
+        {data?.headachesByIntensity && Object.keys(data.headachesByIntensity).length > 0 && (
+          <div style={{
+            marginTop: '0.75rem',
+            padding: '0.5rem',
+            background: 'rgba(255, 107, 53, 0.1)',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 107, 53, 0.2)'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', fontSize: '0.8rem' }}>🤕 Headache Details:</div>
+            {Object.entries(data.headachesByIntensity).map(([intensity, count]) => (
+              <div key={intensity} style={{ margin: '0.2rem 0', fontSize: '0.75rem' }}>
+                • {count} headache{count > 1 ? 's' : ''} at {intensity}/10 intensity
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
+  return null;
+};
+
+export default function GarminDashboard() {
+  const [dashboardData] = useState(mockDashboardData);
+
+  // Calculate metrics for progress cards
+  const avgSleepQuality = dashboardData.sleepStressData.reduce((sum, d) => sum + (d.sleepQualityPercent || 0), 0) / 7;
+  const avgStress = 100 - (dashboardData.sleepStressData.reduce((sum, d) => sum + (d.stressPercent || 0), 0) / 7);
+  const weeklyProgress = Math.max(0, 100 - (dashboardData.todayStats.weekHeadaches * 10));
+  const avgSleepHours = dashboardData.sleepStressData.reduce((sum, d) => sum + (d.sleepHours || 0), 0) / 7;
 
   return (
-    <div className="dashboard">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <div>
-          <h1>Your Health Dashboard</h1>
-          <p style={{ color: '#666', margin: '0.5rem 0' }}>
-            Welcome back! Here's your 7-day health overview.
-          </p>
-        </div>
-        <button onClick={handleLogout} className="btn btn-secondary">
-          Log Out
-        </button>
-      </div>
-
-      {error && <div className="error">{error}</div>}
-
-      {/* Quick Stats Cards */}
-      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
-        <div className="stat-card">
-          <h3>💤 Last Night's Sleep</h3>
-          {dashboardData.todayStats.lastSleep ? (
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2c5aa0' }}>
-                {dashboardData.todayStats.lastSleep.hoursSlept}h
-              </div>
-              <div style={{ color: '#666' }}>
-                Quality: {dashboardData.todayStats.lastSleep.sleepQuality || 'Not rated'}/10
-              </div>
-            </div>
-          ) : (
-            <p style={{ color: '#666' }}>No recent sleep data</p>
-          )}
-        </div>
-
-        <div className="stat-card">
-          <h3>😰 Current Stress</h3>
-          {dashboardData.todayStats.todayStress ? (
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#dc3545' }}>
-                {dashboardData.todayStats.todayStress.stressLevel}/10
-              </div>
-              <div style={{ color: '#666' }}>Latest reading</div>
-            </div>
-          ) : (
-            <p style={{ color: '#666' }}>No recent stress data</p>
-          )}
-        </div>
-
-        <div className="stat-card">
-          <h3>🤕 This Week's Headaches</h3>
+    <div style={{
+      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+      minHeight: '100vh',
+      color: 'white',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '1.5rem 2rem',
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ff6b35' }}>
-              {dashboardData.todayStats.weekHeadaches}
-            </div>
-            <div style={{ color: '#666' }}>Past 7 days</div>
+            <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: '700' }}>Health Dashboard</h1>
+            <p style={{ color: 'rgba(255, 255, 255, 0.7)', margin: '0.3rem 0 0 0', fontSize: '0.9rem' }}>
+              Your 7-day health insights
+            </p>
           </div>
-        </div>
-
-        <div className="stat-card">
-          <h3>⚡ Quick Actions</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <Link to="/record-headache" className="btn" style={{ fontSize: '0.9rem', padding: '0.5rem' }}>
-              Log Headache
-            </Link>
-            <Link to="/record-sleep" className="btn btn-secondary" style={{ fontSize: '0.9rem', padding: '0.5rem' }}>
-              Log Sleep
-            </Link>
-          </div>
+          <button style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '8px',
+            color: 'white',
+            padding: '0.6rem 1.2rem',
+            cursor: 'pointer',
+            backdropFilter: 'blur(10px)',
+            fontSize: '0.9rem'
+          }}>
+            Log Out
+          </button>
         </div>
       </div>
 
-      {/* Main Charts */}
-      <div className="chart-section">
-        <div className="stat-card" style={{ marginBottom: '2rem' }}>
-          <h3>Sleep, Stress & Headache Correlation (Past 7 Days)</h3>
-          <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1rem' }}>
-            Track how your sleep quality and stress levels impact headache frequency • Red dots = headaches (larger = more)
-          </p>
-          {dashboardData.sleepStressData.some(d => d.hasData) ? (
-            <ResponsiveContainer width="100%" height={400}>
-              <ComposedChart data={dashboardData.sleepStressData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis yAxisId="hours" orientation="left" domain={[0, 12]} label={{ value: 'Sleep Hours', angle: -90, position: 'insideLeft' }} />
-                <YAxis yAxisId="scale" orientation="right" domain={[0, 100]} label={{ value: 'Percentage (%)', angle: 90, position: 'insideRight' }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                
-                {/* Progress Bars (Background) */}
-                <Bar 
-                  yAxisId="scale"
-                  dataKey="painPercentage" 
-                  fill="rgba(200, 200, 200, 0.3)"
-                  name="Daily Pain (%)"
-                  radius={[2, 2, 0, 0]}
-                />
-                
-                {/* Sleep Hours Line */}
-                <Line 
-                  yAxisId="hours"
-                  type="monotone" 
-                  dataKey="sleepHours" 
-                  stroke="#2c5aa0" 
-                  strokeWidth={3}
-                  name="Sleep Hours"
-                  connectNulls={false}
-                  dot={{ fill: '#2c5aa0', strokeWidth: 2, r: 4 }}
-                />
-                
-                {/* Sleep Quality Line (as percentage) */}
-                <Line 
-                  yAxisId="scale"
-                  type="monotone" 
-                  dataKey="sleepQualityPercent" 
-                  stroke="#28a745" 
-                  strokeWidth={2}
-                  name="Sleep Quality"
-                  connectNulls={false}
-                  dot={{ fill: '#28a745', strokeWidth: 2, r: 4 }}
-                />
-                
-                {/* Stress Level Line (as percentage) */}
-                <Line 
-                  yAxisId="scale"
-                  type="monotone" 
-                  dataKey="stressPercent" 
-                  stroke="#dc3545" 
-                  strokeWidth={2}
-                  name="Stress Level"
-                  connectNulls={false}
-                  dot={{ fill: '#dc3545', strokeWidth: 2, r: 4 }}
-                />
-                
-                {/* Headaches as Scatter Points */}
-                <Line 
-                  yAxisId="scale"
-                  type="monotone" 
-                  dataKey="headaches" 
-                  stroke="transparent"
-                  strokeWidth={0}
-                  name="Headaches"
-                  connectNulls={false}
-                  line={false}
-                  dot={({ cx, cy, payload, index }) => {
-                    if (!payload.headachesByIntensity || Object.keys(payload.headachesByIntensity).length === 0) {
-                      return null;
-                    }
-
-                    const dots = [];
-                    const chartHeight = cy; // Get chart height from cy
-                    const maxPercentage = 100;
-                    
-                    Object.entries(payload.headachesByIntensity).forEach(([intensity, count]) => {
-                      const intensityNum = parseInt(intensity);
-                      const intensityPercent = intensityNum * 10; // Convert 0-10 to 0-100%
-                      
-                      // Calculate Y position based on percentage scale (0-100%)
-                      const yPos = chartHeight - (intensityPercent / maxPercentage) * chartHeight;
-                      const size = Math.max(8, Math.min(20, 8 + count * 3)); // Size based on count
-                      
-                      dots.push(
-                        <g key={`${index}-${intensity}`}>
-                          <circle 
-                            cx={cx} 
-                            cy={yPos} 
-                            r={size} 
-                            fill="#ff6b35" 
-                            stroke="#fff" 
-                            strokeWidth={2}
-                            opacity={0.9}
-                          />
-                          <text 
-                            x={cx} 
-                            y={yPos + 3} 
-                            textAnchor="middle" 
-                            fill="white" 
-                            fontSize="10" 
-                            fontWeight="bold"
-                          >
-                            {count}
-                          </text>
-                        </g>
-                      );
-                    });
-
-                    return <g>{dots}</g>;
-                  }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="no-data">
-              <p>Start tracking your sleep and stress to see patterns here!</p>
-              <Link to="/record-sleep" className="btn">Record Sleep Data</Link>
-            </div>
-          )}
+      <div style={{ padding: '2rem' }}>
+        {/* Quick Actions */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '600', opacity: 0.9 }}>
+            ⚡ Quick Actions
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem'
+          }}>
+            <ActionButton icon="🤕" label="Log Headache" primary={true} />
+            <ActionButton icon="💤" label="Log Sleep" />
+            <ActionButton icon="😰" label="Log Stress" />
+            <ActionButton icon="🏃" label="Log Exercise" />
+          </div>
         </div>
 
-        <div className="stat-card">
-          <h3>Headache Frequency (Past 7 Days)</h3>
-          {dashboardData.headacheData.some(d => d.headaches > 0) ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={dashboardData.headacheData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="headaches" fill="#ff6b35" name="Headaches" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="no-data">
-              <p>No headaches recorded this week! 🎉</p>
-              <p style={{ color: '#666', fontSize: '0.9rem' }}>
-                If you do get a headache, don't forget to log it for pattern analysis.
+        {/* Main Chart - Garmin Style */}
+        <div style={{
+          background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '16px',
+          padding: '2rem',
+          marginBottom: '2rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '600' }}>
+                Weekly Health Overview
+              </h3>
+              <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.85rem', margin: '0.5rem 0 0 0' }}>
+                Sleep, stress & headache correlation • Orange bars show pain intensity
               </p>
             </div>
-          )}
+            <div style={{ 
+              background: 'rgba(255, 107, 53, 0.1)', 
+              padding: '0.5rem 1rem', 
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 107, 53, 0.2)',
+              fontSize: '0.8rem'
+            }}>
+              📊 Past 7 Days
+            </div>
+          </div>
+          
+          <ResponsiveContainer width="100%" height={350}>
+            <ComposedChart data={dashboardData.sleepStressData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <defs>
+                <linearGradient id="painGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ff6b35" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#ff6b35" stopOpacity={0.3}/>
+                </linearGradient>
+                <linearGradient id="sleepGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#4a90e2" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#4a90e2" stopOpacity={0.3}/>
+                </linearGradient>
+              </defs>
+              
+              <CartesianGrid strokeDasharray="2 2" stroke="rgba(255, 255, 255, 0.1)" />
+              <XAxis 
+                dataKey="day" 
+                stroke="rgba(255, 255, 255, 0.8)"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis 
+                yAxisId="hours" 
+                orientation="left" 
+                domain={[0, 12]} 
+                stroke="rgba(255, 255, 255, 0.8)"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis 
+                yAxisId="scale" 
+                orientation="right" 
+                domain={[0, 100]} 
+                stroke="rgba(255, 255, 255, 0.8)"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip content={<GarminTooltip />} />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="circle"
+              />
+              
+              {/* Pain Percentage Bars - Garmin style */}
+              <Bar 
+                yAxisId="scale"
+                dataKey="painPercentage" 
+                fill="url(#painGradient)"
+                name="Pain Level"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={40}
+              />
+              
+              {/* Sleep Hours as Area-like bars */}
+              <Bar 
+                yAxisId="hours"
+                dataKey="sleepHours" 
+                fill="url(#sleepGradient)"
+                name="Sleep Hours"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={25}
+                opacity={0.7}
+              />
+              
+              {/* Sleep Quality Line */}
+              <Line 
+                yAxisId="scale"
+                type="monotone" 
+                dataKey="sleepQualityPercent" 
+                stroke="#28a745" 
+                strokeWidth={3}
+                name="Sleep Quality"
+                dot={{ fill: '#28a745', strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: '#28a745', strokeWidth: 2 }}
+              />
+              
+              {/* Stress Level Line */}
+              <Line 
+                yAxisId="scale"
+                type="monotone" 
+                dataKey="stressPercent" 
+                stroke="#dc3545" 
+                strokeWidth={3}
+                name="Stress Level"
+                dot={{ fill: '#dc3545', strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: '#dc3545', strokeWidth: 2 }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
-      </div>
 
-      {/* Quick Links */}
-      <div className="quick-links">
-        <Link to="/record-headache">Record Headache</Link>
-        <Link to="/record-sleep">Record Sleep</Link>
-        <Link to="/record-nutrition">Record Nutrition</Link>
-        <Link to="/record-exercise">Record Exercise</Link>
-        <Link to="/record-stress">Record Stress</Link>
-        <Link to="/record-body-pain">Record Body Pain</Link>
-      </div>
+        {/* Progress Cards */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '600', opacity: 0.9 }}>
+            📊 Health Metrics
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1.5rem'
+          }}>
+            <ProgressCard
+              title="Sleep Quality"
+              icon="🌙"
+              gradient="linear-gradient(135deg, #2c5aa0 0%, #1e3f73 100%)"
+            >
+              <CircularProgress
+                percentage={avgSleepQuality}
+                color="#4a90e2"
+                label="Average"
+                value=""
+                showPercentage={true}
+                size={90}
+              />
+              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>
+                Target: 80%+
+              </div>
+            </ProgressCard>
 
-      {/* Insights Section */}
-      {dashboardData.sleepStressData.some(d => d.hasData) && (
-        <div className="stat-card" style={{ marginTop: '2rem', background: '#f8f9fa' }}>
-          <h3>💡 Your Health Insights</h3>
-          <div className="insights">
-            {generateInsights(dashboardData.sleepStressData)}
+            <ProgressCard
+              title="Sleep Hours"
+              icon="💤"
+              gradient="linear-gradient(135deg, #28a745 0%, #1e7e34 100%)"
+            >
+              <CircularProgress
+                percentage={(avgSleepHours / 8) * 100}
+                color="#28a745"
+                label="Average"
+                value={avgSleepHours.toFixed(1)}
+                unit="h"
+                size={90}
+              />
+              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>
+                Target: 7-9h
+              </div>
+            </ProgressCard>
+
+            <ProgressCard
+              title="Stress Control"
+              icon="🧘"
+              gradient="linear-gradient(135deg, #17a2b8 0%, #117a8b 100%)"
+            >
+              <CircularProgress
+                percentage={avgStress}
+                color="#17a2b8"
+                label="Control"
+                value=""
+                showPercentage={true}
+                size={90}
+              />
+              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>
+                Higher = Better
+              </div>
+            </ProgressCard>
+
+            <ProgressCard
+              title="Weekly Score"
+              icon="📈"
+              gradient="linear-gradient(135deg, #ff6b35 0%, #cc4a1a 100%)"
+            >
+              <CircularProgress
+                percentage={weeklyProgress}
+                color="#ff6b35"
+                label="Health"
+                value=""
+                showPercentage={true}
+                size={90}
+              />
+              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>
+                {dashboardData.todayStats.weekHeadaches} headaches this week
+              </div>
+            </ProgressCard>
           </div>
         </div>
-      )}
+
+        {/* AI Insights */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(255, 107, 53, 0.05) 100%)',
+          border: '1px solid rgba(255, 107, 53, 0.2)',
+          borderRadius: '16px',
+          padding: '2rem'
+        }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            💡 AI Health Insights
+          </h3>
+          <div style={{ lineHeight: '1.7', fontSize: '0.95rem' }}>
+            <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>📊</span>
+              <span>Better sleep appears to lower your stress levels. Prioritize sleep for stress management!</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>🤕</span>
+              <span>Higher stress levels coincide with more headaches. Consider stress management techniques.</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+              <span>You tend to get more headaches on days with high stress and poor sleep quality. This is a key pattern to address!</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
-}
-
-// Generate personalized insights based on data
-function generateInsights(data) {
-  const insights = [];
-  const validData = data.filter(d => d.hasData);
-  
-  if (validData.length === 0) {
-    return <p>Keep tracking for personalized insights!</p>;
-  }
-
-  // Sleep analysis
-  const avgSleep = validData.reduce((sum, d) => sum + d.sleepHours, 0) / validData.length;
-  const avgStress = validData.reduce((sum, d) => sum + d.stressLevel, 0) / validData.length;
-  const avgQuality = validData.reduce((sum, d) => sum + d.sleepQuality, 0) / validData.length;
-
-  if (avgSleep < 7) {
-    insights.push("💤 You're averaging " + avgSleep.toFixed(1) + " hours of sleep. Consider aiming for 7-9 hours.");
-  }
-
-  if (avgStress > 6) {
-    insights.push("😰 Your stress levels have been elevated (avg " + avgStress.toFixed(1) + "/10). Try relaxation techniques.");
-  }
-
-  if (avgQuality < 6) {
-    insights.push("🛌 Your sleep quality could improve (avg " + avgQuality.toFixed(1) + "/10). Consider sleep hygiene practices.");
-  }
-
-  // Correlation analysis
-  const sleepStressCorrelation = calculateCorrelation(
-    validData.map(d => d.sleepHours),
-    validData.map(d => d.stressLevel)
-  );
-
-  if (sleepStressCorrelation < -0.3) {
-    insights.push("📊 Better sleep appears to lower your stress levels. Prioritize sleep for stress management!");
-  }
-
-  // Headache correlation analysis
-  const headacheStressCorrelation = calculateCorrelation(
-    validData.map(d => d.headaches),
-    validData.map(d => d.stressLevel)
-  );
-
-  const headacheSleepCorrelation = calculateCorrelation(
-    validData.map(d => d.headaches),
-    validData.map(d => d.sleepQuality)
-  );
-
-  if (headacheStressCorrelation > 0.3) {
-    insights.push("🤕 Higher stress levels seem to coincide with more headaches. Stress management may help reduce headache frequency.");
-  }
-
-  if (headacheSleepCorrelation < -0.3) {
-    insights.push("😴 Better sleep quality appears to reduce headache frequency. Focus on improving sleep quality!");
-  }
-
-  // Pattern detection
-  const highStressLowSleepDays = validData.filter(d => d.stressLevel > 6 && d.sleepQuality < 5);
-  if (highStressLowSleepDays.length > 0) {
-    const headachesOnTheseDays = highStressLowSleepDays.reduce((sum, d) => sum + d.headaches, 0);
-    if (headachesOnTheseDays > 0) {
-      insights.push("⚠️ You tend to get more headaches on days with high stress and poor sleep quality. This is a key pattern to address!");
-    }
-  }
-
-  return insights.length > 0 ? (
-    <ul style={{ marginLeft: '1rem' }}>
-      {insights.map((insight, idx) => (
-        <li key={idx} style={{ marginBottom: '0.5rem' }}>{insight}</li>
-      ))}
-    </ul>
-  ) : (
-    <p>You're doing great! Keep up the healthy habits.</p>
-  );
-}
-
-// Simple correlation calculation
-function calculateCorrelation(x, y) {
-  const n = x.length;
-  const sum1 = x.reduce((a, b) => a + b);
-  const sum2 = y.reduce((a, b) => a + b);
-  const sum1Sq = x.reduce((a, b) => a + b * b);
-  const sum2Sq = y.reduce((a, b) => a + b * b);
-  const pSum = x.map((xi, i) => xi * y[i]).reduce((a, b) => a + b);
-  const num = pSum - (sum1 * sum2 / n);
-  const den = Math.sqrt((sum1Sq - sum1 * sum1 / n) * (sum2Sq - sum2 * sum2 / n));
-  return den === 0 ? 0 : num / den;
-}
-
-// Generate tooltip insights
-function getTooltipInsight(data) {
-  const sleepQualityPercent = data?.sleepQualityPercent || 0;
-  const stressPercent = data?.stressPercent || 0;
-  const painPercentage = data?.painPercentage || 0;
-
-  if (painPercentage === 0 && sleepQualityPercent >= 70 && stressPercent <= 40) {
-    return "✅ Perfect day! Good sleep + low stress = no headaches";
-  } else if (painPercentage > 50 && (sleepQualityPercent < 50 || stressPercent > 60)) {
-    return "⚠️ High pain day - poor sleep or high stress may be triggers";
-  } else if (painPercentage === 0) {
-    return "😊 Headache-free day!";
-  } else if (painPercentage < 25) {
-    return "✨ Low pain day - great progress!";
-  } else if (painPercentage < 50) {
-    return "📊 Moderate pain day - look for patterns";
-  } else {
-    return "🤕 High pain day - focus on triggers";
-  }
 }
