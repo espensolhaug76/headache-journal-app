@@ -21,7 +21,7 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1>Welcome to Your Headache Journal</h1>
+        <h1>Welcome to Your Headache Journal{currentUser?.email && `, ${currentUser.email}`}</h1>
         <button onClick={handleLogout} className="btn btn-secondary">
           Log Out
         </button>
