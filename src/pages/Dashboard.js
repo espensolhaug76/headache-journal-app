@@ -185,8 +185,15 @@ export default function Dashboard() {
               {entry.name}: {entry.value}
               {entry.dataKey === 'sleepHours' && ' hours'}
               {(entry.dataKey === 'sleepQuality' || entry.dataKey === 'stressLevel') && '/10'}
+              {entry.dataKey === 'headaches' && (entry.value === 1 ? ' headache' : ' headaches')}
             </p>
           ))}
+          {/* Show correlation insights */}
+          {payload.length >= 3 && (
+            <div style={{ marginTop: '8px', padding: '4px', background: '#f8f9fa', borderRadius: '4px', fontSize: '0.8rem' }}>
+              {getTooltipInsight(payload)}
+            </div>
+          )}
         </div>
       );
     }
@@ -288,9 +295,12 @@ export default function Dashboard() {
       {/* Main Charts */}
       <div className="chart-section">
         <div className="stat-card" style={{ marginBottom: '2rem' }}>
-          <h3>Sleep Quality, Hours & Stress Levels (Past 7 Days)</h3>
+          <h3>Sleep, Stress & Headache Correlation (Past 7 Days)</h3>
+          <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1rem' }}>
+            Track how your sleep quality and stress levels impact headache frequency • Red dots = headaches (larger = more)
+          </p>
           {dashboardData.sleepStressData.some(d => d.hasData) ? (
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer width="100%" height={400}>
               <LineChart data={dashboardData.sleepStressData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
@@ -298,6 +308,8 @@ export default function Dashboard() {
                 <YAxis yAxisId="scale" orientation="right" domain={[0, 10]} label={{ value: 'Quality & Stress (0-10)', angle: 90, position: 'insideRight' }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
+                
+                {/* Sleep Hours Line */}
                 <Line 
                   yAxisId="hours"
                   type="monotone" 
@@ -306,7 +318,10 @@ export default function Dashboard() {
                   strokeWidth={3}
                   name="Sleep Hours"
                   connectNulls={false}
+                  dot={{ fill: '#2c5aa0', strokeWidth: 2, r: 4 }}
                 />
+                
+                {/* Sleep Quality Line */}
                 <Line 
                   yAxisId="scale"
                   type="monotone" 
@@ -315,7 +330,10 @@ export default function Dashboard() {
                   strokeWidth={2}
                   name="Sleep Quality"
                   connectNulls={false}
+                  dot={{ fill: '#28a745', strokeWidth: 2, r: 4 }}
                 />
+                
+                {/* Stress Level Line */}
                 <Line 
                   yAxisId="scale"
                   type="monotone" 
@@ -324,6 +342,48 @@ export default function Dashboard() {
                   strokeWidth={2}
                   name="Stress Level"
                   connectNulls={false}
+                  dot={{ fill: '#dc3545', strokeWidth: 2, r: 4 }}
+                />
+                
+                {/* Headaches as Scatter Points */}
+                <Line 
+                  yAxisId="scale"
+                  type="monotone" 
+                  dataKey="headaches" 
+                  stroke="transparent"
+                  strokeWidth={0}
+                  name="Headaches"
+                  connectNulls={false}
+                  line={false}
+                  dot={({ cx, cy, payload }) => {
+                    if (payload.headaches > 0) {
+                      const size = Math.max(6, Math.min(16, 6 + payload.headaches * 4)); // Size based on headache count
+                      return (
+                        <g>
+                          <circle 
+                            cx={cx} 
+                            cy={cy} 
+                            r={size} 
+                            fill="#ff6b35" 
+                            stroke="#fff" 
+                            strokeWidth={2}
+                            opacity={0.9}
+                          />
+                          <text 
+                            x={cx} 
+                            y={cy + 3} 
+                            textAnchor="middle" 
+                            fill="white" 
+                            fontSize="10" 
+                            fontWeight="bold"
+                          >
+                            {payload.headaches}
+                          </text>
+                        </g>
+                      );
+                    }
+                    return null;
+                  }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -417,6 +477,34 @@ function generateInsights(data) {
     insights.push("📊 Better sleep appears to lower your stress levels. Prioritize sleep for stress management!");
   }
 
+  // Headache correlation analysis
+  const headacheStressCorrelation = calculateCorrelation(
+    validData.map(d => d.headaches),
+    validData.map(d => d.stressLevel)
+  );
+
+  const headacheSleepCorrelation = calculateCorrelation(
+    validData.map(d => d.headaches),
+    validData.map(d => d.sleepQuality)
+  );
+
+  if (headacheStressCorrelation > 0.3) {
+    insights.push("🤕 Higher stress levels seem to coincide with more headaches. Stress management may help reduce headache frequency.");
+  }
+
+  if (headacheSleepCorrelation < -0.3) {
+    insights.push("😴 Better sleep quality appears to reduce headache frequency. Focus on improving sleep quality!");
+  }
+
+  // Pattern detection
+  const highStressLowSleepDays = validData.filter(d => d.stressLevel > 6 && d.sleepQuality < 5);
+  if (highStressLowSleepDays.length > 0) {
+    const headachesOnTheseDays = highStressLowSleepDays.reduce((sum, d) => sum + d.headaches, 0);
+    if (headachesOnTheseDays > 0) {
+      insights.push("⚠️ You tend to get more headaches on days with high stress and poor sleep quality. This is a key pattern to address!");
+    }
+  }
+
   return insights.length > 0 ? (
     <ul style={{ marginLeft: '1rem' }}>
       {insights.map((insight, idx) => (
@@ -439,4 +527,21 @@ function calculateCorrelation(x, y) {
   const num = pSum - (sum1 * sum2 / n);
   const den = Math.sqrt((sum1Sq - sum1 * sum1 / n) * (sum2Sq - sum2 * sum2 / n));
   return den === 0 ? 0 : num / den;
+}
+
+// Generate tooltip insights
+function getTooltipInsight(payload) {
+  const sleepQuality = payload.find(p => p.dataKey === 'sleepQuality')?.value || 0;
+  const stressLevel = payload.find(p => p.dataKey === 'stressLevel')?.value || 0;
+  const headaches = payload.find(p => p.dataKey === 'headaches')?.value || 0;
+
+  if (headaches === 0 && sleepQuality >= 7 && stressLevel <= 4) {
+    return "✅ Great day! Good sleep + low stress = no headaches";
+  } else if (headaches > 0 && (sleepQuality < 5 || stressLevel > 6)) {
+    return "⚠️ Poor sleep or high stress may have triggered headaches";
+  } else if (headaches === 0) {
+    return "😊 No headaches today";
+  } else {
+    return "🤕 Headache day - look for patterns";
+  }
 }
