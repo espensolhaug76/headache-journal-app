@@ -442,9 +442,15 @@ export default function Dashboard() {
                     }
 
                     const dots = [];
+                    const chartHeight = cy; // Get chart height from cy
+                    const maxPercentage = 100;
+                    
                     Object.entries(payload.headachesByIntensity).forEach(([intensity, count]) => {
                       const intensityNum = parseInt(intensity);
-                      const yPos = cy - ((payload.stressLevel || 0) * (cy / 10)) + (intensityNum * (cy / 10));
+                      const intensityPercent = intensityNum * 10; // Convert 0-10 to 0-100%
+                      
+                      // Calculate Y position based on percentage scale (0-100%)
+                      const yPos = chartHeight - (intensityPercent / maxPercentage) * chartHeight;
                       const size = Math.max(8, Math.min(20, 8 + count * 3)); // Size based on count
                       
                       dots.push(
@@ -621,13 +627,13 @@ function calculateCorrelation(x, y) {
 
 // Generate tooltip insights
 function getTooltipInsight(data) {
-  const sleepQuality = data?.sleepQuality || 0;
-  const stressLevel = data?.stressLevel || 0;
+  const sleepQualityPercent = data?.sleepQualityPercent || 0;
+  const stressPercent = data?.stressPercent || 0;
   const painPercentage = data?.painPercentage || 0;
 
-  if (painPercentage === 0 && sleepQuality >= 7 && stressLevel <= 4) {
+  if (painPercentage === 0 && sleepQualityPercent >= 70 && stressPercent <= 40) {
     return "✅ Perfect day! Good sleep + low stress = no headaches";
-  } else if (painPercentage > 50 && (sleepQuality < 5 || stressLevel > 6)) {
+  } else if (painPercentage > 50 && (sleepQualityPercent < 50 || stressPercent > 60)) {
     return "⚠️ High pain day - poor sleep or high stress may be triggers";
   } else if (painPercentage === 0) {
     return "😊 Headache-free day!";
