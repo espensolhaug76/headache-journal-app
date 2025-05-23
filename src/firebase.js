@@ -5,8 +5,7 @@ import { getFirestore } from 'firebase/firestore';
 // Replace these with your actual Firebase configuration
 // Get these from Firebase Console > Project Settings > General > Your apps
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
