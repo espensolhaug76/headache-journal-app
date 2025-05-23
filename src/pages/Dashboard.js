@@ -185,7 +185,9 @@ export default function Dashboard() {
         day: day.dayName,
         sleepHours: sleepEntry ? sleepEntry.hoursSlept || 0 : 0,
         sleepQuality: sleepEntry ? sleepEntry.sleepQuality || 0 : 0,
+        sleepQualityPercent: sleepEntry ? ((sleepEntry.sleepQuality || 0) * 10) : 0, // Convert 0-10 to 0-100%
         stressLevel: stressEntry ? stressEntry.stressLevel || 0 : 0,
+        stressPercent: stressEntry ? ((stressEntry.stressLevel || 0) * 10) : 0, // Convert 0-10 to 0-100%
         headaches: dayHeadaches.length,
         headachesByIntensity,
         dailyPainScore,
@@ -375,7 +377,7 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
                 <YAxis yAxisId="hours" orientation="left" domain={[0, 12]} label={{ value: 'Sleep Hours', angle: -90, position: 'insideLeft' }} />
-                <YAxis yAxisId="scale" orientation="right" domain={[0, 10]} label={{ value: 'Quality & Stress (0-10)', angle: 90, position: 'insideRight' }} />
+                <YAxis yAxisId="scale" orientation="right" domain={[0, 100]} label={{ value: 'Percentage (%)', angle: 90, position: 'insideRight' }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 
@@ -400,11 +402,11 @@ export default function Dashboard() {
                   dot={{ fill: '#2c5aa0', strokeWidth: 2, r: 4 }}
                 />
                 
-                {/* Sleep Quality Line */}
+                {/* Sleep Quality Line (as percentage) */}
                 <Line 
                   yAxisId="scale"
                   type="monotone" 
-                  dataKey="sleepQuality" 
+                  dataKey="sleepQualityPercent" 
                   stroke="#28a745" 
                   strokeWidth={2}
                   name="Sleep Quality"
@@ -412,11 +414,11 @@ export default function Dashboard() {
                   dot={{ fill: '#28a745', strokeWidth: 2, r: 4 }}
                 />
                 
-                {/* Stress Level Line */}
+                {/* Stress Level Line (as percentage) */}
                 <Line 
                   yAxisId="scale"
                   type="monotone" 
-                  dataKey="stressLevel" 
+                  dataKey="stressPercent" 
                   stroke="#dc3545" 
                   strokeWidth={2}
                   name="Stress Level"
