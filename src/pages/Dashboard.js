@@ -12,7 +12,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
