@@ -185,8 +185,8 @@ export default function EnhancedDashboard() {
     };
   };
 
-  // Circular Progress Component
-  const CircularProgress = ({ percentage, size = 100, strokeWidth = 8, color = '#ff6b35', label, value, unit = '', showPercentage = false }) => {
+  // Circular Progress Component - Garmin Style
+  const CircularProgress = ({ percentage, size = 100, strokeWidth = 4, color = '#ff6b35', label, value, unit = '', showPercentage = false }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const offset = circumference - (percentage / 100) * circumference;
@@ -198,7 +198,7 @@ export default function EnhancedDashboard() {
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="rgba(255, 255, 255, 0.1)"
+            stroke="rgba(255, 255, 255, 0.08)"
             strokeWidth={strokeWidth}
             fill="transparent"
           />
@@ -223,10 +223,10 @@ export default function EnhancedDashboard() {
           textAlign: 'center',
           color: 'white'
         }}>
-          <div style={{ fontSize: '1.8rem', fontWeight: 'bold', lineHeight: '1' }}>
+          <div style={{ fontSize: '1.6rem', fontWeight: '600', lineHeight: '1' }}>
             {showPercentage ? `${Math.round(percentage)}%` : `${value}${unit}`}
           </div>
-          <div style={{ fontSize: '0.7rem', opacity: 0.8, marginTop: '2px' }}>{label}</div>
+          <div style={{ fontSize: '0.65rem', opacity: 0.7, marginTop: '3px' }}>{label}</div>
         </div>
       </div>
     );
@@ -297,37 +297,43 @@ export default function EnhancedDashboard() {
     );
   };
 
-  // Progress Card Component  
-  const ProgressCard = ({ title, icon, children, gradient }) => (
+  // Progress Card Component - Garmin Style
+  const ProgressCard = ({ title, icon, children }) => (
     <div style={{
-      background: gradient || 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
-      borderRadius: '16px',
-      padding: '1.5rem',
+      background: '#1a1a1a',
+      border: '1px solid rgba(255, 255, 255, 0.06)',
+      borderRadius: '12px',
+      padding: '1.2rem',
       color: 'white',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       textAlign: 'center',
-      position: 'relative',
-      overflow: 'hidden'
+      minHeight: '160px',
+      position: 'relative'
     }}>
-      <div style={{ position: 'relative', zIndex: 2, width: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <span style={{ fontSize: '1.1rem' }}>{icon}</span>
-          <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '600', opacity: 0.9 }}>{title}</h3>
-        </div>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        gap: '0.4rem', 
+        marginBottom: '0.8rem',
+        width: '100%'
+      }}>
+        <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>{icon}</span>
+        <h3 style={{ 
+          margin: 0, 
+          fontSize: '0.85rem', 
+          fontWeight: '500', 
+          opacity: 0.8,
+          color: 'rgba(255, 255, 255, 0.8)'
+        }}>
+          {title}
+        </h3>
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {children}
       </div>
-      <div style={{
-        position: 'absolute',
-        top: '-20px',
-        right: '-20px',
-        width: '80px',
-        height: '80px',
-        background: 'radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%)',
-        borderRadius: '50%'
-      }} />
     </div>
   );
 
@@ -400,10 +406,10 @@ export default function EnhancedDashboard() {
     }
   };
 
-  if (dashboardData.loading) {
+      if (dashboardData.loading) {
     return (
       <div style={{
-        background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+        background: '#000000',
         minHeight: '100vh',
         color: 'white',
         display: 'flex',
@@ -425,7 +431,7 @@ export default function EnhancedDashboard() {
 
   return (
     <div style={{
-      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)',
+      background: '#000000',
       minHeight: '100vh',
       color: 'white',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
@@ -433,9 +439,8 @@ export default function EnhancedDashboard() {
       {/* Header */}
       <div style={{
         padding: '1.5rem 2rem',
-        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+        background: '#000000',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -447,13 +452,12 @@ export default function EnhancedDashboard() {
           <button 
             onClick={handleLogout}
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '8px',
+              background: '#1a1a1a',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '6px',
               color: 'white',
               padding: '0.6rem 1.2rem',
               cursor: 'pointer',
-              backdropFilter: 'blur(10px)',
               fontSize: '0.9rem'
             }}>
             Log Out
@@ -494,9 +498,9 @@ export default function EnhancedDashboard() {
 
         {/* Main Chart */}
         <div style={{
-          background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
+          background: '#1a1a1a',
+          border: '1px solid rgba(255, 255, 255, 0.06)',
+          borderRadius: '12px',
           padding: '2rem',
           marginBottom: '2rem'
         }}>
@@ -639,7 +643,6 @@ export default function EnhancedDashboard() {
             <ProgressCard
               title="Sleep Quality"
               icon="🌙"
-              gradient="linear-gradient(135deg, #2c5aa0 0%, #1e3f73 100%)"
             >
               <CircularProgress
                 percentage={avgSleepQualityPercent}
@@ -647,17 +650,17 @@ export default function EnhancedDashboard() {
                 label="Average"
                 value=""
                 showPercentage={true}
-                size={90}
+                size={80}
+                strokeWidth={4}
               />
-              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>
-                Target: 80%+ • Avg: {stats.avgSleepQuality}/10
+              <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.5rem', position: 'absolute', bottom: '0.8rem' }}>
+                Target: 80%+ • {stats.avgSleepQuality}/10
               </div>
             </ProgressCard>
 
             <ProgressCard
               title="Sleep Hours"
               icon="💤"
-              gradient="linear-gradient(135deg, #28a745 0%, #1e7e34 100%)"
             >
               <CircularProgress
                 percentage={sleepHoursPercent}
@@ -665,9 +668,10 @@ export default function EnhancedDashboard() {
                 label="Average"
                 value={stats.avgSleepHours}
                 unit="h"
-                size={90}
+                size={80}
+                strokeWidth={4}
               />
-              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>
+              <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.5rem', position: 'absolute', bottom: '0.8rem' }}>
                 Target: 7-9h
               </div>
             </ProgressCard>
@@ -675,7 +679,6 @@ export default function EnhancedDashboard() {
             <ProgressCard
               title="Stress Control"
               icon="🧘"
-              gradient="linear-gradient(135deg, #17a2b8 0%, #117a8b 100%)"
             >
               <CircularProgress
                 percentage={avgStressPercent}
@@ -683,17 +686,17 @@ export default function EnhancedDashboard() {
                 label="Control"
                 value=""
                 showPercentage={true}
-                size={90}
+                size={80}
+                strokeWidth={4}
               />
-              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>
-                Avg Stress: {stats.avgStressLevel}/10
+              <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.5rem', position: 'absolute', bottom: '0.8rem' }}>
+                Avg: {stats.avgStressLevel}/10
               </div>
             </ProgressCard>
 
             <ProgressCard
               title="Weekly Score"
               icon="📈"
-              gradient="linear-gradient(135deg, #ff6b35 0%, #cc4a1a 100%)"
             >
               <CircularProgress
                 percentage={weeklyProgress}
@@ -701,10 +704,11 @@ export default function EnhancedDashboard() {
                 label="Health"
                 value=""
                 showPercentage={true}
-                size={90}
+                size={80}
+                strokeWidth={4}
               />
-              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '0.5rem' }}>
-                {stats.totalHeadaches} headaches this week
+              <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.5rem', position: 'absolute', bottom: '0.8rem' }}>
+                {stats.totalHeadaches} headaches
               </div>
             </ProgressCard>
           </div>
@@ -712,9 +716,9 @@ export default function EnhancedDashboard() {
 
         {/* AI Insights */}
         <div style={{
-          background: 'linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(255, 107, 53, 0.05) 100%)',
-          border: '1px solid rgba(255, 107, 53, 0.2)',
-          borderRadius: '16px',
+          background: '#1a1a1a',
+          border: '1px solid rgba(255, 255, 255, 0.06)',
+          borderRadius: '12px',
           padding: '2rem'
         }}>
           <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -773,12 +777,12 @@ export default function EnhancedDashboard() {
             gap: '1rem'
           }}>
             <Link to="/record-nutrition" style={{
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: '#1a1a1a',
               color: 'white',
               textDecoration: 'none',
               padding: '1rem',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
               textAlign: 'center',
               transition: 'all 0.2s ease',
               display: 'flex',
@@ -791,12 +795,12 @@ export default function EnhancedDashboard() {
             </Link>
             
             <Link to="/record-body-pain" style={{
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: '#1a1a1a',
               color: 'white',
               textDecoration: 'none',
               padding: '1rem',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
               textAlign: 'center',
               transition: 'all 0.2s ease',
               display: 'flex',
