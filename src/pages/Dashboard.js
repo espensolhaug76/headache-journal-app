@@ -383,7 +383,10 @@ export default function EnhancedDashboard() {
               borderRadius: '8px',
               border: '1px solid rgba(255, 107, 53, 0.2)'
             }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', fontSize: '0.8rem' }}>🤕 Headache Details:</div>
+              <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', fontSize: '0.8rem' }}>
+                <i className="fas fa-head-side-virus" style={{ marginRight: '0.3rem', color: '#ff6b35' }}></i>
+                Headache Details:
+              </div>
               {Object.entries(data.headachesByIntensity).map(([intensity, count]) => (
                 <div key={intensity} style={{ margin: '0.2rem 0', fontSize: '0.75rem' }}>
                   • {count} headache{count > 1 ? 's' : ''} at {intensity}/10 intensity
@@ -436,6 +439,14 @@ export default function EnhancedDashboard() {
       color: 'white',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
+      {/* Font Awesome CSS */}
+      <link 
+        rel="stylesheet" 
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+        crossOrigin="anonymous" 
+        referrerPolicy="no-referrer" 
+      />
       {/* Header */}
       <div style={{
         padding: '1.5rem 2rem',
@@ -482,17 +493,18 @@ export default function EnhancedDashboard() {
         {/* Quick Actions */}
         <div style={{ marginBottom: '2rem' }}>
           <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '600', opacity: 0.9 }}>
-            ⚡ Quick Actions
+            <i className="fas fa-bolt" style={{ marginRight: '0.5rem' }}></i>
+            Quick Actions
           </h2>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             gap: '1rem'
           }}>
-            <ActionButton icon="🤕" label="Log Headache" primary={true} to="/record-headache" />
-            <ActionButton icon="💤" label="Log Sleep" to="/record-sleep" />
-            <ActionButton icon="😰" label="Log Stress" to="/record-stress" />
-            <ActionButton icon="🏃" label="Log Exercise" to="/record-exercise" />
+            <ActionButton icon={<i className="fas fa-head-side-virus"></i>} label="Log Headache" primary={true} to="/record-headache" />
+            <ActionButton icon={<i className="fas fa-bed"></i>} label="Log Sleep" to="/record-sleep" />
+            <ActionButton icon={<i className="fas fa-brain"></i>} label="Log Stress" to="/record-stress" />
+            <ActionButton icon={<i className="fas fa-running"></i>} label="Log Exercise" to="/record-exercise" />
           </div>
         </div>
 
@@ -623,7 +635,9 @@ export default function EnhancedDashboard() {
               color: 'rgba(255, 255, 255, 0.6)',
               fontSize: '1.1rem'
             }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
+                <i className="fas fa-chart-area" style={{ color: 'rgba(255, 255, 255, 0.3)' }}></i>
+              </div>
               <p>No data available yet</p>
               <p style={{ fontSize: '0.9rem', margin: '0.5rem 0' }}>Start tracking your sleep, stress, and headaches to see patterns here!</p>
             </div>
@@ -633,7 +647,8 @@ export default function EnhancedDashboard() {
         {/* Progress Cards */}
         <div style={{ marginBottom: '2rem' }}>
           <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '600', opacity: 0.9 }}>
-            📊 Health Metrics
+            <i className="fas fa-chart-line" style={{ marginRight: '0.5rem' }}></i>
+            Health Metrics
           </h2>
           <div style={{
             display: 'grid',
@@ -642,7 +657,7 @@ export default function EnhancedDashboard() {
           }}>
             <ProgressCard
               title="Sleep Quality"
-              icon="🌙"
+              icon={<i className="fas fa-moon"></i>}
             >
               <CircularProgress
                 percentage={avgSleepQualityPercent}
@@ -660,7 +675,7 @@ export default function EnhancedDashboard() {
 
             <ProgressCard
               title="Sleep Hours"
-              icon="💤"
+              icon={<i className="fas fa-bed"></i>}
             >
               <CircularProgress
                 percentage={sleepHoursPercent}
@@ -678,7 +693,7 @@ export default function EnhancedDashboard() {
 
             <ProgressCard
               title="Stress Control"
-              icon="🧘"
+              icon={<i className="fas fa-spa"></i>}
             >
               <CircularProgress
                 percentage={avgStressPercent}
@@ -696,7 +711,7 @@ export default function EnhancedDashboard() {
 
             <ProgressCard
               title="Weekly Score"
-              icon="📈"
+              icon={<i className="fas fa-trophy"></i>}
             >
               <CircularProgress
                 percentage={weeklyProgress}
@@ -722,18 +737,19 @@ export default function EnhancedDashboard() {
           padding: '2rem'
         }}>
           <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            💡 AI Health Insights
+            <i className="fas fa-lightbulb" style={{ color: '#ffc107' }}></i>
+            AI Health Insights
           </h3>
           <div style={{ lineHeight: '1.7', fontSize: '0.95rem' }}>
             {stats.totalHeadaches === 0 ? (
               <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                <span style={{ fontSize: '1.2rem' }}>🎉</span>
+                <i className="fas fa-trophy" style={{ fontSize: '1.2rem', color: '#28a745', marginTop: '0.1rem' }}></i>
                 <span>Great news! No headaches recorded this week. Keep up the good work with your healthy habits!</span>
               </div>
             ) : (
               <>
                 <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                  <span style={{ fontSize: '1.2rem' }}>📊</span>
+                  <i className="fas fa-chart-bar" style={{ fontSize: '1.2rem', color: '#17a2b8', marginTop: '0.1rem' }}></i>
                   <span>
                     You've had {stats.totalHeadaches} headache{stats.totalHeadaches > 1 ? 's' : ''} this week. 
                     {stats.avgSleepQuality < 6 && ' Poor sleep quality may be contributing to headaches.'}
@@ -742,13 +758,13 @@ export default function EnhancedDashboard() {
                 </div>
                 {stats.avgSleepHours < 7 && (
                   <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                    <span style={{ fontSize: '1.2rem' }}>💤</span>
+                    <i className="fas fa-bed" style={{ fontSize: '1.2rem', color: '#4a90e2', marginTop: '0.1rem' }}></i>
                     <span>Consider getting more sleep - you're averaging {stats.avgSleepHours} hours. Aim for 7-9 hours for optimal health.</span>
                   </div>
                 )}
                 {stats.avgStressLevel > 6 && (
                   <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                    <span style={{ fontSize: '1.2rem' }}>🧘</span>
+                    <i className="fas fa-spa" style={{ fontSize: '1.2rem', color: '#17a2b8', marginTop: '0.1rem' }}></i>
                     <span>Your stress levels are elevated (avg: {stats.avgStressLevel}/10). Try stress management techniques like meditation or exercise.</span>
                   </div>
                 )}
@@ -756,7 +772,7 @@ export default function EnhancedDashboard() {
             )}
             
             <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem' }}>
-              <span style={{ fontSize: '1.2rem' }}>✨</span>
+              <i className="fas fa-star" style={{ fontSize: '1.2rem', color: '#ffc107', marginTop: '0.1rem' }}></i>
               <span>
                 {stats.avgSleepQuality >= 7 && stats.avgStressLevel <= 5 
                   ? 'Your sleep and stress management are excellent! This creates ideal conditions for headache prevention.'
@@ -769,7 +785,8 @@ export default function EnhancedDashboard() {
         {/* Quick Links */}
         <div style={{ marginTop: '2rem' }}>
           <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: '600', opacity: 0.9 }}>
-            📋 Record More Data
+            <i className="fas fa-clipboard-list" style={{ marginRight: '0.5rem' }}></i>
+            Record More Data
           </h3>
           <div style={{
             display: 'grid',
@@ -790,7 +807,7 @@ export default function EnhancedDashboard() {
               alignItems: 'center',
               gap: '0.5rem'
             }}>
-              <span style={{ fontSize: '1.5rem' }}>🥗</span>
+              <i className="fas fa-apple-alt" style={{ fontSize: '1.5rem', color: '#28a745' }}></i>
               <span style={{ fontSize: '0.9rem' }}>Nutrition</span>
             </Link>
             
@@ -808,7 +825,7 @@ export default function EnhancedDashboard() {
               alignItems: 'center',
               gap: '0.5rem'
             }}>
-              <span style={{ fontSize: '1.5rem' }}>🦴</span>
+              <i className="fas fa-user-injured" style={{ fontSize: '1.5rem', color: '#dc3545' }}></i>
               <span style={{ fontSize: '0.9rem' }}>Body Pain</span>
             </Link>
           </div>
