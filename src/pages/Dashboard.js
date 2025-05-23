@@ -21,7 +21,8 @@ import {
   Legend,
   ResponsiveContainer,
   BarChart,
-  Bar
+  Bar,
+  ComposedChart
 } from 'recharts';
 
 export default function Dashboard() {
@@ -125,6 +126,29 @@ export default function Dashboard() {
       });
     }
 
+    // Calculate personal worst day for percentage baseline
+    const dailyHeadacheScores = [];
+    
+    // Group headaches by day and calculate daily pain scores
+    const headachesByDay = {};
+    headacheData.forEach(headache => {
+      const dayKey = headache.time.toDateString();
+      if (!headachesByDay[dayKey]) {
+        headachesByDay[dayKey] = [];
+      }
+      headachesByDay[dayKey].push(headache);
+    });
+
+    // Calculate pain scores for each day
+    Object.keys(headachesByDay).forEach(day => {
+      const dayHeadaches = headachesByDay[day];
+      const dailyScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
+      dailyHeadacheScores.push(dailyScore);
+    });
+
+    // Find personal worst day (highest pain score)
+    const personalWorstDay = Math.max(...dailyHeadacheScores, 1); // minimum 1 to avoid division by zero
+
     // Combine sleep, stress, and headache data
     const sleepStressData = days.map(day => {
       const dayStr = day.date;
@@ -139,18 +163,36 @@ export default function Dashboard() {
         stress.date.toDateString() === dayStr
       );
       
-      // Count headaches for this day
+      // Get headaches for this day with intensity grouping
       const dayHeadaches = headacheData.filter(headache => 
         headache.time.toDateString() === dayStr
-      ).length;
+      );
+
+      // Group headaches by intensity level
+      const headachesByIntensity = {};
+      dayHeadaches.forEach(headache => {
+        const intensity = headache.painLevel || 0;
+        if (!headachesByIntensity[intensity]) {
+          headachesByIntensity[intensity] = 0;
+        }
+        headachesByIntensity[intensity]++;
+      });
+
+      // Calculate total daily pain score and percentage
+      const dailyPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
+      const painPercentage = personalWorstDay > 0 ? (dailyPainScore / personalWorstDay) * 100 : 0;
 
       return {
         day: day.dayName,
         sleepHours: sleepEntry ? sleepEntry.hoursSlept || 0 : 0,
         sleepQuality: sleepEntry ? sleepEntry.sleepQuality || 0 : 0,
         stressLevel: stressEntry ? stressEntry.stressLevel || 0 : 0,
-        headaches: dayHeadaches,
-        hasData: !!(sleepEntry || stressEntry)
+        headaches: dayHeadaches.length,
+        headachesByIntensity,
+        dailyPainScore,
+        painPercentage: Math.round(painPercentage),
+        personalWorstDay,
+        hasData: !!(sleepEntry || stressEntry || dayHeadaches.length > 0)
       };
     });
 
@@ -159,7 +201,8 @@ export default function Dashboard() {
       lastSleep: sleepData.length > 0 ? sleepData[sleepData.length - 1] : null,
       todayStress: stressData.length > 0 ? stressData[stressData.length - 1] : null,
       weekHeadaches: headacheData.length,
-      todayWater: 0 // This would come from nutrition data
+      todayWater: 0, // This would come from nutrition data
+      personalWorstDay
     };
 
     return {
@@ -177,21 +220,49 @@ export default function Dashboard() {
   // Custom tooltip for the chart
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      const data = payload[0]?.payload;
       return (
         <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
           <p className="font-semibold">{`${label}`}</p>
-          {payload.map((entry, index) => (
-            <p key={index} style={{ color: entry.color }}>
-              {entry.name}: {entry.value}
-              {entry.dataKey === 'sleepHours' && ' hours'}
-              {(entry.dataKey === 'sleepQuality' || entry.dataKey === 'stressLevel') && '/10'}
-              {entry.dataKey === 'headaches' && (entry.value === 1 ? ' headache' : ' headaches')}
-            </p>
-          ))}
+          {payload.map((entry, index) => {
+            if (entry.dataKey === 'painPercentage') {
+              return (
+                <p key={index} style={{ color: '#888' }}>
+                  Daily Pain: {entry.value}% of your worst day
+                </p>
+              );
+            }
+            return (
+              <p key={index} style={{ color: entry.color }}>
+                {entry.name}: {entry.value}
+                {entry.dataKey === 'sleepHours' && ' hours'}
+                {(entry.dataKey === 'sleepQuality' || entry.dataKey === 'stressLevel') && '/10'}
+                {entry.dataKey === 'headaches' && (entry.value === 1 ? ' headache' : ' headaches')}
+              </p>
+            );
+          })}
+          
+          {/* Show headache details */}
+          {data?.headachesByIntensity && Object.keys(data.headachesByIntensity).length > 0 && (
+            <div style={{ marginTop: '8px', padding: '4px', background: '#fff5f5', borderRadius: '4px', fontSize: '0.8rem' }}>
+              <strong>Headache Details:</strong>
+              {Object.entries(data.headachesByIntensity).map(([intensity, count]) => (
+                <div key={intensity}>
+                  {count} headache{count > 1 ? 's' : ''} at {intensity}/10 pain
+                </div>
+              ))}
+              {data.dailyPainScore > 0 && (
+                <div style={{ color: '#666', marginTop: '4px' }}>
+                  Total pain score: {data.dailyPainScore} ({data.painPercentage}% of worst day)
+                </div>
+              )}
+            </div>
+          )}
+          
           {/* Show correlation insights */}
           {payload.length >= 3 && (
             <div style={{ marginTop: '8px', padding: '4px', background: '#f8f9fa', borderRadius: '4px', fontSize: '0.8rem' }}>
-              {getTooltipInsight(payload)}
+              {getTooltipInsight(data)}
             </div>
           )}
         </div>
@@ -301,13 +372,22 @@ export default function Dashboard() {
           </p>
           {dashboardData.sleepStressData.some(d => d.hasData) ? (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={dashboardData.sleepStressData}>
+              <ComposedChart data={dashboardData.sleepStressData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
                 <YAxis yAxisId="hours" orientation="left" domain={[0, 12]} label={{ value: 'Sleep Hours', angle: -90, position: 'insideLeft' }} />
                 <YAxis yAxisId="scale" orientation="right" domain={[0, 10]} label={{ value: 'Quality & Stress (0-10)', angle: 90, position: 'insideRight' }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
+                
+                {/* Progress Bars (Background) */}
+                <Bar 
+                  yAxisId="scale"
+                  dataKey="painPercentage" 
+                  fill="rgba(200, 200, 200, 0.3)"
+                  name="Daily Pain (%)"
+                  radius={[2, 2, 0, 0]}
+                />
                 
                 {/* Sleep Hours Line */}
                 <Line 
@@ -355,14 +435,22 @@ export default function Dashboard() {
                   name="Headaches"
                   connectNulls={false}
                   line={false}
-                  dot={({ cx, cy, payload }) => {
-                    if (payload.headaches > 0) {
-                      const size = Math.max(6, Math.min(16, 6 + payload.headaches * 4)); // Size based on headache count
-                      return (
-                        <g>
+                  dot={({ cx, cy, payload, index }) => {
+                    if (!payload.headachesByIntensity || Object.keys(payload.headachesByIntensity).length === 0) {
+                      return null;
+                    }
+
+                    const dots = [];
+                    Object.entries(payload.headachesByIntensity).forEach(([intensity, count]) => {
+                      const intensityNum = parseInt(intensity);
+                      const yPos = cy - ((payload.stressLevel || 0) * (cy / 10)) + (intensityNum * (cy / 10));
+                      const size = Math.max(8, Math.min(20, 8 + count * 3)); // Size based on count
+                      
+                      dots.push(
+                        <g key={`${index}-${intensity}`}>
                           <circle 
                             cx={cx} 
-                            cy={cy} 
+                            cy={yPos} 
                             r={size} 
                             fill="#ff6b35" 
                             stroke="#fff" 
@@ -371,21 +459,22 @@ export default function Dashboard() {
                           />
                           <text 
                             x={cx} 
-                            y={cy + 3} 
+                            y={yPos + 3} 
                             textAnchor="middle" 
                             fill="white" 
                             fontSize="10" 
                             fontWeight="bold"
                           >
-                            {payload.headaches}
+                            {count}
                           </text>
                         </g>
                       );
-                    }
-                    return null;
+                    });
+
+                    return <g>{dots}</g>;
                   }}
                 />
-              </LineChart>
+              </ComposedChart>
             </ResponsiveContainer>
           ) : (
             <div className="no-data">
@@ -530,18 +619,22 @@ function calculateCorrelation(x, y) {
 }
 
 // Generate tooltip insights
-function getTooltipInsight(payload) {
-  const sleepQuality = payload.find(p => p.dataKey === 'sleepQuality')?.value || 0;
-  const stressLevel = payload.find(p => p.dataKey === 'stressLevel')?.value || 0;
-  const headaches = payload.find(p => p.dataKey === 'headaches')?.value || 0;
+function getTooltipInsight(data) {
+  const sleepQuality = data?.sleepQuality || 0;
+  const stressLevel = data?.stressLevel || 0;
+  const painPercentage = data?.painPercentage || 0;
 
-  if (headaches === 0 && sleepQuality >= 7 && stressLevel <= 4) {
-    return "✅ Great day! Good sleep + low stress = no headaches";
-  } else if (headaches > 0 && (sleepQuality < 5 || stressLevel > 6)) {
-    return "⚠️ Poor sleep or high stress may have triggered headaches";
-  } else if (headaches === 0) {
-    return "😊 No headaches today";
+  if (painPercentage === 0 && sleepQuality >= 7 && stressLevel <= 4) {
+    return "✅ Perfect day! Good sleep + low stress = no headaches";
+  } else if (painPercentage > 50 && (sleepQuality < 5 || stressLevel > 6)) {
+    return "⚠️ High pain day - poor sleep or high stress may be triggers";
+  } else if (painPercentage === 0) {
+    return "😊 Headache-free day!";
+  } else if (painPercentage < 25) {
+    return "✨ Low pain day - great progress!";
+  } else if (painPercentage < 50) {
+    return "📊 Moderate pain day - look for patterns";
   } else {
-    return "🤕 Headache day - look for patterns";
+    return "🤕 High pain day - focus on triggers";
   }
 }
