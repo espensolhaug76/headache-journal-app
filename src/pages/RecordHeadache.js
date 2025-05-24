@@ -9,6 +9,8 @@ export default function RecordHeadache() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0); // For headache location slider
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
   const [formData, setFormData] = useState({
     painLevel: 5,
     location: '',
@@ -22,7 +24,7 @@ export default function RecordHeadache() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Complete list of 14 headache types from the specification
+  // Complete list of 14 headache types - reordered as requested
   const headacheTypes = [
     {
       id: 'tension',
@@ -41,20 +43,20 @@ export default function RecordHeadache() {
       pattern: 'Throbbing pain, usually on one side'
     },
     {
-      id: 'cluster',
-      name: 'Cluster Headache',
-      description: 'Around one eye',
-      icon: 'fas fa-eye',
-      image: '/src/assets/headache-types/cluster-headache.png',
-      pattern: 'Severe pain around or behind one eye'
+      id: 'rebound',
+      name: 'Medication Overuse Headache',
+      description: 'All over/top (rebound)',
+      icon: 'fas fa-pills',
+      image: '/src/assets/headache-types/rebound-headache.png',
+      pattern: 'Medication overuse headache'
     },
     {
-      id: 'sinus',
-      name: 'Allergy or Sinus',
-      description: 'Forehead/cheek area',
-      icon: 'fas fa-head-side-mask',
-      image: '/src/assets/headache-types/sinus-headache.png',
-      pattern: 'Not a headache disorder but symptom description'
+      id: 'exertion',
+      name: 'Exertion Headache',
+      description: 'Back/all over',
+      icon: 'fas fa-running',
+      image: '/src/assets/headache-types/exertion-headache.png',
+      pattern: 'Exercise-induced headache'
     },
     {
       id: 'caffeine',
@@ -73,6 +75,22 @@ export default function RecordHeadache() {
       pattern: 'Related to hormonal changes'
     },
     {
+      id: 'cluster',
+      name: 'Cluster Headache',
+      description: 'Around one eye',
+      icon: 'fas fa-eye',
+      image: '/src/assets/headache-types/cluster-headache.png',
+      pattern: 'Severe pain around or behind one eye'
+    },
+    {
+      id: 'sinus',
+      name: 'Allergy or Sinus',
+      description: 'Forehead/cheek area',
+      icon: 'fas fa-head-side-mask',
+      image: '/src/assets/headache-types/sinus-headache.png',
+      pattern: 'Not a headache disorder but symptom description'
+    },
+    {
       id: 'hemicrania',
       name: 'Hemicrania Continua',
       description: 'One side continuous',
@@ -89,28 +107,12 @@ export default function RecordHeadache() {
       pattern: 'Back of head related to high blood pressure'
     },
     {
-      id: 'rebound',
-      name: 'Rebound Headache',
-      description: 'All over/top',
-      icon: 'fas fa-pills',
-      image: '/src/assets/headache-types/rebound-headache.png',
-      pattern: 'Medication overuse headache'
-    },
-    {
       id: 'post-traumatic',
       name: 'Post-Traumatic Headache',
       description: 'Multiple scattered areas',
       icon: 'fas fa-brain',
       image: '/src/assets/headache-types/post-traumatic-headache.png',
       pattern: 'Following head injury or trauma'
-    },
-    {
-      id: 'exertion',
-      name: 'Exertion Headache',
-      description: 'Back/all over',
-      icon: 'fas fa-running',
-      image: '/src/assets/headache-types/exertion-headache.png',
-      pattern: 'Exercise-induced headache'
     },
     {
       id: 'spinal',
@@ -254,6 +256,32 @@ export default function RecordHeadache() {
     setCurrentSlide(index);
   };
 
+  // Touch/swipe handlers for mobile
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      nextSlide();
+    } else if (isRightSwipe) {
+      prevSlide();
+    }
+  };
+
   const handleSubmit = async () => {
     if (!currentUser) {
       setError('You must be logged in to record headaches');
@@ -390,86 +418,88 @@ export default function RecordHeadache() {
               referrerPolicy="no-referrer" 
             />
 
-            {/* Main Slider Card */}
-            <div style={{
-              background: formData.location === currentType.name ? '#E3F2FD' : '#FFFFFF',
-              border: formData.location === currentType.name ? '2px solid #4682B4' : '1px solid #E5E7EB',
-              borderRadius: '16px',
-              padding: '2rem',
-              boxShadow: formData.location === currentType.name 
-                ? '0 8px 24px rgba(70, 130, 180, 0.15)' 
-                : '0 4px 12px rgba(0,0,0,0.1)',
-              transition: 'all 0.3s ease',
-              position: 'relative',
-              minHeight: '320px'
-            }}>
+            {/* Main Slider Container - No Card Design */}
+            <div 
+              style={{
+                position: 'relative',
+                minHeight: '350px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
               
               {/* Navigation Arrows */}
               <button
                 onClick={prevSlide}
                 style={{
                   position: 'absolute',
-                  left: '1rem',
+                  left: '0',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  border: '1px solid #E5E7EB',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
                   borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
+                  width: '48px',
+                  height: '48px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  zIndex: 10
+                  zIndex: 10,
+                  transition: 'all 0.2s ease'
                 }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(70, 130, 180, 0.2)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(70, 130, 180, 0.1)'}
               >
-                <i className="fas fa-chevron-left" style={{ color: '#4682B4' }}></i>
+                <i className="fas fa-chevron-left" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
               </button>
 
               <button
                 onClick={nextSlide}
                 style={{
                   position: 'absolute',
-                  right: '1rem',
+                  right: '0',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  border: '1px solid #E5E7EB',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
                   borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
+                  width: '48px',
+                  height: '48px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  zIndex: 10
+                  zIndex: 10,
+                  transition: 'all 0.2s ease'
                 }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(70, 130, 180, 0.2)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(70, 130, 180, 0.1)'}
               >
-                <i className="fas fa-chevron-right" style={{ color: '#4682B4' }}></i>
+                <i className="fas fa-chevron-right" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
               </button>
 
-              {/* Content */}
-              <div style={{ textAlign: 'center', padding: '0 3rem' }}>
+              {/* Content - Clean, no cards */}
+              <div style={{ textAlign: 'center', padding: '0 4rem', width: '100%' }}>
                 {/* Image/Icon Area */}
                 <div style={{ 
-                  height: '120px', 
-                  marginBottom: '1.5rem',
+                  height: '140px', 
+                  marginBottom: '2rem',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#F9FAFB',
-                  borderRadius: '12px',
-                  border: '1px dashed #E5E7EB'
+                  justifyContent: 'center'
                 }}>
                   <i 
                     className={currentType.icon} 
                     style={{ 
-                      fontSize: '4rem', 
+                      fontSize: '5rem', 
                       color: formData.location === currentType.name ? '#4682B4' : '#9CA3AF',
-                      transition: 'color 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      filter: formData.location === currentType.name ? 'drop-shadow(0 4px 8px rgba(70, 130, 180, 0.3))' : 'none'
                     }}
                   ></i>
                   {/* Future: Replace with actual headache location image */}
@@ -477,18 +507,19 @@ export default function RecordHeadache() {
                     src={currentType.image} 
                     alt={currentType.name}
                     style={{
-                      width: '100%',
-                      height: '100%',
+                      width: '140px',
+                      height: '140px',
                       objectFit: 'contain'
                     }}
                   /> */}
                 </div>
                 
                 <h3 style={{ 
-                  margin: '0 0 0.5rem 0', 
+                  margin: '0 0 0.75rem 0', 
                   color: formData.location === currentType.name ? '#4682B4' : '#000000',
-                  fontSize: '1.4rem',
-                  fontWeight: '600'
+                  fontSize: '1.6rem',
+                  fontWeight: '600',
+                  transition: 'color 0.3s ease'
                 }}>
                   {currentType.name}
                 </h3>
@@ -496,20 +527,170 @@ export default function RecordHeadache() {
                 <p style={{ 
                   margin: '0 0 1rem 0', 
                   color: '#4B5563',
-                  fontSize: '1rem',
+                  fontSize: '1.1rem',
                   fontWeight: '500'
                 }}>
                   {currentType.description}
                 </p>
                 
                 <p style={{ 
-                  margin: '0 0 1.5rem 0', 
+                  margin: '0 0 2rem 0', 
                   color: '#9CA3AF',
-                  fontSize: '0.9rem',
+                  fontSize: '1rem',
                   fontStyle: 'italic',
-                  lineHeight: '1.4'
+                  lineHeight: '1.5',
+                  maxWidth: '400px',
+                  marginLeft: 'auto',
+                  marginRight: 'auto'
                 }}>
                   {currentType.pattern}
+                </p>
+
+                {/* Special warning for thunderclap */}
+                {currentType.id === 'thunderclap' && (
+                  <div style={{
+                    marginBottom: '1.5rem',
+                    padding: '1rem',
+                    background: '#f8d7da',
+                    border: '1px solid #dc3545',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    color: '#721c24',
+                    maxWidth: '400px',
+                    marginLeft: 'auto',
+                    marginRight: 'auto'
+                  }}>
+                    <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                    <strong>Seek immediate medical attention</strong>
+                  </div>
+                )}
+
+                {/* Select Button */}
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, location: currentType.name }))}
+                  style={{
+                    background: formData.location === currentType.name 
+                      ? 'linear-gradient(135deg, #28a745, #20c997)' 
+                      : 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '16px 32px',
+                    fontSize: '1.1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    boxShadow: formData.location === currentType.name 
+                      ? '0 4px 16px rgba(40, 167, 69, 0.3)' 
+                      : '0 4px 16px rgba(70, 130, 180, 0.3)',
+                    transform: formData.location === currentType.name ? 'translateY(-2px)' : 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (formData.location !== currentType.name) {
+                      e.target.style.transform = 'translateY(-2px)';
+                      e.target.style.boxShadow = '0 6px 20px rgba(70, 130, 180, 0.4)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (formData.location !== currentType.name) {
+                      e.target.style.transform = 'none';
+                      e.target.style.boxShadow = '0 4px 16px rgba(70, 130, 180, 0.3)';
+                    }
+                  }}
+                >
+                  {formData.location === currentType.name ? (
+                    <>
+                      <i className="fas fa-check" style={{ marginRight: '0.75rem' }}></i>
+                      Selected
+                    </>
+                  ) : (
+                    'Select This Type'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Slide Counter */}
+            <div style={{
+              textAlign: 'center',
+              margin: '2rem 0 1rem 0',
+              fontSize: '1rem',
+              color: '#9CA3AF',
+              fontWeight: '500'
+            }}>
+              {currentSlide + 1} of {headacheTypes.length}
+            </div>
+
+            {/* Dot Indicators */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              marginBottom: '2rem'
+            }}>
+              {headacheTypes.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: index === currentSlide ? '#4682B4' : '#E5E7EB',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    transform: index === currentSlide ? 'scale(1.2)' : 'scale(1)'
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Quick Navigation Grid - Simplified */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+              gap: '0.5rem',
+              maxWidth: '500px',
+              margin: '0 auto'
+            }}>
+              {headacheTypes.slice(0, 8).map((type, index) => (
+                <button
+                  key={type.id}
+                  onClick={() => goToSlide(index)}
+                  style={{
+                    padding: '0.75rem 0.5rem',
+                    background: index === currentSlide ? '#4682B4' : 'transparent',
+                    border: index === currentSlide ? 'none' : '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    color: index === currentSlide ? 'white' : '#4B5563',
+                    lineHeight: '1.2',
+                    fontWeight: index === currentSlide ? '500' : '400'
+                  }}
+                >
+                  {type.name.replace(' Headache', '').replace('Medication Overuse', 'Rebound')}
+                </button>
+              ))}
+            </div>
+            
+            {/* "More types" indicator for remaining headaches */}
+            {headacheTypes.length > 8 && (
+              <div style={{
+                textAlign: 'center',
+                marginTop: '1rem',
+                fontSize: '0.9rem',
+                color: '#9CA3AF'
+              }}>
+                <i className="fas fa-chevron-left" style={{ marginRight: '0.5rem' }}></i>
+                Swipe or use arrows to see all {headacheTypes.length} types
+                <i className="fas fa-chevron-right" style={{ marginLeft: '0.5rem' }}></i>
+              </div>
+            )}
+          </div>
+        );pattern}
                 </p>
 
                 {/* Special warning for thunderclap */}
