@@ -690,6 +690,291 @@ export default function RecordHeadache() {
               </div>
             )}
           </div>
+        );
+        
+        return (
+          <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+            {/* FontAwesome CSS */}
+            <link 
+              rel="stylesheet" 
+              href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+              integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+              crossOrigin="anonymous" 
+              referrerPolicy="no-referrer" 
+            />
+
+            {/* Main Slider Container - No Card Design */}
+            <div 
+              style={{
+                position: 'relative',
+                minHeight: '350px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
+              
+              {/* Navigation Arrows */}
+              <button
+                onClick={prevSlide}
+                style={{
+                  position: 'absolute',
+                  left: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10,
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(70, 130, 180, 0.2)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(70, 130, 180, 0.1)'}
+              >
+                <i className="fas fa-chevron-left" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
+              </button>
+
+              <button
+                onClick={nextSlide}
+                style={{
+                  position: 'absolute',
+                  right: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10,
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(70, 130, 180, 0.2)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(70, 130, 180, 0.1)'}
+              >
+                <i className="fas fa-chevron-right" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
+              </button>
+
+              {/* Content - Clean, no cards */}
+              <div style={{ textAlign: 'center', padding: '0 4rem', width: '100%' }}>
+                {/* Image/Icon Area */}
+                <div style={{ 
+                  height: '140px', 
+                  marginBottom: '2rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <i 
+                    className={currentType.icon} 
+                    style={{ 
+                      fontSize: '5rem', 
+                      color: formData.location === currentType.name ? '#4682B4' : '#9CA3AF',
+                      transition: 'all 0.3s ease',
+                      filter: formData.location === currentType.name ? 'drop-shadow(0 4px 8px rgba(70, 130, 180, 0.3))' : 'none'
+                    }}
+                  ></i>
+                  {/* Future: Replace with actual headache location image */}
+                  {/* <img 
+                    src={currentType.image} 
+                    alt={currentType.name}
+                    style={{
+                      width: '140px',
+                      height: '140px',
+                      objectFit: 'contain'
+                    }}
+                  /> */}
+                </div>
+                
+                <h3 style={{ 
+                  margin: '0 0 0.75rem 0', 
+                  color: formData.location === currentType.name ? '#4682B4' : '#000000',
+                  fontSize: '1.6rem',
+                  fontWeight: '600',
+                  transition: 'color 0.3s ease'
+                }}>
+                  {currentType.name}
+                </h3>
+                
+                <p style={{ 
+                  margin: '0 0 1rem 0', 
+                  color: '#4B5563',
+                  fontSize: '1.1rem',
+                  fontWeight: '500'
+                }}>
+                  {currentType.description}
+                </p>
+                
+                <p style={{ 
+                  margin: '0 0 2rem 0', 
+                  color: '#9CA3AF',
+                  fontSize: '1rem',
+                  fontStyle: 'italic',
+                  lineHeight: '1.5',
+                  maxWidth: '400px',
+                  marginLeft: 'auto',
+                  marginRight: 'auto'
+                }}>
+                  {currentType.pattern}
+                </p>
+
+                {/* Special warning for thunderclap */}
+                {currentType.id === 'thunderclap' && (
+                  <div style={{
+                    marginBottom: '1.5rem',
+                    padding: '1rem',
+                    background: '#f8d7da',
+                    border: '1px solid #dc3545',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    color: '#721c24',
+                    maxWidth: '400px',
+                    marginLeft: 'auto',
+                    marginRight: 'auto'
+                  }}>
+                    <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                    <strong>Seek immediate medical attention</strong>
+                  </div>
+                )}
+
+                {/* Select Button */}
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, location: currentType.name }))}
+                  style={{
+                    background: formData.location === currentType.name 
+                      ? 'linear-gradient(135deg, #28a745, #20c997)' 
+                      : 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '16px 32px',
+                    fontSize: '1.1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    boxShadow: formData.location === currentType.name 
+                      ? '0 4px 16px rgba(40, 167, 69, 0.3)' 
+                      : '0 4px 16px rgba(70, 130, 180, 0.3)',
+                    transform: formData.location === currentType.name ? 'translateY(-2px)' : 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (formData.location !== currentType.name) {
+                      e.target.style.transform = 'translateY(-2px)';
+                      e.target.style.boxShadow = '0 6px 20px rgba(70, 130, 180, 0.4)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (formData.location !== currentType.name) {
+                      e.target.style.transform = 'none';
+                      e.target.style.boxShadow = '0 4px 16px rgba(70, 130, 180, 0.3)';
+                    }
+                  }}
+                >
+                  {formData.location === currentType.name ? (
+                    <>
+                      <i className="fas fa-check" style={{ marginRight: '0.75rem' }}></i>
+                      Selected
+                    </>
+                  ) : (
+                    'Select This Type'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Slide Counter */}
+            <div style={{
+              textAlign: 'center',
+              margin: '2rem 0 1rem 0',
+              fontSize: '1rem',
+              color: '#9CA3AF',
+              fontWeight: '500'
+            }}>
+              {currentSlide + 1} of {headacheTypes.length}
+            </div>
+
+            {/* Dot Indicators */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              marginBottom: '2rem'
+            }}>
+              {headacheTypes.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: index === currentSlide ? '#4682B4' : '#E5E7EB',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    transform: index === currentSlide ? 'scale(1.2)' : 'scale(1)'
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Quick Navigation Grid - Simplified */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+              gap: '0.5rem',
+              maxWidth: '500px',
+              margin: '0 auto'
+            }}>
+              {headacheTypes.slice(0, 8).map((type, index) => (
+                <button
+                  key={type.id}
+                  onClick={() => goToSlide(index)}
+                  style={{
+                    padding: '0.75rem 0.5rem',
+                    background: index === currentSlide ? '#4682B4' : 'transparent',
+                    border: index === currentSlide ? 'none' : '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    color: index === currentSlide ? 'white' : '#4B5563',
+                    lineHeight: '1.2',
+                    fontWeight: index === currentSlide ? '500' : '400'
+                  }}
+                >
+                  {type.name.replace(' Headache', '').replace('Medication Overuse', 'Rebound')}
+                </button>
+              ))}
+            </div>
+            
+            {/* "More types" indicator for remaining headaches */}
+            {headacheTypes.length > 8 && (
+              <div style={{
+                textAlign: 'center',
+                marginTop: '1rem',
+                fontSize: '0.9rem',
+                color: '#9CA3AF'
+              }}>
+                <i className="fas fa-chevron-left" style={{ marginRight: '0.5rem' }}></i>
+                Swipe or use arrows to see all {headacheTypes.length} types
+                <i className="fas fa-chevron-right" style={{ marginLeft: '0.5rem' }}></i>
+              </div>
+            )}
+          </div>
         );pattern}
                 </p>
 
