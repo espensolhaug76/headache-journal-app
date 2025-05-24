@@ -120,7 +120,7 @@ export default function RecordStress() {
     {
       id: 'mental-symptoms',
       title: 'What mental health symptoms are you experiencing?',
-      subtitle: 'Select any that apply to how you\'re feeling',
+      subtitle: 'Select any that apply to how you are feeling',
       component: 'mental-symptoms'
     },
     {
@@ -268,8 +268,8 @@ export default function RecordStress() {
                   onChange={(e) => setFormData(prev => ({ ...prev, stressLevel: e.target.value }))}
                   style={{
                     width: '100%',
-                    height: '10px',
-                    borderRadius: '5px',
+                    height: '12px',
+                    borderRadius: '6px',
                     background: `linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)`,
                     outline: 'none',
                     cursor: 'pointer'
@@ -319,8 +319,8 @@ export default function RecordStress() {
                   onChange={(e) => setFormData(prev => ({ ...prev, anxietyLevel: e.target.value }))}
                   style={{
                     width: '100%',
-                    height: '10px',
-                    borderRadius: '5px',
+                    height: '12px',
+                    borderRadius: '6px',
                     background: `linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)`,
                     outline: 'none',
                     cursor: 'pointer'
@@ -349,7 +349,7 @@ export default function RecordStress() {
                 marginBottom: '2rem'
               }}>
                 <h4 style={{ color: '#dc3545', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
-                  ⚠️ High Stress/Anxiety Level Detected
+                  High Stress/Anxiety Level Detected
                 </h4>
                 <p style={{ margin: '0 0 1rem 0', color: '#4B5563' }}>Consider these immediate stress management techniques:</p>
                 <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#4B5563', fontSize: '0.9rem' }}>
@@ -389,7 +389,7 @@ export default function RecordStress() {
               fontSize: '0.9rem',
               textAlign: 'center'
             }}>
-              Describe any other emotions or mental states you're experiencing beyond stress and anxiety
+              Describe any other emotions or mental states you are experiencing beyond stress and anxiety
             </p>
           </div>
         );
@@ -416,7 +416,8 @@ export default function RecordStress() {
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                fontSize: '0.95rem'
+                fontSize: '0.95rem',
+                color: '#000000'
               }}>
                 <input
                   type="checkbox"
@@ -451,7 +452,8 @@ export default function RecordStress() {
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                fontSize: '0.95rem'
+                fontSize: '0.95rem',
+                color: '#000000'
               }}>
                 <input
                   type="checkbox"
@@ -475,7 +477,7 @@ export default function RecordStress() {
               marginBottom: '2rem'
             }}>
               <h4 style={{ color: '#856404', margin: '0 0 0.5rem 0' }}>
-                💡 Stress-Body Connection
+                Stress-Body Connection
               </h4>
               <p style={{ margin: 0, color: '#856404', fontSize: '0.9rem' }}>
                 Stress often shows up physically. These symptoms can also trigger headaches.
@@ -502,7 +504,8 @@ export default function RecordStress() {
                   borderRadius: '8px',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  fontSize: '0.95rem'
+                  fontSize: '0.95rem',
+                  color: '#000000'
                 }}>
                   <input
                     type="checkbox"
@@ -538,7 +541,8 @@ export default function RecordStress() {
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                fontSize: '0.95rem'
+                fontSize: '0.95rem',
+                color: '#000000'
               }}>
                 <input
                   type="checkbox"
