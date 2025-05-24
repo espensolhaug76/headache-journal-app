@@ -5,13 +5,9 @@ import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export default function RecordStress() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-
-  // Form state
+  const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     stressLevel: 5,
@@ -20,8 +16,12 @@ export default function RecordStress() {
     stressTriggers: [],
     mentalIssues: [],
     copingStrategies: [],
+    physicalSymptoms: [],
+    stressImpact: '',
     notes: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const commonStressTriggers = [
     'Work pressure',
@@ -83,21 +83,96 @@ export default function RecordStress() {
     'Listening to podcasts'
   ];
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const physicalStressSymptoms = [
+    'Headache',
+    'Muscle tension',
+    'Jaw clenching',
+    'Shoulder tightness',
+    'Back pain',
+    'Stomach upset',
+    'Rapid heartbeat',
+    'Sweating',
+    'Shallow breathing',
+    'Fatigue',
+    'Sleep problems',
+    'Appetite changes'
+  ];
+
+  const questions = [
+    {
+      id: 'stress-levels',
+      title: 'How are your stress and anxiety levels?',
+      subtitle: 'Rate your current mental state',
+      component: 'stress-levels'
+    },
+    {
+      id: 'mental-state',
+      title: 'How would you describe your mental state?',
+      subtitle: 'Any other emotions or feelings today',
+      component: 'mental-state'
+    },
+    {
+      id: 'stress-triggers',
+      title: 'What caused stress today?',
+      subtitle: 'Select any triggers you experienced',
+      component: 'stress-triggers'
+    },
+    {
+      id: 'mental-symptoms',
+      title: 'What mental health symptoms are you experiencing?',
+      subtitle: 'Select any that apply to how you\'re feeling',
+      component: 'mental-symptoms'
+    },
+    {
+      id: 'physical-symptoms',
+      title: 'Any physical symptoms from stress?',
+      subtitle: 'Stress often shows up in the body',
+      component: 'physical-symptoms'
+    },
+    {
+      id: 'coping-strategies',
+      title: 'What helped you cope with stress?',
+      subtitle: 'Select strategies you used today',
+      component: 'coping-strategies'
+    },
+    {
+      id: 'stress-impact',
+      title: 'How did stress impact your day?',
+      subtitle: 'Describe the overall effect',
+      component: 'stress-impact'
+    },
+    {
+      id: 'notes',
+      title: 'Additional stress notes',
+      subtitle: 'Any other details about your stress and mental health',
+      component: 'notes'
+    }
+  ];
+
+  const handleNext = () => {
+    if (currentStep < questions.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
-  const handleCheckboxChange = (e, category) => {
-    const { value, checked } = e.target;
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSkip = () => {
+    if (currentStep < questions.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleCheckboxChange = (value, field) => {
     setFormData(prev => ({
       ...prev,
-      [category]: checked 
-        ? [...prev[category], value]
-        : prev[category].filter(item => item !== value)
+      [field]: prev[field].includes(value)
+        ? prev[field].filter(item => item !== value)
+        : [...prev[field], value]
     }));
   };
 
@@ -117,9 +192,7 @@ export default function RecordStress() {
     return 'Very High';
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const handleSubmit = async () => {
     if (!currentUser) {
       setError('You must be logged in to record stress data');
       return;
@@ -129,7 +202,6 @@ export default function RecordStress() {
     setError('');
 
     try {
-      // Create stress record
       const stressData = {
         userId: currentUser.uid,
         date: formData.date,
@@ -139,37 +211,14 @@ export default function RecordStress() {
         stressTriggers: formData.stressTriggers,
         mentalIssues: formData.mentalIssues,
         copingStrategies: formData.copingStrategies,
+        physicalSymptoms: formData.physicalSymptoms,
+        stressImpact: formData.stressImpact,
         notes: formData.notes,
         createdAt: Timestamp.now()
       };
 
-      // Save to user's stress subcollection
       await addDoc(collection(db, 'users', currentUser.uid, 'stress'), stressData);
-      
-      let successMessage = 'Stress and mental health data recorded successfully!';
-      
-      if (formData.stressLevel >= 8 || formData.anxietyLevel >= 8) {
-        successMessage += ' Consider stress management techniques or speaking with a healthcare provider if these levels persist.';
-      }
-      
-      setSuccess(successMessage);
-      
-      // Reset form
-      setFormData({
-        date: new Date().toISOString().split('T')[0],
-        stressLevel: 5,
-        anxietyLevel: 5,
-        otherMentalState: '',
-        stressTriggers: [],
-        mentalIssues: [],
-        copingStrategies: [],
-        notes: ''
-      });
-
-      // Redirect to dashboard after 2 seconds
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+      navigate('/dashboard');
 
     } catch (error) {
       console.error('Error recording stress:', error);
@@ -179,515 +228,595 @@ export default function RecordStress() {
     setLoading(false);
   };
 
-  return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
-      color: '#ffffff',
-      padding: '20px'
-    }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '20px',
-          padding: '20px',
-          marginBottom: '20px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 style={{ 
-              margin: 0, 
-              fontSize: '2rem',
-              background: 'linear-gradient(135deg, #17a2b8, #20c997)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
-              🧘 Record Stress & Mental State
-            </h1>
-            <Link 
-              to="/dashboard" 
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: 'white',
-                textDecoration: 'none',
-                padding: '10px 20px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.2)'
-              }}
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
+  const renderCurrentQuestion = () => {
+    const question = questions[currentStep];
 
-        {error && (
-          <div style={{
-            background: 'rgba(220, 53, 69, 0.2)',
-            border: '1px solid #dc3545',
-            borderRadius: '10px',
-            padding: '15px',
-            marginBottom: '20px',
-            color: '#ff6b6b'
-          }}>
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div style={{
-            background: 'rgba(40, 167, 69, 0.2)',
-            border: '1px solid #28a745',
-            borderRadius: '10px',
-            padding: '15px',
-            marginBottom: '20px',
-            color: '#51cf66'
-          }}>
-            {success}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          {/* Date */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#17a2b8'
-            }}>
-              Date
-            </label>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleInputChange}
-              required
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
-                fontSize: '1rem'
-              }}
-            />
-          </div>
-
-          {/* Stress and Anxiety Levels */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '15px',
-              padding: '25px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '15px', 
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: getStressLevelColor(formData.stressLevel)
-              }}>
-                😰 Stress Level: {formData.stressLevel}/10
-              </label>
-              <div style={{ 
-                textAlign: 'center', 
-                marginBottom: '10px',
-                fontSize: '0.9rem',
-                color: getStressLevelColor(formData.stressLevel),
-                fontWeight: '500'
-              }}>
-                {getStressLevelText(formData.stressLevel)}
+    switch (question.component) {
+      case 'stress-levels':
+        return (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', marginBottom: '3rem' }}>
+              <div style={{ textAlign: 'center' }}>
+                <h3 style={{
+                  margin: '0 0 1rem 0',
+                  fontSize: '1.3rem',
+                  fontWeight: '600',
+                  color: '#4682B4'
+                }}>
+                  Stress Level
+                </h3>
+                <div style={{
+                  fontSize: '3rem',
+                  marginBottom: '1rem',
+                  color: getStressLevelColor(formData.stressLevel)
+                }}>
+                  {formData.stressLevel}/10
+                </div>
+                <div style={{
+                  fontSize: '1.2rem',
+                  marginBottom: '1.5rem',
+                  color: getStressLevelColor(formData.stressLevel),
+                  fontWeight: '600'
+                }}>
+                  {getStressLevelText(formData.stressLevel)}
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={formData.stressLevel}
+                  onChange={(e) => setFormData(prev => ({ ...prev, stressLevel: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    height: '10px',
+                    borderRadius: '5px',
+                    background: `linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)`,
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                />
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.8rem',
+                  color: '#9CA3AF',
+                  marginTop: '0.5rem'
+                }}>
+                  <span>No Stress</span>
+                  <span>Extreme</span>
+                </div>
               </div>
-              <input
-                type="range"
-                name="stressLevel"
-                min="1"
-                max="10"
-                value={formData.stressLevel}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  height: '8px',
-                  borderRadius: '5px',
-                  background: `linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)`,
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              />
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                marginTop: '10px',
-                fontSize: '0.8rem',
-                color: '#ccc'
-              }}>
-                <span>No Stress</span>
-                <span>Extreme</span>
+
+              <div style={{ textAlign: 'center' }}>
+                <h3 style={{
+                  margin: '0 0 1rem 0',
+                  fontSize: '1.3rem',
+                  fontWeight: '600',
+                  color: '#4682B4'
+                }}>
+                  Anxiety Level
+                </h3>
+                <div style={{
+                  fontSize: '3rem',
+                  marginBottom: '1rem',
+                  color: getStressLevelColor(formData.anxietyLevel)
+                }}>
+                  {formData.anxietyLevel}/10
+                </div>
+                <div style={{
+                  fontSize: '1.2rem',
+                  marginBottom: '1.5rem',
+                  color: getStressLevelColor(formData.anxietyLevel),
+                  fontWeight: '600'
+                }}>
+                  {getStressLevelText(formData.anxietyLevel)}
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={formData.anxietyLevel}
+                  onChange={(e) => setFormData(prev => ({ ...prev, anxietyLevel: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    height: '10px',
+                    borderRadius: '5px',
+                    background: `linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)`,
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                />
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.8rem',
+                  color: '#9CA3AF',
+                  marginTop: '0.5rem'
+                }}>
+                  <span>No Anxiety</span>
+                  <span>Severe</span>
+                </div>
               </div>
             </div>
 
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '15px',
-              padding: '25px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '15px', 
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: getStressLevelColor(formData.anxietyLevel)
+            {/* High Stress Warning */}
+            {(formData.stressLevel >= 8 || formData.anxietyLevel >= 8) && (
+              <div style={{
+                background: 'rgba(220, 53, 69, 0.1)',
+                border: '1px solid rgba(220, 53, 69, 0.3)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                marginBottom: '2rem'
               }}>
-                😨 Anxiety Level: {formData.anxietyLevel}/10
-              </label>
-              <div style={{ 
-                textAlign: 'center', 
-                marginBottom: '10px',
-                fontSize: '0.9rem',
-                color: getStressLevelColor(formData.anxietyLevel),
-                fontWeight: '500'
-              }}>
-                {getStressLevelText(formData.anxietyLevel)}
+                <h4 style={{ color: '#dc3545', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
+                  ⚠️ High Stress/Anxiety Level Detected
+                </h4>
+                <p style={{ margin: '0 0 1rem 0', color: '#4B5563' }}>Consider these immediate stress management techniques:</p>
+                <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#4B5563', fontSize: '0.9rem' }}>
+                  <li>Deep breathing exercises (4-7-8 technique)</li>
+                  <li>Progressive muscle relaxation</li>
+                  <li>Short meditation or mindfulness session</li>
+                  <li>Light physical activity or stretching</li>
+                  <li>Speaking with a friend, family member, or professional</li>
+                </ul>
               </div>
-              <input
-                type="range"
-                name="anxietyLevel"
-                min="1"
-                max="10"
-                value={formData.anxietyLevel}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  height: '8px',
-                  borderRadius: '5px',
-                  background: `linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)`,
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              />
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                marginTop: '10px',
-                fontSize: '0.8rem',
-                color: '#ccc'
-              }}>
-                <span>No Anxiety</span>
-                <span>Severe</span>
-              </div>
-            </div>
+            )}
           </div>
+        );
 
-          {/* Other Mental State */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#6f42c1'
-            }}>
-              Other Mental State
-            </label>
+      case 'mental-state':
+        return (
+          <div>
             <input
               type="text"
-              name="otherMentalState"
               value={formData.otherMentalState}
-              onChange={handleInputChange}
-              placeholder="e.g., Excited, Confused, Overwhelmed, Hopeful..."
+              onChange={(e) => setFormData(prev => ({ ...prev, otherMentalState: e.target.value }))}
+              placeholder="e.g., Excited, Confused, Overwhelmed, Hopeful, Frustrated..."
               style={{
                 width: '100%',
                 padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
-                fontSize: '1rem'
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
+                fontSize: '1rem',
+                marginBottom: '1rem'
               }}
             />
-            <small style={{ color: '#ccc', fontSize: '0.85rem', marginTop: '5px', display: 'block' }}>
-              Describe any other emotions or mental states you're experiencing
-            </small>
+            <p style={{
+              margin: 0,
+              color: '#9CA3AF',
+              fontSize: '0.9rem',
+              textAlign: 'center'
+            }}>
+              Describe any other emotions or mental states you're experiencing beyond stress and anxiety
+            </p>
           </div>
+        );
 
-          {/* Stress Triggers */}
+      case 'stress-triggers':
+        return (
           <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '0.75rem'
           }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#fd7e14'
+            {commonStressTriggers.map(trigger => (
+              <label key={trigger} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: formData.stressTriggers.includes(trigger)
+                  ? 'rgba(253, 126, 20, 0.1)'
+                  : '#F9FAFB',
+                border: formData.stressTriggers.includes(trigger)
+                  ? '1px solid #fd7e14'
+                  : '1px solid #E5E7EB',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                fontSize: '0.95rem'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={formData.stressTriggers.includes(trigger)}
+                  onChange={() => handleCheckboxChange(trigger, 'stressTriggers')}
+                />
+                {trigger}
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'mental-symptoms':
+        return (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '0.75rem'
+          }}>
+            {mentalHealthSymptoms.map(symptom => (
+              <label key={symptom} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: formData.mentalIssues.includes(symptom)
+                  ? 'rgba(220, 53, 69, 0.1)'
+                  : '#F9FAFB',
+                border: formData.mentalIssues.includes(symptom)
+                  ? '1px solid #dc3545'
+                  : '1px solid #E5E7EB',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                fontSize: '0.95rem'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={formData.mentalIssues.includes(symptom)}
+                  onChange={() => handleCheckboxChange(symptom, 'mentalIssues')}
+                />
+                {symptom}
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'physical-symptoms':
+        return (
+          <div>
+            <div style={{
+              background: 'rgba(255, 193, 7, 0.1)',
+              border: '1px solid rgba(255, 193, 7, 0.3)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              marginBottom: '2rem'
             }}>
-              Stress Triggers
-            </label>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: '10px' 
+              <h4 style={{ color: '#856404', margin: '0 0 0.5rem 0' }}>
+                💡 Stress-Body Connection
+              </h4>
+              <p style={{ margin: 0, color: '#856404', fontSize: '0.9rem' }}>
+                Stress often shows up physically. These symptoms can also trigger headaches.
+              </p>
+            </div>
+            
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '0.75rem'
             }}>
-              {commonStressTriggers.map(trigger => (
-                <label key={trigger} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px',
-                  cursor: 'pointer',
-                  padding: '8px',
+              {physicalStressSymptoms.map(symptom => (
+                <label key={symptom} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '1rem',
+                  background: formData.physicalSymptoms.includes(symptom)
+                    ? 'rgba(255, 193, 7, 0.1)'
+                    : '#F9FAFB',
+                  border: formData.physicalSymptoms.includes(symptom)
+                    ? '1px solid #ffc107'
+                    : '1px solid #E5E7EB',
                   borderRadius: '8px',
-                  transition: 'background 0.2s'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  fontSize: '0.95rem'
                 }}>
                   <input
                     type="checkbox"
-                    value={trigger}
-                    checked={formData.stressTriggers.includes(trigger)}
-                    onChange={(e) => handleCheckboxChange(e, 'stressTriggers')}
+                    checked={formData.physicalSymptoms.includes(symptom)}
+                    onChange={() => handleCheckboxChange(symptom, 'physicalSymptoms')}
                   />
-                  <span>{trigger}</span>
+                  {symptom}
                 </label>
               ))}
             </div>
           </div>
+        );
 
-          {/* Mental Health Symptoms */}
+      case 'coping-strategies':
+        return (
           <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '0.75rem'
           }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#e83e8c'
-            }}>
-              Mental Health Symptoms
-            </label>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: '10px' 
-            }}>
-              {mentalHealthSymptoms.map(symptom => (
-                <label key={symptom} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px',
-                  cursor: 'pointer',
-                  padding: '8px',
-                  borderRadius: '8px',
-                  transition: 'background 0.2s'
-                }}>
-                  <input
-                    type="checkbox"
-                    value={symptom}
-                    checked={formData.mentalIssues.includes(symptom)}
-                    onChange={(e) => handleCheckboxChange(e, 'mentalIssues')}
-                  />
-                  <span>{symptom}</span>
-                </label>
-              ))}
-            </div>
+            {copingStrategiesList.map(strategy => (
+              <label key={strategy} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: formData.copingStrategies.includes(strategy)
+                  ? 'rgba(40, 167, 69, 0.1)'
+                  : '#F9FAFB',
+                border: formData.copingStrategies.includes(strategy)
+                  ? '1px solid #28a745'
+                  : '1px solid #E5E7EB',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                fontSize: '0.95rem'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={formData.copingStrategies.includes(strategy)}
+                  onChange={() => handleCheckboxChange(strategy, 'copingStrategies')}
+                />
+                {strategy}
+              </label>
+            ))}
           </div>
+        );
 
-          {/* Coping Strategies */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#28a745'
-            }}>
-              Coping Strategies Used
-            </label>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: '10px' 
-            }}>
-              {copingStrategiesList.map(strategy => (
-                <label key={strategy} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px',
-                  cursor: 'pointer',
-                  padding: '8px',
-                  borderRadius: '8px',
-                  transition: 'background 0.2s'
-                }}>
-                  <input
-                    type="checkbox"
-                    value={strategy}
-                    checked={formData.copingStrategies.includes(strategy)}
-                    onChange={(e) => handleCheckboxChange(e, 'copingStrategies')}
-                  />
-                  <span>{strategy}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#6c757d'
-            }}>
-              Additional Notes
-            </label>
+      case 'stress-impact':
+        return (
+          <div>
             <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="Any additional notes about your stress levels, mental state, or what helped/didn't help..."
+              value={formData.stressImpact}
+              onChange={(e) => setFormData(prev => ({ ...prev, stressImpact: e.target.value }))}
+              placeholder="How did stress affect your work, relationships, sleep, or daily activities today?"
               rows="4"
               style={{
                 width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
                 fontSize: '1rem',
-                resize: 'vertical'
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                marginBottom: '1.5rem'
               }}
             />
+
+            {/* Stress Management Tips */}
+            <div style={{
+              background: 'rgba(23, 162, 184, 0.1)',
+              border: '1px solid rgba(23, 162, 184, 0.3)',
+              borderRadius: '12px',
+              padding: '1.5rem'
+            }}>
+              <h4 style={{ color: '#17a2b8', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
+                Daily Stress Management Tips
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                <div>
+                  <h5 style={{ color: '#20c997', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Mindfulness:</h5>
+                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
+                    <li>5-minute daily meditation</li>
+                    <li>Deep breathing exercises</li>
+                    <li>Body scan techniques</li>
+                    <li>Mindful walking</li>
+                  </ul>
+                </div>
+                <div>
+                  <h5 style={{ color: '#28a745', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Physical:</h5>
+                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
+                    <li>Regular exercise routine</li>
+                    <li>Adequate sleep (7-9 hours)</li>
+                    <li>Limit caffeine intake</li>
+                    <li>Stay hydrated</li>
+                  </ul>
+                </div>
+                <div>
+                  <h5 style={{ color: '#ffc107', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Social:</h5>
+                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
+                    <li>Connect with supportive people</li>
+                    <li>Express feelings appropriately</li>
+                    <li>Set healthy boundaries</li>
+                    <li>Ask for help when needed</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'notes':
+        return (
+          <div>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Any additional notes about your stress levels, mental state, or what helped/didn't help today..."
+              rows="6"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
+                fontSize: '1rem',
+                resize: 'vertical',
+                fontFamily: 'inherit'
+              }}
+            />
+            <p style={{
+              margin: '1rem 0 0 0',
+              color: '#9CA3AF',
+              fontSize: '0.9rem',
+              textAlign: 'center'
+            }}>
+              This information helps identify stress patterns that may contribute to your headaches
+            </p>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const currentQuestion = questions[currentStep];
+  const isLastStep = currentStep === questions.length - 1;
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#F9FAFB',
+      color: '#000000',
+      padding: '20px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        {/* Header - No Card */}
+        <div style={{ marginBottom: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+            <h1 style={{
+              margin: 0,
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              color: '#1E3A8A',
+              textAlign: 'center',
+              flex: 1
+            }}>
+              Record Stress & Mental State
+            </h1>
+            <Link
+              to="/dashboard"
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '8px 16px',
+                textDecoration: 'none',
+                fontSize: '0.9rem'
+              }}
+            >
+              Cancel
+            </Link>
+          </div>
+          
+          {/* Progress Bar - No Card */}
+          <div style={{
+            background: '#E5E7EB',
+            borderRadius: '10px',
+            height: '8px',
+            overflow: 'hidden',
+            marginBottom: '15px'
+          }}>
+            <div style={{
+              background: '#4682B4',
+              height: '100%',
+              width: `${((currentStep + 1) / questions.length) * 100}%`,
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+          
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '0.9rem',
+            color: '#9CA3AF'
+          }}>
+            <span>Step {currentStep + 1} of {questions.length}</span>
+            <span>{Math.round(((currentStep + 1) / questions.length) * 100)}% Complete</span>
+          </div>
+        </div>
+
+        {/* Question Content - No Card */}
+        <div style={{ marginBottom: '40px', minHeight: '400px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <h2 style={{
+              margin: '0 0 15px 0',
+              fontSize: '1.8rem',
+              fontWeight: 'bold',
+              color: '#4682B4'
+            }}>
+              {currentQuestion.title}
+            </h2>
+            <p style={{
+              margin: 0,
+              color: '#9CA3AF',
+              fontSize: '1.1rem'
+            }}>
+              {currentQuestion.subtitle}
+            </p>
           </div>
 
-          {/* High Stress Warning */}
-          {(formData.stressLevel >= 8 || formData.anxietyLevel >= 8) && (
+          {error && (
             <div style={{
-              background: 'rgba(220, 53, 69, 0.1)',
-              border: '1px solid rgba(220, 53, 69, 0.3)',
-              borderRadius: '12px',
-              padding: '20px',
-              marginBottom: '20px'
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '30px',
+              color: '#721c24',
+              textAlign: 'center'
             }}>
-              <h4 style={{ color: '#dc3545', margin: '0 0 10px 0', fontSize: '1.1rem' }}>
-                ⚠️ High Stress/Anxiety Level Detected
-              </h4>
-              <p style={{ margin: '0 0 10px 0', color: '#ccc' }}>Consider these immediate stress management techniques:</p>
-              <ul style={{ margin: '0 0 15px 0', paddingLeft: '20px', color: '#ccc', fontSize: '0.9rem' }}>
-                <li>Deep breathing exercises (4-7-8 technique)</li>
-                <li>Progressive muscle relaxation</li>
-                <li>Short meditation or mindfulness session</li>
-                <li>Light physical activity or stretching</li>
-                <li>Speaking with a friend, family member, or professional</li>
-                <li>Step away from stressful situations if possible</li>
-              </ul>
-              <p style={{ margin: 0, color: '#fd7e14', fontSize: '0.9rem', fontWeight: '500' }}>
-                <strong>If high stress or anxiety persists, consider speaking with a healthcare provider.</strong>
-              </p>
+              {error}
             </div>
           )}
 
-          {/* Stress Management Tips */}
-          <div style={{
-            background: 'rgba(23, 162, 184, 0.1)',
-            border: '1px solid rgba(23, 162, 184, 0.3)',
-            borderRadius: '12px',
-            padding: '20px',
-            marginBottom: '20px'
-          }}>
-            <h4 style={{ color: '#17a2b8', margin: '0 0 10px 0', fontSize: '1.1rem' }}>
-              💡 Daily Stress Management Tips:
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px' }}>
-              <div>
-                <h5 style={{ color: '#20c997', margin: '0 0 8px 0', fontSize: '1rem' }}>🧘 Mindfulness:</h5>
-                <ul style={{ margin: 0, paddingLeft: '15px', color: '#ccc', fontSize: '0.85rem' }}>
-                  <li>5-minute daily meditation</li>
-                  <li>Deep breathing exercises</li>
-                  <li>Body scan techniques</li>
-                  <li>Mindful walking</li>
-                </ul>
-              </div>
-              <div>
-                <h5 style={{ color: '#28a745', margin: '0 0 8px 0', fontSize: '1rem' }}>💪 Physical:</h5>
-                <ul style={{ margin: 0, paddingLeft: '15px', color: '#ccc', fontSize: '0.85rem' }}>
-                  <li>Regular exercise routine</li>
-                  <li>Adequate sleep (7-9 hours)</li>
-                  <li>Limit caffeine intake</li>
-                  <li>Stay hydrated</li>
-                </ul>
-              </div>
-              <div>
-                <h5 style={{ color: '#ffc107', margin: '0 0 8px 0', fontSize: '1rem' }}>🤝 Social:</h5>
-                <ul style={{ margin: 0, paddingLeft: '15px', color: '#ccc', fontSize: '0.85rem' }}>
-                  <li>Connect with supportive people</li>
-                  <li>Express feelings appropriately</li>
-                  <li>Set healthy boundaries</li>
-                  <li>Ask for help when needed</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+          {renderCurrentQuestion()}
+        </div>
 
-          {/* Submit Button */}
-          <button 
-            type="submit" 
-            disabled={loading} 
+        {/* Navigation - No Card */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <button
+            onClick={handlePrevious}
+            disabled={currentStep === 0}
             style={{
-              width: '100%',
-              padding: '15px',
-              background: loading 
-                ? 'rgba(255, 255, 255, 0.1)' 
-                : 'linear-gradient(135deg, #17a2b8 0%, #117a8b 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease'
+              background: currentStep === 0 ? '#E5E7EB' : 'transparent',
+              border: '1px solid #E5E7EB',
+              borderRadius: '10px',
+              color: currentStep === 0 ? '#9CA3AF' : '#4B5563',
+              padding: '12px 24px',
+              cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
+              fontSize: '1rem'
             }}
           >
-            {loading ? 'Recording Stress Data...' : 'Record Stress Data'}
+            ← Previous
           </button>
-        </form>
+
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            {!isLastStep && (
+              <button
+                onClick={handleSkip}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '10px',
+                  color: '#9CA3AF',
+                  padding: '12px 24px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Skip
+              </button>
+            )}
+
+            <button
+              onClick={isLastStep ? handleSubmit : handleNext}
+              disabled={loading}
+              style={{
+                background: loading ? '#E5E7EB' : '#4682B4',
+                border: 'none',
+                borderRadius: '10px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600',
+                minWidth: '120px'
+              }}
+            >
+              {loading ? 'Saving...' : isLastStep ? 'Record Stress Data' : 'Next →'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
