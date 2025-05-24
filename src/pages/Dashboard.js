@@ -495,7 +495,6 @@ export default function EnhancedDashboard() {
   const { stats } = dashboardData;
   const avgSleepQualityPercent = currentDayMetrics.sleepQuality * 10;
   const stressLevelPercent = currentDayMetrics.stressLevel * 10;
-  const weeklyProgress = Math.max(0, 100 - (stats.totalHeadaches * 10));
   const sleepHoursPercent = (currentDayMetrics.sleepHours / 8) * 100;
 
   return (
