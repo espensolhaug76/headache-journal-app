@@ -889,28 +889,23 @@ export default function RecordHeadache() {
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        {/* Header with Progress */}
-        <div style={{
-          background: '#FFFFFF',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '30px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-          border: '1px solid #E5E7EB'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        {/* Header with Progress - No Card */}
+        <div style={{ marginBottom: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
             <h1 style={{
               margin: 0,
-              fontSize: '1.8rem',
+              fontSize: '2rem',
               fontWeight: 'bold',
-              color: '#1E3A8A'
+              color: '#1E3A8A',
+              textAlign: 'center',
+              flex: 1
             }}>
-              🤕 Record Headache
+              Record Headache
             </h1>
             <Link
               to="/dashboard"
               style={{
-                background: '#F9FAFB',
+                background: 'transparent',
                 border: '1px solid #E5E7EB',
                 borderRadius: '8px',
                 color: '#4B5563',
@@ -923,13 +918,13 @@ export default function RecordHeadache() {
             </Link>
           </div>
           
-          {/* Progress Bar */}
+          {/* Progress Bar - No Card */}
           <div style={{
             background: '#E5E7EB',
             borderRadius: '10px',
             height: '8px',
             overflow: 'hidden',
-            marginBottom: '10px'
+            marginBottom: '15px'
           }}>
             <div style={{
               background: '#4682B4',
@@ -950,20 +945,12 @@ export default function RecordHeadache() {
           </div>
         </div>
 
-        {/* Question Card */}
-        <div style={{
-          background: '#FFFFFF',
-          borderRadius: '12px',
-          padding: '40px',
-          marginBottom: '30px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-          border: '1px solid #E5E7EB',
-          minHeight: '400px'
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+        {/* Question Content - No Card */}
+        <div style={{ marginBottom: '40px', minHeight: '400px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
             <h2 style={{
-              margin: '0 0 10px 0',
-              fontSize: '1.5rem',
+              margin: '0 0 15px 0',
+              fontSize: '1.8rem',
               fontWeight: 'bold',
               color: '#4682B4'
             }}>
@@ -972,7 +959,7 @@ export default function RecordHeadache() {
             <p style={{
               margin: 0,
               color: '#9CA3AF',
-              fontSize: '1rem'
+              fontSize: '1.1rem'
             }}>
               {currentQuestion.subtitle}
             </p>
@@ -984,7 +971,7 @@ export default function RecordHeadache() {
               border: '1px solid #dc3545',
               borderRadius: '8px',
               padding: '12px',
-              marginBottom: '20px',
+              marginBottom: '30px',
               color: '#721c24',
               textAlign: 'center'
             }}>
@@ -995,7 +982,7 @@ export default function RecordHeadache() {
           {renderCurrentQuestion()}
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - No Card */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -1006,14 +993,13 @@ export default function RecordHeadache() {
             onClick={handlePrevious}
             disabled={currentStep === 0}
             style={{
-              background: currentStep === 0 ? '#E5E7EB' : '#FFFFFF',
+              background: currentStep === 0 ? '#E5E7EB' : 'transparent',
               border: '1px solid #E5E7EB',
               borderRadius: '10px',
               color: currentStep === 0 ? '#9CA3AF' : '#4B5563',
               padding: '12px 24px',
               cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '1rem',
-              boxShadow: currentStep === 0 ? 'none' : '0 2px 4px rgba(0,0,0,0.1)'
+              fontSize: '1rem'
             }}
           >
             ← Previous
@@ -1051,8 +1037,7 @@ export default function RecordHeadache() {
                 cursor: !canProceed() || loading ? 'not-allowed' : 'pointer',
                 fontSize: '1rem',
                 fontWeight: '600',
-                minWidth: '120px',
-                boxShadow: !canProceed() || loading ? 'none' : '0 2px 4px rgba(0,0,0,0.1)'
+                minWidth: '120px'
               }}
             >
               {loading ? 'Saving...' : isLastStep ? 'Record Headache' : 'Next →'}
