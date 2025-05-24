@@ -11,6 +11,7 @@ import RecordNutrition from './pages/RecordNutrition';
 import RecordExercise from './pages/RecordExercise';
 import RecordStress from './pages/RecordStress';
 import RecordBodyPain from './pages/RecordBodyPain';
+import RecordMedication from './pages/RecordMedication';
 import './App.css';
 
 function App() {
@@ -62,6 +63,11 @@ function App() {
                 <PrivateRoute>
                   <RecordBodyPain />
                 </PrivateRoute>
+              } />
+              <Route path="/record-medication" element={
+               <PrivateRoute>
+                <RecordMedication />
+               </PrivateRoute>
               } />
             </Routes>
           </div>
