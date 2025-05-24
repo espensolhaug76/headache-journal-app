@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
@@ -26,11 +26,6 @@ export default function RecordMedication() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [warnings, setWarnings] = useState([]);
-
-  // Check medication warnings when data changes
-  useEffect(() => {
-    checkMedicationWarnings();
-  }, [formData.medicationType, formData.medicationName, formData.takenFor, formData.effectiveness, formData.sideEffects]);
 
   const medicationCategories = {
     'NSAIDs': [
@@ -128,6 +123,39 @@ export default function RecordMedication() {
 
   const dosageUnits = ['mg', 'g', 'mL', 'units', 'tablets', 'capsules', 'sprays', 'patches'];
 
+  // Wrap checkMedicationWarnings with useCallback
+  const checkMedicationWarnings = useCallback(() => {
+    const newWarnings = [];
+    
+    // NSAID overuse warning
+    if (formData.medicationType === 'NSAIDs' && formData.takenFor === 'active-headache') {
+      newWarnings.push('NSAIDs can cause medication overuse headaches if used more than 15 days per month. Track your usage carefully.');
+    }
+    
+    // Triptan overuse warning
+    if (formData.medicationType === 'Triptans' && formData.takenFor === 'active-headache') {
+      newWarnings.push('Triptans can cause medication overuse headaches if used more than 10 days per month. Monitor frequency of use.');
+    }
+    
+    // Combination medication warning
+    if (formData.medicationName.toLowerCase().includes('combination') || 
+        formData.medicationName.toLowerCase().includes('caffeine')) {
+      newWarnings.push('Combination medications with caffeine may increase risk of medication overuse headaches.');
+    }
+    
+    // High effectiveness with side effects
+    if (formData.effectiveness >= 8 && formData.sideEffects.length > 2) {
+      newWarnings.push('Consider discussing side effects with your healthcare provider, even if medication is effective.');
+    }
+    
+    setWarnings(newWarnings);
+  }, [formData.medicationType, formData.medicationName, formData.takenFor, formData.effectiveness, formData.sideEffects]); // Dependencies for useCallback
+
+  // Check medication warnings when data changes
+  useEffect(() => {
+    checkMedicationWarnings();
+  }, [checkMedicationWarnings]); // Add checkMedicationWarnings to the dependency array
+
   const questions = [
     {
       id: 'medication-type',
@@ -204,33 +232,6 @@ export default function RecordMedication() {
         ? prev[field].filter(item => item !== value)
         : [...prev[field], value]
     }));
-  };
-
-  const checkMedicationWarnings = () => {
-    const newWarnings = [];
-    
-    // NSAID overuse warning
-    if (formData.medicationType === 'NSAIDs' && formData.takenFor === 'active-headache') {
-      newWarnings.push('NSAIDs can cause medication overuse headaches if used more than 15 days per month. Track your usage carefully.');
-    }
-    
-    // Triptan overuse warning
-    if (formData.medicationType === 'Triptans' && formData.takenFor === 'active-headache') {
-      newWarnings.push('Triptans can cause medication overuse headaches if used more than 10 days per month. Monitor frequency of use.');
-    }
-    
-    // Combination medication warning
-    if (formData.medicationName.toLowerCase().includes('combination') || 
-        formData.medicationName.toLowerCase().includes('caffeine')) {
-      newWarnings.push('Combination medications with caffeine may increase risk of medication overuse headaches.');
-    }
-    
-    // High effectiveness with side effects
-    if (formData.effectiveness >= 8 && formData.sideEffects.length > 2) {
-      newWarnings.push('Consider discussing side effects with your healthcare provider, even if medication is effective.');
-    }
-    
-    setWarnings(newWarnings);
   };
 
   const getEffectivenessColor = (level) => {
