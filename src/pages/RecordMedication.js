@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
@@ -26,6 +26,11 @@ export default function RecordMedication() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [warnings, setWarnings] = useState([]);
+
+  // Check medication warnings when data changes
+  useEffect(() => {
+    checkMedicationWarnings();
+  }, [formData.medicationType, formData.medicationName, formData.takenFor, formData.effectiveness, formData.sideEffects]);
 
   const medicationCategories = {
     'NSAIDs': [
@@ -981,28 +986,25 @@ export default function RecordMedication() {
             </div>
 
             {/* Medication warnings */}
-            {(() => {
-              checkMedicationWarnings();
-              return warnings.length > 0 && (
-                <div style={{
-                  background: 'rgba(220, 53, 69, 0.1)',
-                  border: '1px solid rgba(220, 53, 69, 0.3)',
-                  borderRadius: '12px',
-                  padding: '1.5rem',
-                  marginBottom: '2rem'
-                }}>
-                  <h4 style={{ color: '#dc3545', margin: '0 0 1rem 0' }}>
-                    <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-                    Important Medication Information
-                  </h4>
-                  <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#721c24', fontSize: '0.9rem' }}>
-                    {warnings.map((warning, idx) => (
-                      <li key={idx} style={{ marginBottom: '0.5rem' }}>{warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })()}
+            {warnings.length > 0 && (
+              <div style={{
+                background: 'rgba(220, 53, 69, 0.1)',
+                border: '1px solid rgba(220, 53, 69, 0.3)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                marginBottom: '2rem'
+              }}>
+                <h4 style={{ color: '#dc3545', margin: '0 0 1rem 0' }}>
+                  <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                  Important Medication Information
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#721c24', fontSize: '0.9rem' }}>
+                  {warnings.map((warning, idx) => (
+                    <li key={idx} style={{ marginBottom: '0.5rem' }}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Medication tracking tips */}
             <div style={{
