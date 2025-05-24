@@ -354,8 +354,6 @@ export default function RecordExercise() {
         );
 
       case 'duration-intensity':
-        const selectedIntensity = intensityLevels.find(level => level.value === formData.intensity);
-        
         return (
           <div>
             <div style={{ marginBottom: '3rem' }}>
