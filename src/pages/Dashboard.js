@@ -618,6 +618,9 @@ export default function EnhancedDashboard() {
                     <ActionButton icon="fas fa-head-side-virus" label="Log Headache" primary={true} to="/record-headache" />
                   </div>
                   <div style={{ minWidth: '140px', flex: 'none' }}>
+                    <ActionButton icon="fas fa-pills" label="Log Medication" to="/record-medication" />
+                  </div>
+                  <div style={{ minWidth: '140px', flex: 'none' }}>
                     <ActionButton icon="fas fa-bed" label="Log Sleep" to="/record-sleep" />
                   </div>
                   <div style={{ minWidth: '140px', flex: 'none' }}>
@@ -1020,7 +1023,25 @@ export default function EnhancedDashboard() {
               gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '1rem'
             }}>
-              <Link to="/record-nutrition" style={{
+              <Link to="/record-medication" style={{
+              background: '#FFFFFF',
+                color: '#000000',
+                textDecoration: 'none',
+                padding: '1.5rem',
+                borderRadius: '12px',
+                border: '1px solid #E5E7EB',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.75rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+}}>
+  <i className="fas fa-pills" style={{ fontSize: '2rem', color: '#6f42c1' }}></i>
+  <span style={{ fontSize: '1rem', fontWeight: '500' }}>Medication</span>
+</Link>
+                <Link to="/record-nutrition" style={{
                 background: '#FFFFFF',
                 color: '#000000',
                 textDecoration: 'none',
