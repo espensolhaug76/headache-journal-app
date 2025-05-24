@@ -26,8 +26,13 @@ import {
 export default function EnhancedDashboard() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const [currentMetricDay, setCurrentMetricDay] = useState(0); // 0 = today, 1 = yesterday, 2 = day before
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const [dashboardData, setDashboardData] = useState({
     sleepStressData: [],
+    dailyMetrics: [], // New: last 3 days metrics
     loading: true,
     error: null,
     stats: {
@@ -83,11 +88,15 @@ export default function EnhancedDashboard() {
         // Process and combine data for the last 7 days
         const processedData = processLast7Days(sleepData, stressData, headacheData);
         
+        // Process daily metrics for last 3 days
+        const dailyMetrics = processDailyMetrics(sleepData, stressData, headacheData);
+        
         // Calculate stats
         const stats = calculateStats(sleepData, stressData, headacheData);
 
         setDashboardData({
           sleepStressData: processedData,
+          dailyMetrics: dailyMetrics,
           loading: false,
           error: null,
           stats
@@ -105,6 +114,41 @@ export default function EnhancedDashboard() {
 
     fetchDashboardData();
   }, [currentUser]);
+
+  // Process daily metrics for last 3 days
+  const processDailyMetrics = (sleepData, stressData, headacheData) => {
+    const days = [];
+    const dayNames = ['Today', 'Yesterday', '2 Days Ago'];
+    
+    for (let i = 0; i < 3; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      // Find data for this date
+      const sleepEntry = sleepData.find(entry => entry.date === dateStr);
+      const stressEntry = stressData.find(entry => entry.date === dateStr);
+      const dayHeadaches = headacheData.filter(entry => {
+        const entryDate = entry.createdAt?.toDate ? 
+          entry.createdAt.toDate().toISOString().split('T')[0] : 
+          entry.date;
+        return entryDate === dateStr;
+      });
+
+      days.push({
+        dayLabel: dayNames[i],
+        date: dateStr,
+        sleepHours: sleepEntry?.hoursSlept || 0,
+        sleepQuality: sleepEntry?.sleepQuality || 0,
+        stressLevel: stressEntry?.stressLevel || 0,
+        headacheCount: dayHeadaches.length,
+        avgPainLevel: dayHeadaches.length > 0 ? 
+          dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / dayHeadaches.length : 0
+      });
+    }
+    
+    return days;
+  };
 
   // Process last 7 days of data
   const processLast7Days = (sleepData, stressData, headacheData) => {
@@ -185,8 +229,34 @@ export default function EnhancedDashboard() {
     };
   };
 
-  // Circular Progress Component - Light Mode Version
-  const CircularProgress = ({ percentage, size = 100, strokeWidth = 6, color = '#4682B4', label, value, unit = '', showPercentage = false }) => {
+  // Touch handlers for metric swiping
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && currentMetricDay < 2) {
+      setCurrentMetricDay(currentMetricDay + 1);
+    } else if (isRightSwipe && currentMetricDay > 0) {
+      setCurrentMetricDay(currentMetricDay - 1);
+    }
+  };
+
+  // Circular Progress Component - Bigger Size
+  const CircularProgress = ({ percentage, size = 120, strokeWidth = 8, color = '#4682B4', label, value, unit = '', showPercentage = false }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const offset = circumference - (percentage / 100) * circumference;
@@ -223,16 +293,16 @@ export default function EnhancedDashboard() {
           textAlign: 'center',
           color: '#000000'
         }}>
-          <div style={{ fontSize: '1.4rem', fontWeight: '700', lineHeight: '1', color: color }}>
+          <div style={{ fontSize: '1.6rem', fontWeight: '700', lineHeight: '1', color: color }}>
             {showPercentage ? `${Math.round(percentage)}%` : `${value}${unit}`}
           </div>
-          <div style={{ fontSize: '0.7rem', color: '#4B5563', marginTop: '4px', fontWeight: '500' }}>{label}</div>
+          <div style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '4px', fontWeight: '500' }}>{label}</div>
         </div>
       </div>
     );
   };
 
-  // Action Button Component - Light Mode
+  // Action Button Component - Compact
   const ActionButton = ({ icon, label, primary = false, onClick, to }) => {
     const buttonStyle = {
       background: primary 
@@ -241,101 +311,79 @@ export default function EnhancedDashboard() {
       border: primary ? 'none' : '1px solid #E5E7EB',
       borderRadius: '12px',
       color: primary ? 'white' : '#000000',
-      padding: '1rem 1.25rem',
+      padding: '1rem',
       cursor: 'pointer',
-      fontSize: '0.95rem',
+      fontSize: '0.9rem',
       fontWeight: primary ? '600' : '500',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
-      gap: '0.75rem',
+      gap: '0.5rem',
       transition: 'all 0.2s ease',
-      minHeight: '56px',
       textDecoration: 'none',
-      justifyContent: 'center',
-      boxShadow: primary ? '0 2px 8px rgba(70, 130, 180, 0.2)' : '0 1px 3px rgba(0,0,0,0.1)'
+      boxShadow: primary ? '0 2px 8px rgba(70, 130, 180, 0.2)' : '0 1px 3px rgba(0,0,0,0.1)',
+      minWidth: '100px',
+      flex: 1
     };
 
     const content = (
       <>
-        <span style={{ fontSize: '1.3rem', color: primary ? 'white' : '#4682B4' }}>{icon}</span>
-        <span>{label}</span>
+        <i className={icon} style={{ fontSize: '1.5rem', color: primary ? 'white' : '#4682B4' }}></i>
+        <span style={{ fontSize: '0.85rem', textAlign: 'center' }}>{label}</span>
       </>
     );
 
-    const handleHover = (e, isEnter) => {
-      if (isEnter) {
-        e.target.style.transform = 'translateY(-2px)';
-        e.target.style.boxShadow = primary 
-          ? '0 4px 16px rgba(70, 130, 180, 0.3)' 
-          : '0 4px 12px rgba(0,0,0,0.15)';
-      } else {
-        e.target.style.transform = 'translateY(0)';
-        e.target.style.boxShadow = primary 
-          ? '0 2px 8px rgba(70, 130, 180, 0.2)' 
-          : '0 1px 3px rgba(0,0,0,0.1)';
-      }
-    };
-
     if (to) {
       return (
-        <Link
-          to={to}
-          style={buttonStyle}
-          onMouseEnter={(e) => handleHover(e, true)}
-          onMouseLeave={(e) => handleHover(e, false)}
-        >
+        <Link to={to} style={buttonStyle}>
           {content}
         </Link>
       );
     }
 
     return (
-      <button
-        onClick={onClick}
-        style={buttonStyle}
-        onMouseEnter={(e) => handleHover(e, true)}
-        onMouseLeave={(e) => handleHover(e, false)}
-      >
+      <button onClick={onClick} style={buttonStyle}>
         {content}
       </button>
     );
   };
 
-  // Stats Display Component - Light Mode
+  // Stats Display Component - Wider Cards
   const StatsDisplay = ({ title, icon, children, color = '#4682B4' }) => (
     <div style={{
       background: '#FFFFFF',
       border: '1px solid #E5E7EB',
       borderRadius: '16px',
-      padding: '1.5rem',
+      padding: '2rem 1.5rem',
       textAlign: 'center',
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-      transition: 'all 0.2s ease'
+      transition: 'all 0.2s ease',
+      minHeight: '200px'
     }}>
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center', 
         gap: '0.5rem', 
-        marginBottom: '1rem'
+        marginBottom: '1.5rem'
       }}>
-        <span style={{ fontSize: '1.1rem', color: color }}>{icon}</span>
+        <i className={icon} style={{ fontSize: '1.2rem', color: color }}></i>
         <h3 style={{ 
           margin: 0, 
-          fontSize: '0.9rem', 
+          fontSize: '1rem', 
           fontWeight: '600', 
           color: '#4B5563'
         }}>
           {title}
         </h3>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
         {children}
       </div>
     </div>
   );
 
-  // Custom Tooltip for Chart - Light Mode
+  // Custom Tooltip for Chart
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0]?.payload;
@@ -382,6 +430,7 @@ export default function EnhancedDashboard() {
               border: '1px solid rgba(70, 130, 180, 0.1)'
             }}>
               <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '0.8rem', color: '#4682B4' }}>
+                <i className="fas fa-head-side-virus" style={{ marginRight: '0.3rem' }}></i>
                 Headache Details:
               </div>
               {Object.entries(data.headachesByIntensity).map(([intensity, count]) => (
@@ -418,20 +467,36 @@ export default function EnhancedDashboard() {
         fontSize: '1.2rem',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
       }}>
+        <link 
+          rel="stylesheet" 
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
+        />
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#4682B4' }}>⚡</div>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#4682B4' }}>
+            <i className="fas fa-spinner fa-spin"></i>
+          </div>
           <div>Loading your health data...</div>
         </div>
       </div>
     );
   }
 
-  // Calculate metrics for progress displays
+  // Calculate metrics for current day
+  const currentDayMetrics = dashboardData.dailyMetrics[currentMetricDay] || {
+    sleepHours: 0,
+    sleepQuality: 0,
+    stressLevel: 0,
+    headacheCount: 0
+  };
+
   const { stats } = dashboardData;
-  const avgSleepQualityPercent = stats.avgSleepQuality * 10;
-  const avgStressPercent = 100 - (stats.avgStressLevel * 10); // Invert for "control"
+  const avgSleepQualityPercent = currentDayMetrics.sleepQuality * 10;
+  const stressLevelPercent = currentDayMetrics.stressLevel * 10;
   const weeklyProgress = Math.max(0, 100 - (stats.totalHeadaches * 10));
-  const sleepHoursPercent = (stats.avgSleepHours / 8) * 100;
+  const sleepHoursPercent = (currentDayMetrics.sleepHours / 8) * 100;
 
   return (
     <div style={{
@@ -440,51 +505,42 @@ export default function EnhancedDashboard() {
       color: '#000000',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
-      {/* Header - No Card */}
+      {/* Font Awesome CSS */}
+      <link 
+        rel="stylesheet" 
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+        crossOrigin="anonymous" 
+        referrerPolicy="no-referrer" 
+      />
+
+      {/* Header */}
       <div style={{
-        padding: '2rem 2rem 1rem 2rem',
+        padding: '2rem 1rem 1rem 1rem',
         background: '#F9FAFB'
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <div>
-              <h1 style={{ 
-                margin: 0, 
-                fontSize: '2rem', 
-                fontWeight: '700',
-                color: '#1E3A8A',
-                textAlign: 'center'
-              }}>
-                Health Dashboard
-              </h1>
-              <p style={{ 
-                color: '#4B5563', 
-                margin: '0.5rem 0 0 0', 
-                fontSize: '1rem',
-                textAlign: 'center'
-              }}>
-                Welcome back, {currentUser?.email?.split('@')[0]}! Here are your 7-day health insights
-              </p>
-            </div>
-            <button 
-              onClick={handleLogout}
-              style={{
-                background: 'transparent',
-                border: '1px solid #E5E7EB',
-                borderRadius: '8px',
-                color: '#4B5563',
-                padding: '0.75rem 1.5rem',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: '500'
-              }}>
-              Log Out
-            </button>
-          </div>
+          <h1 style={{ 
+            margin: 0, 
+            fontSize: '2rem', 
+            fontWeight: '700',
+            color: '#1E3A8A',
+            textAlign: 'center'
+          }}>
+            Health Dashboard
+          </h1>
+          <p style={{ 
+            color: '#4B5563', 
+            margin: '0.5rem 0', 
+            fontSize: '1rem',
+            textAlign: 'center'
+          }}>
+            Welcome back, {currentUser?.email?.split('@')[0]}!
+          </p>
         </div>
       </div>
 
-      <div style={{ padding: '0 2rem 2rem 2rem' }}>
+      <div style={{ padding: '0 1rem 2rem 1rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           {dashboardData.error && (
             <div style={{
@@ -500,172 +556,329 @@ export default function EnhancedDashboard() {
             </div>
           )}
 
-          {/* Quick Actions - No Cards */}
+          {/* Quick Actions Toggle */}
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <button
+              onClick={() => setShowQuickActions(!showQuickActions)}
+              style={{
+                background: showQuickActions ? '#4682B4' : '#FFFFFF',
+                border: '1px solid #E5E7EB',
+                borderRadius: '12px',
+                color: showQuickActions ? 'white' : '#4682B4',
+                padding: '1rem 2rem',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                margin: '0 auto',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <i className="fas fa-plus"></i>
+              <span>Quick Actions</span>
+              <i className={`fas fa-chevron-${showQuickActions ? 'up' : 'down'}`} style={{ fontSize: '0.8rem', marginLeft: '0.5rem' }}></i>
+            </button>
+
+            {/* Collapsible Quick Actions */}
+            {showQuickActions && (
+              <div style={{
+                marginTop: '1rem',
+                padding: '1.5rem',
+                background: '#FFFFFF',
+                border: '1px solid #E5E7EB',
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+              }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '1rem'
+                }}>
+                  <ActionButton icon="fas fa-head-side-virus" label="Log Headache" primary={true} to="/record-headache" />
+                  <ActionButton icon="fas fa-bed" label="Log Sleep" to="/record-sleep" />
+                  <ActionButton icon="fas fa-brain" label="Log Stress" to="/record-stress" />
+                  <ActionButton icon="fas fa-running" label="Log Exercise" to="/record-exercise" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Daily Health Metrics with Swipe */}
           <div style={{ marginBottom: '3rem' }}>
-            <h2 style={{ 
-              margin: '0 0 1.5rem 0', 
-              fontSize: '1.3rem', 
-              fontWeight: '600', 
-              color: '#4682B4',
-              textAlign: 'center'
-            }}>
-              Quick Actions
-            </h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '1rem'
-            }}>
-              <ActionButton icon="🤕" label="Log Headache" primary={true} to="/record-headache" />
-              <ActionButton icon="😴" label="Log Sleep" to="/record-sleep" />
-              <ActionButton icon="🧠" label="Log Stress" to="/record-stress" />
-              <ActionButton icon="🏃" label="Log Exercise" to="/record-exercise" />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+              <button
+                onClick={() => setCurrentMetricDay(Math.max(0, currentMetricDay - 1))}
+                disabled={currentMetricDay === 0}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: currentMetricDay === 0 ? '#9CA3AF' : '#4682B4',
+                  cursor: currentMetricDay === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '1.5rem'
+                }}
+              >
+                <i className="fas fa-chevron-left"></i>
+              </button>
+              
+              <h2 style={{ 
+                margin: 0, 
+                fontSize: '1.3rem', 
+                fontWeight: '600', 
+                color: '#4682B4',
+                textAlign: 'center',
+                minWidth: '150px'
+              }}>
+                {dashboardData.dailyMetrics[currentMetricDay]?.dayLabel || 'Today'} Metrics
+              </h2>
+              
+              <button
+                onClick={() => setCurrentMetricDay(Math.min(2, currentMetricDay + 1))}
+                disabled={currentMetricDay === 2}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: currentMetricDay === 2 ? '#9CA3AF' : '#4682B4',
+                  cursor: currentMetricDay === 2 ? 'not-allowed' : 'pointer',
+                  fontSize: '1.5rem'
+                }}
+              >
+                <i className="fas fa-chevron-right"></i>
+              </button>
+            </div>
+
+            {/* Swipeable Health Metrics */}
+            <div 
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '1.5rem'
+              }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
+              <StatsDisplay
+                title="Sleep Quality"
+                icon="fas fa-moon"
+                color="#20c997"
+              >
+                <CircularProgress
+                  percentage={avgSleepQualityPercent}
+                  color="#20c997"
+                  label="Quality Rating"
+                  value=""
+                  showPercentage={true}
+                  size={120}
+                  strokeWidth={8}
+                />
+              </StatsDisplay>
+
+              <StatsDisplay
+                title="Sleep Hours"
+                icon="fas fa-bed"
+                color="#28a745"
+              >
+                <CircularProgress
+                  percentage={sleepHoursPercent}
+                  color="#28a745"
+                  label="Hours Slept"
+                  value={currentDayMetrics.sleepHours}
+                  unit="h"
+                  size={120}
+                  strokeWidth={8}
+                />
+              </StatsDisplay>
+
+              <StatsDisplay
+                title="Stress Level"
+                icon="fas fa-brain"
+                color="#dc3545"
+              >
+                <CircularProgress
+                  percentage={stressLevelPercent}
+                  color="#dc3545"
+                  label="Stress Level"
+                  value={currentDayMetrics.stressLevel}
+                  unit="/10"
+                  size={120}
+                  strokeWidth={8}
+                />
+              </StatsDisplay>
+
+              <StatsDisplay
+                title="Headaches"
+                icon="fas fa-head-side-virus"
+                color="#4682B4"
+              >
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: '3rem',
+                    fontWeight: 'bold',
+                    color: currentDayMetrics.headacheCount > 0 ? '#dc3545' : '#28a745',
+                    marginBottom: '0.5rem'
+                  }}>
+                    {currentDayMetrics.headacheCount}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#4B5563', fontWeight: '500' }}>
+                    {currentDayMetrics.headacheCount === 0 ? 'None Today' : 
+                     currentDayMetrics.headacheCount === 1 ? 'Headache' : 'Headaches'}
+                  </div>
+                  {currentDayMetrics.avgPainLevel > 0 && (
+                    <div style={{ fontSize: '0.8rem', color: '#dc3545', marginTop: '0.25rem' }}>
+                      Avg: {Math.round(currentDayMetrics.avgPainLevel)}/10
+                    </div>
+                  )}
+                </div>
+              </StatsDisplay>
+            </div>
+            
+            {/* Swipe Indicator */}
+            <div style={{ textAlign: 'center', marginTop: '1rem', color: '#9CA3AF', fontSize: '0.85rem' }}>
+              <i className="fas fa-hand-point-left" style={{ marginRight: '0.5rem' }}></i>
+              Swipe or use arrows to see previous days
+              <i className="fas fa-hand-point-right" style={{ marginLeft: '0.5rem' }}></i>
             </div>
           </div>
 
-          {/* Main Chart - No Card */}
+          {/* Main Chart - Mobile Optimized Width */}
           <div style={{
             background: '#FFFFFF',
             border: '1px solid #E5E7EB',
             borderRadius: '16px',
-            padding: '2rem',
+            padding: '1rem',
             marginBottom: '3rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <div>
-                <h3 style={{ 
-                  margin: 0, 
-                  fontSize: '1.4rem', 
-                  fontWeight: '600',
-                  color: '#1E3A8A',
-                  textAlign: 'center'
-                }}>
-                  Weekly Health Overview
-                </h3>
-                <p style={{ 
-                  color: '#4B5563', 
-                  fontSize: '0.9rem', 
-                  margin: '0.5rem 0 0 0',
-                  textAlign: 'center'
-                }}>
-                  Sleep, stress & headache correlation • Orange bars show pain intensity
-                </p>
-              </div>
-              <div style={{ 
-                background: 'rgba(70, 130, 180, 0.1)', 
-                padding: '0.5rem 1rem', 
-                borderRadius: '20px',
-                border: '1px solid rgba(70, 130, 180, 0.2)',
-                fontSize: '0.8rem',
-                color: '#4682B4',
-                fontWeight: '500'
+            <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+              <h3 style={{ 
+                margin: '0 0 0.5rem 0', 
+                fontSize: '1.4rem', 
+                fontWeight: '600',
+                color: '#1E3A8A'
               }}>
-                📊 Past 7 Days
-              </div>
+                Weekly Health Overview
+              </h3>
+              <p style={{ 
+                color: '#4B5563', 
+                fontSize: '0.9rem', 
+                margin: 0
+              }}>
+                Sleep, stress & headache correlation
+              </p>
             </div>
             
             {dashboardData.sleepStressData.some(d => d.hasData) ? (
-              <ResponsiveContainer width="100%" height={350}>
-                <ComposedChart data={dashboardData.sleepStressData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="painGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4682B4" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#4682B4" stopOpacity={0.3}/>
-                    </linearGradient>
-                    <linearGradient id="sleepGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#20c997" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#20c997" stopOpacity={0.3}/>
-                    </linearGradient>
-                  </defs>
-                  
-                  <CartesianGrid strokeDasharray="2 2" stroke="rgba(75, 85, 99, 0.2)" />
-                  <XAxis 
-                    dataKey="day" 
-                    stroke="#4B5563"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    yAxisId="hours" 
-                    orientation="left" 
-                    domain={[0, 12]} 
-                    stroke="#4B5563"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    yAxisId="scale" 
-                    orientation="right" 
-                    domain={[0, 100]} 
-                    stroke="#4B5563"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: '20px', color: '#4B5563' }}
-                    iconType="circle"
-                  />
-                  
-                  {/* Pain Percentage Bars */}
-                  <Bar 
-                    yAxisId="scale"
-                    dataKey="painPercentage" 
-                    fill="url(#painGradient)"
-                    name="Pain Level (%)"
-                    radius={[2, 2, 0, 0]}
-                    maxBarSize={40}
-                  />
-                  
-                  {/* Sleep Hours Bars */}
-                  <Bar 
-                    yAxisId="hours"
-                    dataKey="sleepHours" 
-                    fill="url(#sleepGradient)"
-                    name="Sleep Hours"
-                    radius={[2, 2, 0, 0]}
-                    maxBarSize={25}
-                    opacity={0.7}
-                  />
-                  
-                  {/* Sleep Quality Line */}
-                  <Line 
-                    yAxisId="scale"
-                    type="monotone" 
-                    dataKey="sleepQualityPercent" 
-                    stroke="#28a745" 
-                    strokeWidth={3}
-                    name="Sleep Quality (%)"
-                    dot={{ fill: '#28a745', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, stroke: '#28a745', strokeWidth: 2 }}
-                  />
-                  
-                  {/* Stress Level Line */}
-                  <Line 
-                    yAxisId="scale"
-                    type="monotone" 
-                    dataKey="stressPercent" 
-                    stroke="#dc3545" 
-                    strokeWidth={3}
-                    name="Stress Level (%)"
-                    dot={{ fill: '#dc3545', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, stroke: '#dc3545', strokeWidth: 2 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <div style={{ width: '100%', height: '400px', minWidth: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart 
+                    data={dashboardData.sleepStressData} 
+                    margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
+                  >
+                    <defs>
+                      <linearGradient id="painGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4682B4" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#4682B4" stopOpacity={0.3}/>
+                      </linearGradient>
+                      <linearGradient id="sleepGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#20c997" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#20c997" stopOpacity={0.3}/>
+                      </linearGradient>
+                    </defs>
+                    
+                    <CartesianGrid strokeDasharray="2 2" stroke="rgba(75, 85, 99, 0.2)" />
+                    <XAxis 
+                      dataKey="day" 
+                      stroke="#4B5563"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      yAxisId="hours" 
+                      orientation="left" 
+                      domain={[0, 12]} 
+                      stroke="#4B5563"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      width={30}
+                    />
+                    <YAxis 
+                      yAxisId="scale" 
+                      orientation="right" 
+                      domain={[0, 100]} 
+                      stroke="#4B5563"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      width={30}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '15px', color: '#4B5563', fontSize: '12px' }}
+                      iconType="circle"
+                    />
+                    
+                    {/* Pain Percentage Bars */}
+                    <Bar 
+                      yAxisId="scale"
+                      dataKey="painPercentage" 
+                      fill="url(#painGradient)"
+                      name="Pain %"
+                      radius={[2, 2, 0, 0]}
+                      maxBarSize={30}
+                    />
+                    
+                    {/* Sleep Hours Bars */}
+                    <Bar 
+                      yAxisId="hours"
+                      dataKey="sleepHours" 
+                      fill="url(#sleepGradient)"
+                      name="Sleep hrs"
+                      radius={[2, 2, 0, 0]}
+                      maxBarSize={20}
+                      opacity={0.7}
+                    />
+                    
+                    {/* Sleep Quality Line */}
+                    <Line 
+                      yAxisId="scale"
+                      type="monotone" 
+                      dataKey="sleepQualityPercent" 
+                      stroke="#28a745" 
+                      strokeWidth={2}
+                      name="Sleep Quality %"
+                      dot={{ fill: '#28a745', strokeWidth: 2, r: 3 }}
+                      activeDot={{ r: 5, stroke: '#28a745', strokeWidth: 2 }}
+                    />
+                    
+                    {/* Stress Level Line */}
+                    <Line 
+                      yAxisId="scale"
+                      type="monotone" 
+                      dataKey="stressPercent" 
+                      stroke="#dc3545" 
+                      strokeWidth={2}
+                      name="Stress %"
+                      dot={{ fill: '#dc3545', strokeWidth: 2, r: 3 }}
+                      activeDot={{ r: 5, stroke: '#dc3545', strokeWidth: 2 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div style={{
                 textAlign: 'center',
-                padding: '3rem',
+                padding: '3rem 1rem',
                 color: '#9CA3AF',
                 fontSize: '1.1rem'
               }}>
                 <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>
-                  📊
+                  <i className="fas fa-chart-area"></i>
                 </div>
                 <p style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '500' }}>No data available yet</p>
                 <p style={{ fontSize: '1rem', margin: '0', lineHeight: '1.5' }}>
@@ -675,110 +888,7 @@ export default function EnhancedDashboard() {
             )}
           </div>
 
-          {/* Health Metrics - No Cards */}
-          <div style={{ marginBottom: '3rem' }}>
-            <h2 style={{ 
-              margin: '0 0 1.5rem 0', 
-              fontSize: '1.3rem', 
-              fontWeight: '600', 
-              color: '#4682B4',
-              textAlign: 'center'
-            }}>
-              Health Metrics
-            </h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '1.5rem'
-            }}>
-              <StatsDisplay
-                title="Sleep Quality"
-                icon="🌙"
-                color="#20c997"
-              >
-                <CircularProgress
-                  percentage={avgSleepQualityPercent}
-                  color="#20c997"
-                  label="Average Quality"
-                  value=""
-                  showPercentage={true}
-                  size={90}
-                  strokeWidth={6}
-                />
-              </StatsDisplay>
-
-              <StatsDisplay
-                title="Sleep Hours"
-                icon="😴"
-                color="#28a745"
-              >
-                <CircularProgress
-                  percentage={sleepHoursPercent}
-                  color="#28a745"
-                  label="Avg Hours"
-                  value={stats.avgSleepHours}
-                  unit="h"
-                  size={90}
-                  strokeWidth={6}
-                />
-              </StatsDisplay>
-
-              <StatsDisplay
-                title="Stress Control"
-                icon="🧘"
-                color="#17a2b8"
-              >
-                <CircularProgress
-                  percentage={avgStressPercent}
-                  color="#17a2b8"
-                  label="Control Level"
-                  value=""
-                  showPercentage={true}
-                  size={90}
-                  strokeWidth={6}
-                />
-              </StatsDisplay>
-
-              <StatsDisplay
-                title="Weekly Score"
-                icon="🏆"
-                color="#4682B4"
-              >
-                <CircularProgress
-                  percentage={weeklyProgress}
-                  color="#4682B4"
-                  label="Health Score"
-                  value=""
-                  showPercentage={true}
-                  size={90}
-                  strokeWidth={6}
-                />
-              </StatsDisplay>
-            </div>
-            
-            {/* Stats Summary */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '1rem',
-              marginTop: '1rem'
-            }}>
-              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                <div style={{ fontSize: '0.8rem', color: '#4B5563', marginBottom: '0.25rem' }}>Target: 80%+ • {stats.avgSleepQuality}/10</div>
-              </div>
-              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                <div style={{ fontSize: '0.8rem', color: '#4B5563', marginBottom: '0.25rem' }}>Target: 7-9h</div>
-              </div>
-              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                <div style={{ fontSize: '0.8rem', color: '#4B5563', marginBottom: '0.25rem' }}>Avg: {stats.avgStressLevel}/10</div>
-              </div>
-              <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                <div style={{ fontSize: '0.8rem', color: '#4B5563', marginBottom: '0.25rem' }}>{stats.totalHeadaches} headaches</div>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Insights - No Card */}
+          {/* AI Insights */}
           <div style={{
             background: '#FFFFFF',
             border: '1px solid #E5E7EB',
@@ -797,12 +907,14 @@ export default function EnhancedDashboard() {
               color: '#1E3A8A',
               textAlign: 'center'
             }}>
-              💡 AI Health Insights
+              <i className="fas fa-lightbulb"></i> AI Health Insights
             </h3>
             <div style={{ lineHeight: '1.7', fontSize: '1rem', color: '#4B5563' }}>
               {stats.totalHeadaches === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', marginBottom: '1rem', padding: '1rem', background: 'rgba(40, 167, 69, 0.1)', borderRadius: '12px', border: '1px solid rgba(40, 167, 69, 0.2)' }}>
-                  <div style={{ fontSize: '1.5rem', color: '#28a745' }}>🏆</div>
+                  <div style={{ fontSize: '1.5rem', color: '#28a745' }}>
+                    <i className="fas fa-trophy"></i>
+                  </div>
                   <span style={{ color: '#155724' }}>
                     <strong>Excellent week!</strong> No headaches recorded. Keep up the good work with your healthy habits!
                   </span>
@@ -810,7 +922,9 @@ export default function EnhancedDashboard() {
               ) : (
                 <>
                   <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', marginBottom: '1rem', padding: '1rem', background: 'rgba(70, 130, 180, 0.1)', borderRadius: '12px', border: '1px solid rgba(70, 130, 180, 0.2)' }}>
-                    <div style={{ fontSize: '1.5rem', color: '#4682B4' }}>📊</div>
+                    <div style={{ fontSize: '1.5rem', color: '#4682B4' }}>
+                      <i className="fas fa-chart-bar"></i>
+                    </div>
                     <span style={{ color: '#2c5aa0' }}>
                       You've had <strong>{stats.totalHeadaches} headache{stats.totalHeadaches > 1 ? 's' : ''}</strong> this week. 
                       {stats.avgSleepQuality < 6 && ' Poor sleep quality may be contributing to headaches.'}
@@ -819,7 +933,9 @@ export default function EnhancedDashboard() {
                   </div>
                   {stats.avgSleepHours < 7 && (
                     <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', marginBottom: '1rem', padding: '1rem', background: 'rgba(255, 193, 7, 0.1)', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.2)' }}>
-                      <div style={{ fontSize: '1.5rem', color: '#ffc107' }}>😴</div>
+                      <div style={{ fontSize: '1.5rem', color: '#ffc107' }}>
+                        <i className="fas fa-bed"></i>
+                      </div>
                       <span style={{ color: '#856404' }}>
                         <strong>Sleep recommendation:</strong> You're averaging {stats.avgSleepHours} hours. Aim for 7-9 hours for optimal health.
                       </span>
@@ -827,7 +943,9 @@ export default function EnhancedDashboard() {
                   )}
                   {stats.avgStressLevel > 6 && (
                     <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', marginBottom: '1rem', padding: '1rem', background: 'rgba(23, 162, 184, 0.1)', borderRadius: '12px', border: '1px solid rgba(23, 162, 184, 0.2)' }}>
-                      <div style={{ fontSize: '1.5rem', color: '#17a2b8' }}>🧘</div>
+                      <div style={{ fontSize: '1.5rem', color: '#17a2b8' }}>
+                        <i className="fas fa-brain"></i>
+                      </div>
                       <span style={{ color: '#0c5460' }}>
                         <strong>Stress management:</strong> Your stress levels are elevated (avg: {stats.avgStressLevel}/10). Try stress reduction techniques like meditation or exercise.
                       </span>
@@ -837,7 +955,9 @@ export default function EnhancedDashboard() {
               )}
               
               <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', padding: '1rem', background: 'rgba(255, 193, 7, 0.1)', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.2)' }}>
-                <div style={{ fontSize: '1.5rem', color: '#ffc107' }}>⭐</div>
+                <div style={{ fontSize: '1.5rem', color: '#ffc107' }}>
+                  <i className="fas fa-star"></i>
+                </div>
                 <span style={{ color: '#856404' }}>
                   {stats.avgSleepQuality >= 7 && stats.avgStressLevel <= 5 
                     ? 'Your sleep and stress management are excellent! This creates ideal conditions for headache prevention.'
@@ -847,8 +967,8 @@ export default function EnhancedDashboard() {
             </div>
           </div>
 
-          {/* Additional Tracking Links - No Cards */}
-          <div>
+          {/* Additional Tracking Links */}
+          <div style={{ marginBottom: '4rem' }}>
             <h3 style={{ 
               margin: '0 0 1.5rem 0', 
               fontSize: '1.2rem', 
@@ -856,18 +976,19 @@ export default function EnhancedDashboard() {
               color: '#4682B4',
               textAlign: 'center'
             }}>
+              <i className="fas fa-clipboard-list" style={{ marginRight: '0.5rem' }}></i>
               Record More Data
             </h3>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '1rem'
             }}>
               <Link to="/record-nutrition" style={{
                 background: '#FFFFFF',
                 color: '#000000',
                 textDecoration: 'none',
-                padding: '1.25rem',
+                padding: '1.5rem',
                 borderRadius: '12px',
                 border: '1px solid #E5E7EB',
                 textAlign: 'center',
@@ -878,15 +999,15 @@ export default function EnhancedDashboard() {
                 gap: '0.75rem',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
               }}>
-                <div style={{ fontSize: '2rem' }}>🍎</div>
-                <span style={{ fontSize: '1rem', fontWeight: '500', color: '#28a745' }}>Nutrition</span>
+                <i className="fas fa-apple-alt" style={{ fontSize: '2rem', color: '#28a745' }}></i>
+                <span style={{ fontSize: '1rem', fontWeight: '500' }}>Nutrition</span>
               </Link>
               
               <Link to="/record-body-pain" style={{
                 background: '#FFFFFF',
                 color: '#000000',
                 textDecoration: 'none',
-                padding: '1.25rem',
+                padding: '1.5rem',
                 borderRadius: '12px',
                 border: '1px solid #E5E7EB',
                 textAlign: 'center',
@@ -897,10 +1018,33 @@ export default function EnhancedDashboard() {
                 gap: '0.75rem',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
               }}>
-                <div style={{ fontSize: '2rem' }}>🦴</div>
-                <span style={{ fontSize: '1rem', fontWeight: '500', color: '#dc3545' }}>Body Pain</span>
+                <i className="fas fa-user-injured" style={{ fontSize: '2rem', color: '#dc3545' }}></i>
+                <span style={{ fontSize: '1rem', fontWeight: '500' }}>Body Pain</span>
               </Link>
             </div>
+          </div>
+
+          {/* Logout Button at Bottom */}
+          <div style={{ textAlign: 'center', paddingBottom: '2rem' }}>
+            <button 
+              onClick={handleLogout}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '1rem 2rem',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                margin: '0 auto'
+              }}>
+              <i className="fas fa-sign-out-alt"></i>
+              Log Out
+            </button>
           </div>
         </div>
       </div>
