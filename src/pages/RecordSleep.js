@@ -5,13 +5,9 @@ import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export default function RecordSleep() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-
-  // Form state
+  const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     bedTime: '',
@@ -21,8 +17,12 @@ export default function RecordSleep() {
     sleepProblems: [],
     screenTimeMobile: 0,
     screenTimeComputer: 0,
+    sleepEvents: [], // For future audio tracking
+    sleepTrackerUsed: false, // For future automatic tracking
     notes: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const sleepProblems = [
     'Difficulty falling asleep',
@@ -39,21 +39,75 @@ export default function RecordSleep() {
     'Physical discomfort'
   ];
 
-  const handleInputChange = (e) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value
-    }));
+  const questions = [
+    {
+      id: 'sleep-times',
+      title: 'When did you sleep?',
+      subtitle: 'Enter your bedtime and wake time',
+      component: 'sleep-times'
+    },
+    {
+      id: 'sleep-quality',
+      title: 'How was your sleep quality?',
+      subtitle: 'Rate your overall sleep experience',
+      component: 'sleep-quality'
+    },
+    {
+      id: 'sleep-disruptions',
+      title: 'Any sleep disruptions?',
+      subtitle: 'Tell us about interruptions to your sleep',
+      component: 'sleep-disruptions'
+    },
+    {
+      id: 'sleep-problems',
+      title: 'What sleep problems did you experience?',
+      subtitle: 'Select any issues that affected your sleep',
+      component: 'sleep-problems'
+    },
+    {
+      id: 'screen-time',
+      title: 'How much screen time before bed?',
+      subtitle: 'Screen exposure can affect sleep quality',
+      component: 'screen-time'
+    },
+    {
+      id: 'sleep-tracking',
+      title: 'Sleep tracking options',
+      subtitle: 'Future: Automatic sleep monitoring setup',
+      component: 'sleep-tracking'
+    },
+    {
+      id: 'notes',
+      title: 'Additional sleep notes',
+      subtitle: 'Any other details about your sleep',
+      component: 'notes'
+    }
+  ];
+
+  const handleNext = () => {
+    if (currentStep < questions.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
-  const handleCheckboxChange = (e) => {
-    const { value, checked } = e.target;
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSkip = () => {
+    if (currentStep < questions.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleCheckboxChange = (value, field) => {
     setFormData(prev => ({
       ...prev,
-      sleepProblems: checked 
-        ? [...prev.sleepProblems, value]
-        : prev.sleepProblems.filter(item => item !== value)
+      [field]: prev[field].includes(value)
+        ? prev[field].filter(item => item !== value)
+        : [...prev[field], value]
     }));
   };
 
@@ -88,9 +142,7 @@ export default function RecordSleep() {
     return '#20c997';
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const handleSubmit = async () => {
     if (!currentUser) {
       setError('You must be logged in to record sleep data');
       return;
@@ -107,7 +159,6 @@ export default function RecordSleep() {
     try {
       const hoursSlept = calculateSleepHours();
       
-      // Create sleep record
       const sleepData = {
         userId: currentUser.uid,
         date: formData.date,
@@ -121,32 +172,14 @@ export default function RecordSleep() {
           mobile: formData.screenTimeMobile,
           computer: formData.screenTimeComputer
         },
+        sleepEvents: formData.sleepEvents, // For future audio tracking
+        sleepTrackerUsed: formData.sleepTrackerUsed,
         notes: formData.notes,
         createdAt: Timestamp.now()
       };
 
-      // Save to user's sleep subcollection
       await addDoc(collection(db, 'users', currentUser.uid, 'sleep'), sleepData);
-      
-      setSuccess(`Sleep data recorded successfully! You slept ${hoursSlept} hours with quality ${formData.sleepQuality}/10.`);
-      
-      // Reset form
-      setFormData({
-        date: new Date().toISOString().split('T')[0],
-        bedTime: '',
-        wakeTime: '',
-        sleepQuality: 7,
-        awakeDuringNight: '',
-        sleepProblems: [],
-        screenTimeMobile: 0,
-        screenTimeComputer: 0,
-        notes: ''
-      });
-
-      // Redirect to dashboard after 2 seconds
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+      navigate('/dashboard');
 
     } catch (error) {
       console.error('Error recording sleep:', error);
@@ -156,242 +189,134 @@ export default function RecordSleep() {
     setLoading(false);
   };
 
-  const sleepHours = calculateSleepHours();
+  const renderCurrentQuestion = () => {
+    const question = questions[currentStep];
 
-  return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
-      color: '#ffffff',
-      padding: '20px'
-    }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '20px',
-          padding: '20px',
-          marginBottom: '20px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 style={{ 
-              margin: 0, 
-              fontSize: '2rem',
-              background: 'linear-gradient(135deg, #2c5aa0, #4a90e2)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
-              💤 Record Sleep
-            </h1>
-            <Link 
-              to="/dashboard" 
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: 'white',
-                textDecoration: 'none',
-                padding: '10px 20px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.2)'
-              }}
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
+    switch (question.component) {
+      case 'sleep-times':
+        const sleepHours = calculateSleepHours();
+        
+        return (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '1rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '600',
+                  color: '#4682B4'
+                }}>
+                  Went to Bed
+                </label>
+                <input
+                  type="time"
+                  value={formData.bedTime}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bedTime: e.target.value }))}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1.1rem'
+                  }}
+                />
+              </div>
 
-        {error && (
-          <div style={{
-            background: 'rgba(220, 53, 69, 0.2)',
-            border: '1px solid #dc3545',
-            borderRadius: '10px',
-            padding: '15px',
-            marginBottom: '20px',
-            color: '#ff6b6b'
-          }}>
-            {error}
-          </div>
-        )}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '1rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '600',
+                  color: '#4682B4'
+                }}>
+                  Woke Up
+                </label>
+                <input
+                  type="time"
+                  value={formData.wakeTime}
+                  onChange={(e) => setFormData(prev => ({ ...prev, wakeTime: e.target.value }))}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1.1rem'
+                  }}
+                />
+              </div>
+            </div>
 
-        {success && (
-          <div style={{
-            background: 'rgba(40, 167, 69, 0.2)',
-            border: '1px solid #28a745',
-            borderRadius: '10px',
-            padding: '15px',
-            marginBottom: '20px',
-            color: '#51cf66'
-          }}>
-            {success}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          {/* Date */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#4a90e2'
-            }}>
-              Sleep Date
-            </label>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleInputChange}
-              required
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
-                fontSize: '1rem'
-              }}
-            />
-          </div>
-
-          {/* Sleep Times */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '15px',
-              padding: '25px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '15px', 
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#28a745'
+            {/* Sleep Hours Display */}
+            {sleepHours > 0 && (
+              <div style={{
+                background: 'rgba(70, 130, 180, 0.1)',
+                border: '1px solid rgba(70, 130, 180, 0.3)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                textAlign: 'center',
+                marginBottom: '2rem'
               }}>
-                🌙 Went to Bed
-              </label>
-              <input
-                type="time"
-                name="bedTime"
-                value={formData.bedTime}
-                onChange={handleInputChange}
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  fontSize: '1rem'
-                }}
-              />
-            </div>
-
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '15px',
-              padding: '25px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '15px', 
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#ffc107'
-              }}>
-                ☀️ Woke Up
-              </label>
-              <input
-                type="time"
-                name="wakeTime"
-                value={formData.wakeTime}
-                onChange={handleInputChange}
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  fontSize: '1rem'
-                }}
-              />
-            </div>
+                <h3 style={{ color: '#4682B4', margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>
+                  Total Sleep: {sleepHours} hours
+                </h3>
+                <p style={{ margin: 0, color: '#4B5563', fontSize: '1rem' }}>
+                  {sleepHours < 7 ? '⚠️ Consider getting more sleep for optimal health' : 
+                   sleepHours > 9 ? 'That\'s plenty of sleep!' : 
+                   '✅ Good amount of sleep!'}
+                </p>
+              </div>
+            )}
           </div>
+        );
 
-          {/* Sleep Hours Display */}
-          {sleepHours > 0 && (
+      case 'sleep-quality':
+        return (
+          <div style={{ textAlign: 'center' }}>
             <div style={{
-              background: 'rgba(74, 144, 226, 0.1)',
-              border: '1px solid rgba(74, 144, 226, 0.3)',
-              borderRadius: '12px',
-              padding: '15px',
-              marginBottom: '20px',
-              textAlign: 'center'
-            }}>
-              <h3 style={{ color: '#4a90e2', margin: '0 0 5px 0' }}>
-                Total Sleep: {sleepHours} hours
-              </h3>
-              <p style={{ margin: 0, color: '#ccc', fontSize: '0.9rem' }}>
-                {sleepHours < 7 ? '⚠️ Consider getting more sleep for optimal health' : 
-                 sleepHours > 9 ? '💤 That\'s plenty of sleep!' : 
-                 '✅ Good amount of sleep!'}
-              </p>
-            </div>
-          )}
-
-          {/* Sleep Quality */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
+              fontSize: '4rem',
+              marginBottom: '1rem',
               color: getSleepQualityColor(formData.sleepQuality)
             }}>
-              Sleep Quality: {formData.sleepQuality}/10 - {getSleepQualityText(formData.sleepQuality)}
-            </label>
+              {formData.sleepQuality}/10
+            </div>
+            <div style={{
+              fontSize: '1.5rem',
+              marginBottom: '2rem',
+              color: getSleepQualityColor(formData.sleepQuality),
+              fontWeight: '600'
+            }}>
+              {getSleepQualityText(formData.sleepQuality)}
+            </div>
             <input
               type="range"
-              name="sleepQuality"
               min="1"
               max="10"
               value={formData.sleepQuality}
-              onChange={handleInputChange}
+              onChange={(e) => setFormData(prev => ({ ...prev, sleepQuality: e.target.value }))}
               style={{
                 width: '100%',
-                height: '8px',
-                borderRadius: '5px',
+                height: '12px',
+                borderRadius: '6px',
                 background: `linear-gradient(to right, #dc3545 0%, #ffc107 50%, #28a745 100%)`,
                 outline: 'none',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                marginBottom: '1rem'
               }}
             />
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              marginTop: '10px',
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
               fontSize: '0.9rem',
-              color: '#ccc'
+              color: '#9CA3AF',
+              marginTop: '1rem'
             }}>
               <span>Poor</span>
               <span>Fair</span>
@@ -399,248 +324,455 @@ export default function RecordSleep() {
               <span>Excellent</span>
             </div>
           </div>
+        );
 
-          {/* Sleep Disruptions */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
+      case 'sleep-disruptions':
+        return (
+          <div>
+            <label style={{
+              display: 'block',
+              marginBottom: '1rem',
               fontSize: '1.1rem',
               fontWeight: '600',
-              color: '#17a2b8'
+              color: '#4682B4'
             }}>
-              Awake During Night
+              How often did you wake up during the night?
             </label>
             <input
               type="text"
-              name="awakeDuringNight"
               value={formData.awakeDuringNight}
-              onChange={handleInputChange}
+              onChange={(e) => setFormData(prev => ({ ...prev, awakeDuringNight: e.target.value }))}
               placeholder="e.g., 2 times, 30 minutes, bathroom visit"
               style={{
                 width: '100%',
                 padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
                 fontSize: '1rem'
               }}
             />
+            <p style={{
+              margin: '1rem 0 0 0',
+              color: '#9CA3AF',
+              fontSize: '0.9rem'
+            }}>
+              Include details like frequency, duration, or reasons (bathroom, noise, etc.)
+            </p>
           </div>
+        );
 
-          {/* Sleep Problems */}
+      case 'sleep-problems':
+        return (
           <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '0.75rem'
           }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#fd7e14'
-            }}>
-              Sleep Problems
-            </label>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-              gap: '10px' 
-            }}>
-              {sleepProblems.map(problem => (
-                <label key={problem} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px',
-                  cursor: 'pointer',
-                  padding: '8px',
-                  borderRadius: '8px',
-                  transition: 'background 0.2s'
+            {sleepProblems.map(problem => (
+              <label key={problem} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '1rem',
+                background: formData.sleepProblems.includes(problem)
+                  ? '#E3F2FD'
+                  : '#F9FAFB',
+                border: formData.sleepProblems.includes(problem)
+                  ? '1px solid #4682B4'
+                  : '1px solid #E5E7EB',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                fontSize: '0.95rem'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={formData.sleepProblems.includes(problem)}
+                  onChange={() => handleCheckboxChange(problem, 'sleepProblems')}
+                />
+                {problem}
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'screen-time':
+        return (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '1rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '600',
+                  color: '#4682B4'
                 }}>
-                  <input
-                    type="checkbox"
-                    value={problem}
-                    checked={formData.sleepProblems.includes(problem)}
-                    onChange={handleCheckboxChange}
-                  />
-                  <span>{problem}</span>
+                  Mobile Screen Time (hours)
                 </label>
-              ))}
+                <input
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  value={formData.screenTimeMobile}
+                  onChange={(e) => setFormData(prev => ({ ...prev, screenTimeMobile: parseFloat(e.target.value) || 0 }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1rem'
+                  }}
+                />
+                {formData.screenTimeMobile > 3 && (
+                  <p style={{ color: '#ffc107', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                    ⚠️ High screen time may affect sleep quality
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '1rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '600',
+                  color: '#4682B4'
+                }}>
+                  Computer Screen Time (hours)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  value={formData.screenTimeComputer}
+                  onChange={(e) => setFormData(prev => ({ ...prev, screenTimeComputer: parseFloat(e.target.value) || 0 }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1rem'
+                  }}
+                />
+                {formData.screenTimeComputer > 8 && (
+                  <p style={{ color: '#ffc107', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                    ⚠️ Consider blue light filters before bed
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Screen Time Tips */}
+            <div style={{
+              background: 'rgba(40, 167, 69, 0.1)',
+              border: '1px solid rgba(40, 167, 69, 0.3)',
+              borderRadius: '12px',
+              padding: '1.5rem'
+            }}>
+              <h4 style={{ color: '#28a745', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
+                Screen Time & Sleep Tips
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#4B5563', fontSize: '0.9rem' }}>
+                <li>Avoid screens 1-2 hours before bed</li>
+                <li>Use blue light filters in the evening</li>
+                <li>Keep devices outside the bedroom</li>
+                <li>Try reading or meditation instead</li>
+              </ul>
             </div>
           </div>
+        );
 
-          {/* Screen Time */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+      case 'sleep-tracking':
+        return (
+          <div>
+            {/* Future Sleep Tracking Options */}
             <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '15px',
-              padding: '25px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
+              background: 'rgba(23, 162, 184, 0.1)',
+              border: '1px solid rgba(23, 162, 184, 0.3)',
+              borderRadius: '12px',
+              padding: '2rem',
+              textAlign: 'center',
+              marginBottom: '2rem'
             }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '15px', 
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#6f42c1'
+              <h3 style={{ color: '#17a2b8', margin: '0 0 1rem 0', fontSize: '1.3rem' }}>
+                Automatic Sleep Tracking
+              </h3>
+              <p style={{ color: '#4B5563', marginBottom: '1.5rem', fontSize: '1rem' }}>
+                Coming soon: Audio-based sleep monitoring with morning review
+              </p>
+              
+              <div style={{
+                background: '#F9FAFB',
+                borderRadius: '8px',
+                padding: '1rem',
+                marginBottom: '1rem'
               }}>
-                📱 Mobile Screen Time (hours)
+                <h4 style={{ color: '#4682B4', margin: '0 0 0.5rem 0' }}>Planned Features:</h4>
+                <ul style={{ textAlign: 'left', color: '#4B5563', fontSize: '0.9rem' }}>
+                  <li>Audio event detection (snoring, sleep talking)</li>
+                  <li>Sleep stage estimation (REM, Deep, Light)</li>
+                  <li>Morning review and edit capabilities</li>
+                  <li>Integration with headache correlation data</li>
+                </ul>
+              </div>
+
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={formData.sleepTrackerUsed}
+                  onChange={(e) => setFormData(prev => ({ ...prev, sleepTrackerUsed: e.target.checked }))}
+                />
+                Notify me when automatic sleep tracking is available
               </label>
-              <input
-                type="number"
-                name="screenTimeMobile"
-                min="0"
-                max="24"
-                step="0.5"
-                value={formData.screenTimeMobile}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  fontSize: '1rem'
-                }}
-              />
-              {formData.screenTimeMobile > 3 && (
-                <small style={{ color: '#ffc107', marginTop: '5px', display: 'block' }}>
-                  ⚠️ High screen time may affect sleep quality
-                </small>
-              )}
             </div>
 
+            {/* Current Manual Tracking Benefits */}
             <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '15px',
-              padding: '25px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
+              background: 'rgba(40, 167, 69, 0.1)',
+              border: '1px solid rgba(40, 167, 69, 0.3)',
+              borderRadius: '12px',
+              padding: '1.5rem'
             }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '15px', 
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#6f42c1'
-              }}>
-                💻 Computer Screen Time (hours)
-              </label>
-              <input
-                type="number"
-                name="screenTimeComputer"
-                min="0"
-                max="24"
-                step="0.5"
-                value={formData.screenTimeComputer}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  fontSize: '1rem'
-                }}
-              />
-              {formData.screenTimeComputer > 8 && (
-                <small style={{ color: '#ffc107', marginTop: '5px', display: 'block' }}>
-                  ⚠️ Consider blue light filters before bed
-                </small>
-              )}
+              <h4 style={{ color: '#28a745', margin: '0 0 1rem 0' }}>
+                Why Sleep Tracking Helps with Headaches
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#4B5563', fontSize: '0.9rem' }}>
+                <li><strong>Sleep Quality Correlation:</strong> Poor sleep is a major headache trigger</li>
+                <li><strong>Pattern Recognition:</strong> Identify your optimal sleep duration</li>
+                <li><strong>Early Warning:</strong> Sleep disruptions often precede headaches</li>
+                <li><strong>Treatment Timing:</strong> Better sleep = fewer headaches</li>
+              </ul>
             </div>
           </div>
+        );
 
-          {/* Notes */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '15px',
-            padding: '25px',
-            marginBottom: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '15px', 
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              color: '#6c757d'
-            }}>
-              Additional Notes
-            </label>
+      case 'notes':
+        return (
+          <div>
             <textarea
-              name="notes"
               value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="Any additional details about your sleep (environment, dreams, how you felt, etc.)..."
-              rows="4"
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Add any additional details about your sleep (dreams, environment, how you felt, etc.)..."
+              rows="6"
               style={{
                 width: '100%',
-                padding: '12px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                background: 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
                 fontSize: '1rem',
-                resize: 'vertical'
+                resize: 'vertical',
+                fontFamily: 'inherit'
               }}
             />
+            <p style={{
+              margin: '1rem 0 0 0',
+              color: '#9CA3AF',
+              fontSize: '0.9rem',
+              textAlign: 'center'
+            }}>
+              This information helps identify sleep patterns that may affect your headaches
+            </p>
           </div>
+        );
 
-          {/* Sleep Tips */}
+      default:
+        return null;
+    }
+  };
+
+  const currentQuestion = questions[currentStep];
+  const isLastStep = currentStep === questions.length - 1;
+  const canProceed = () => {
+    switch (currentQuestion.component) {
+      case 'sleep-times':
+        return formData.bedTime && formData.wakeTime;
+      default:
+        return true;
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#F9FAFB',
+      color: '#000000',
+      padding: '20px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        {/* Header - No Card */}
+        <div style={{ marginBottom: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+            <h1 style={{
+              margin: 0,
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              color: '#1E3A8A',
+              textAlign: 'center',
+              flex: 1
+            }}>
+              Record Sleep
+            </h1>
+            <Link
+              to="/dashboard"
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '8px 16px',
+                textDecoration: 'none',
+                fontSize: '0.9rem'
+              }}
+            >
+              Cancel
+            </Link>
+          </div>
+          
+          {/* Progress Bar - No Card */}
           <div style={{
-            background: 'rgba(40, 167, 69, 0.1)',
-            border: '1px solid rgba(40, 167, 69, 0.3)',
-            borderRadius: '12px',
-            padding: '20px',
-            marginBottom: '20px'
+            background: '#E5E7EB',
+            borderRadius: '10px',
+            height: '8px',
+            overflow: 'hidden',
+            marginBottom: '15px'
           }}>
-            <h4 style={{ color: '#28a745', margin: '0 0 10px 0', fontSize: '1.1rem' }}>
-              💡 Sleep Quality Tips:
-            </h4>
-            <ul style={{ margin: 0, paddingLeft: '20px', color: '#ccc', fontSize: '0.9rem' }}>
-              <li>Maintain consistent sleep and wake times</li>
-              <li>Limit screen time 1-2 hours before bed</li>
-              <li>Keep bedroom cool, dark, and quiet</li>
-              <li>Avoid caffeine 6+ hours before bedtime</li>
-              <li>Create a relaxing bedtime routine</li>
-              <li>Exercise regularly, but not close to bedtime</li>
-            </ul>
+            <div style={{
+              background: '#4682B4',
+              height: '100%',
+              width: `${((currentStep + 1) / questions.length) * 100}%`,
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+          
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '0.9rem',
+            color: '#9CA3AF'
+          }}>
+            <span>Step {currentStep + 1} of {questions.length}</span>
+            <span>{Math.round(((currentStep + 1) / questions.length) * 100)}% Complete</span>
+          </div>
+        </div>
+
+        {/* Question Content - No Card */}
+        <div style={{ marginBottom: '40px', minHeight: '400px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <h2 style={{
+              margin: '0 0 15px 0',
+              fontSize: '1.8rem',
+              fontWeight: 'bold',
+              color: '#4682B4'
+            }}>
+              {currentQuestion.title}
+            </h2>
+            <p style={{
+              margin: 0,
+              color: '#9CA3AF',
+              fontSize: '1.1rem'
+            }}>
+              {currentQuestion.subtitle}
+            </p>
           </div>
 
-          {/* Submit Button */}
-          <button 
-            type="submit" 
-            disabled={loading} 
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '30px',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {renderCurrentQuestion()}
+        </div>
+
+        {/* Navigation - No Card */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <button
+            onClick={handlePrevious}
+            disabled={currentStep === 0}
             style={{
-              width: '100%',
-              padding: '15px',
-              background: loading 
-                ? 'rgba(255, 255, 255, 0.1)' 
-                : 'linear-gradient(135deg, #2c5aa0 0%, #1e3f73 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease'
+              background: currentStep === 0 ? '#E5E7EB' : 'transparent',
+              border: '1px solid #E5E7EB',
+              borderRadius: '10px',
+              color: currentStep === 0 ? '#9CA3AF' : '#4B5563',
+              padding: '12px 24px',
+              cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
+              fontSize: '1rem'
             }}
           >
-            {loading ? 'Recording Sleep Data...' : 'Record Sleep Data'}
+            ← Previous
           </button>
-        </form>
+
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            {!isLastStep && (
+              <button
+                onClick={handleSkip}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '10px',
+                  color: '#9CA3AF',
+                  padding: '12px 24px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Skip
+              </button>
+            )}
+
+            <button
+              onClick={isLastStep ? handleSubmit : handleNext}
+              disabled={!canProceed() || loading}
+              style={{
+                background: !canProceed() || loading 
+                  ? '#E5E7EB' 
+                  : '#4682B4',
+                border: 'none',
+                borderRadius: '10px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: !canProceed() || loading ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600',
+                minWidth: '120px'
+              }}
+            >
+              {loading ? 'Saving...' : isLastStep ? 'Record Sleep Data' : 'Next →'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
