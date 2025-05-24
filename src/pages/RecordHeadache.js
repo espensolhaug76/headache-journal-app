@@ -8,6 +8,7 @@ export default function RecordHeadache() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState(0); // For headache location slider
   const [formData, setFormData] = useState({
     painLevel: 5,
     location: '',
@@ -21,20 +22,19 @@ export default function RecordHeadache() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Headache location types with visual descriptions
-  // Note: Images should be placed in /src/assets/headache-types/ directory
+  // Complete list of 14 headache types from the specification
   const headacheTypes = [
     {
       id: 'tension',
       name: 'Tension Headache',
       description: 'Band around head/forehead',
-      icon: 'fas fa-head-side-virus', // FontAwesome icon
-      image: '/src/assets/headache-types/tension-headache.png', // Image path for later
+      icon: 'fas fa-head-side-virus',
+      image: '/src/assets/headache-types/tension-headache.png',
       pattern: 'Band-like pressure around the entire head'
     },
     {
       id: 'migraine',
-      name: 'Migraine',
+      name: 'Migraine Headache',
       description: 'One side of head',
       icon: 'fas fa-head-side-cough',
       image: '/src/assets/headache-types/migraine-headache.png',
@@ -42,7 +42,7 @@ export default function RecordHeadache() {
     },
     {
       id: 'cluster',
-      name: 'Cluster Headache',  
+      name: 'Cluster Headache',
       description: 'Around one eye',
       icon: 'fas fa-eye',
       image: '/src/assets/headache-types/cluster-headache.png',
@@ -50,11 +50,11 @@ export default function RecordHeadache() {
     },
     {
       id: 'sinus',
-      name: 'Sinus Headache',
+      name: 'Allergy or Sinus',
       description: 'Forehead/cheek area',
       icon: 'fas fa-head-side-mask',
       image: '/src/assets/headache-types/sinus-headache.png',
-      pattern: 'Pressure in forehead, cheeks, or nose'
+      pattern: 'Not a headache disorder but symptom description'
     },
     {
       id: 'caffeine',
@@ -66,8 +66,8 @@ export default function RecordHeadache() {
     },
     {
       id: 'hormone',
-      name: 'Hormonal Headache',
-      description: 'One side (menstrual)',
+      name: 'Hormone Headache',
+      description: 'One side (menstrual migraine)',
       icon: 'fas fa-moon',
       image: '/src/assets/headache-types/hormone-headache.png',
       pattern: 'Related to hormonal changes'
@@ -97,6 +97,14 @@ export default function RecordHeadache() {
       pattern: 'Medication overuse headache'
     },
     {
+      id: 'post-traumatic',
+      name: 'Post-Traumatic Headache',
+      description: 'Multiple scattered areas',
+      icon: 'fas fa-brain',
+      image: '/src/assets/headache-types/post-traumatic-headache.png',
+      pattern: 'Following head injury or trauma'
+    },
+    {
       id: 'exertion',
       name: 'Exertion Headache',
       description: 'Back/all over',
@@ -105,9 +113,17 @@ export default function RecordHeadache() {
       pattern: 'Exercise-induced headache'
     },
     {
+      id: 'spinal',
+      name: 'Spinal Headache',
+      description: 'Back of head/neck',
+      icon: 'fas fa-spine',
+      image: '/src/assets/headache-types/spinal-headache.png',
+      pattern: 'Related to spinal fluid pressure'
+    },
+    {
       id: 'thunderclap',
       name: 'Thunderclap Headache',
-      description: 'Sudden severe',
+      description: 'Sudden severe (multiple spots)',
       icon: 'fas fa-bolt',
       image: '/src/assets/headache-types/thunderclap-headache.png',
       pattern: 'Sudden, severe headache (seek immediate medical attention)'
@@ -223,6 +239,19 @@ export default function RecordHeadache() {
         ? prev[field].filter(item => item !== value)
         : [...prev[field], value]
     }));
+  };
+
+  // Slider navigation functions
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % headacheTypes.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + headacheTypes.length) % headacheTypes.length);
+  };
+
+  const goToSlide = (index) => {
+    setCurrentSlide(index);
   };
 
   const handleSubmit = async () => {
@@ -348,9 +377,11 @@ export default function RecordHeadache() {
         );
 
       case 'headache-location':
+        const currentType = headacheTypes[currentSlide];
+        
         return (
-          <div>
-            {/* FontAwesome CSS Link */}
+          <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+            {/* FontAwesome CSS */}
             <link 
               rel="stylesheet" 
               href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
@@ -358,131 +389,233 @@ export default function RecordHeadache() {
               crossOrigin="anonymous" 
               referrerPolicy="no-referrer" 
             />
-            
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-              gap: '1rem',
-              marginTop: '1rem'
+
+            {/* Main Slider Card */}
+            <div style={{
+              background: formData.location === currentType.name ? '#E3F2FD' : '#FFFFFF',
+              border: formData.location === currentType.name ? '2px solid #4682B4' : '1px solid #E5E7EB',
+              borderRadius: '16px',
+              padding: '2rem',
+              boxShadow: formData.location === currentType.name 
+                ? '0 8px 24px rgba(70, 130, 180, 0.15)' 
+                : '0 4px 12px rgba(0,0,0,0.1)',
+              transition: 'all 0.3s ease',
+              position: 'relative',
+              minHeight: '320px'
             }}>
-              {headacheTypes.map(type => (
-                <div
-                  key={type.id}
-                  onClick={() => setFormData(prev => ({ ...prev, location: type.name }))}
+              
+              {/* Navigation Arrows */}
+              <button
+                onClick={prevSlide}
+                style={{
+                  position: 'absolute',
+                  left: '1rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  zIndex: 10
+                }}
+              >
+                <i className="fas fa-chevron-left" style={{ color: '#4682B4' }}></i>
+              </button>
+
+              <button
+                onClick={nextSlide}
+                style={{
+                  position: 'absolute',
+                  right: '1rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '50%',
+                  width: '40px',
+                  height: '40px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  zIndex: 10
+                }}
+              >
+                <i className="fas fa-chevron-right" style={{ color: '#4682B4' }}></i>
+              </button>
+
+              {/* Content */}
+              <div style={{ textAlign: 'center', padding: '0 3rem' }}>
+                {/* Image/Icon Area */}
+                <div style={{ 
+                  height: '120px', 
+                  marginBottom: '1.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#F9FAFB',
+                  borderRadius: '12px',
+                  border: '1px dashed #E5E7EB'
+                }}>
+                  <i 
+                    className={currentType.icon} 
+                    style={{ 
+                      fontSize: '4rem', 
+                      color: formData.location === currentType.name ? '#4682B4' : '#9CA3AF',
+                      transition: 'color 0.3s ease'
+                    }}
+                  ></i>
+                  {/* Future: Replace with actual headache location image */}
+                  {/* <img 
+                    src={currentType.image} 
+                    alt={currentType.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain'
+                    }}
+                  /> */}
+                </div>
+                
+                <h3 style={{ 
+                  margin: '0 0 0.5rem 0', 
+                  color: formData.location === currentType.name ? '#4682B4' : '#000000',
+                  fontSize: '1.4rem',
+                  fontWeight: '600'
+                }}>
+                  {currentType.name}
+                </h3>
+                
+                <p style={{ 
+                  margin: '0 0 1rem 0', 
+                  color: '#4B5563',
+                  fontSize: '1rem',
+                  fontWeight: '500'
+                }}>
+                  {currentType.description}
+                </p>
+                
+                <p style={{ 
+                  margin: '0 0 1.5rem 0', 
+                  color: '#9CA3AF',
+                  fontSize: '0.9rem',
+                  fontStyle: 'italic',
+                  lineHeight: '1.4'
+                }}>
+                  {currentType.pattern}
+                </p>
+
+                {/* Special warning for thunderclap */}
+                {currentType.id === 'thunderclap' && (
+                  <div style={{
+                    marginBottom: '1rem',
+                    padding: '0.75rem',
+                    background: '#f8d7da',
+                    border: '1px solid #dc3545',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    color: '#721c24'
+                  }}>
+                    <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                    <strong>Seek immediate medical attention</strong>
+                  </div>
+                )}
+
+                {/* Select Button */}
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, location: currentType.name }))}
                   style={{
-                    background: formData.location === type.name 
-                      ? '#E3F2FD' 
-                      : '#FFFFFF',
-                    border: formData.location === type.name 
-                      ? '2px solid #4682B4' 
-                      : '1px solid #E5E7EB',
-                    borderRadius: '12px',
-                    padding: '1.5rem',
+                    background: formData.location === currentType.name ? '#28a745' : '#4682B4',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 24px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    textAlign: 'center',
-                    boxShadow: formData.location === type.name 
-                      ? '0 4px 12px rgba(70, 130, 180, 0.15)' 
-                      : '0 2px 4px rgba(0,0,0,0.1)',
-                    position: 'relative'
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                   }}
                 >
-                  {/* Image placeholder - will show actual headache location images */}
-                  <div style={{ 
-                    height: '120px', 
-                    marginBottom: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#F9FAFB',
-                    borderRadius: '8px',
-                    border: '1px dashed #E5E7EB'
-                  }}>
-                    {/* Temporarily show FontAwesome icon until images are added */}
-                    <i 
-                      className={type.icon} 
-                      style={{ 
-                        fontSize: '3rem', 
-                        color: formData.location === type.name ? '#4682B4' : '#9CA3AF',
-                        transition: 'color 0.2s ease'
-                      }}
-                    ></i>
-                    {/* Future: Replace with actual headache location image */}
-                    {/* <img 
-                      src={type.image} 
-                      alt={type.name}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain'
-                      }}
-                    /> */}
-                  </div>
-                  
-                  <h3 style={{ 
-                    margin: '0 0 0.5rem 0', 
-                    color: formData.location === type.name ? '#4682B4' : '#000000',
-                    fontSize: '1.1rem',
-                    fontWeight: '600'
-                  }}>
-                    {type.name}
-                  </h3>
-                  <p style={{ 
-                    margin: '0 0 0.5rem 0', 
-                    color: '#4B5563',
-                    fontSize: '0.9rem' 
-                  }}>
-                    {type.description}
-                  </p>
-                  <p style={{ 
-                    margin: 0, 
-                    color: '#9CA3AF',
-                    fontSize: '0.8rem',
-                    fontStyle: 'italic'
-                  }}>
-                    {type.pattern}
-                  </p>
-                  
-                  {/* Special warning for thunderclap headache */}
-                  {type.id === 'thunderclap' && (
-                    <div style={{
-                      marginTop: '0.5rem',
-                      padding: '0.5rem',
-                      background: '#f8d7da',
-                      border: '1px solid #dc3545',
-                      borderRadius: '6px',
-                      fontSize: '0.8rem',
-                      color: '#721c24'
-                    }}>
-                      ⚠️ Seek immediate medical attention
-                    </div>
+                  {formData.location === currentType.name ? (
+                    <>
+                      <i className="fas fa-check" style={{ marginRight: '0.5rem' }}></i>
+                      Selected
+                    </>
+                  ) : (
+                    'Select This Type'
                   )}
-                </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Slide Counter */}
+            <div style={{
+              textAlign: 'center',
+              margin: '1rem 0',
+              fontSize: '0.9rem',
+              color: '#9CA3AF'
+            }}>
+              {currentSlide + 1} of {headacheTypes.length}
+            </div>
+
+            {/* Dot Indicators */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              marginTop: '1rem'
+            }}>
+              {headacheTypes.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: index === currentSlide ? '#4682B4' : '#E5E7EB',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s ease'
+                  }}
+                />
               ))}
             </div>
-            
-            {/* Instructions for image replacement */}
+
+            {/* Quick Navigation Grid */}
             <div style={{
               marginTop: '2rem',
-              padding: '1rem',
-              background: '#d1ecf1',
-              border: '1px solid #17a2b8',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              color: '#0c5460'
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+              gap: '0.5rem'
             }}>
-              <h4 style={{ margin: '0 0 0.5rem 0', color: '#0c5460' }}>
-                📋 For Developer: Image Integration Instructions
-              </h4>
-              <p style={{ margin: '0 0 0.5rem 0' }}>
-                To add headache location images:
-              </p>
-              <ol style={{ margin: 0, paddingLeft: '1.5rem' }}>
-                <li>Create folder: <code>/src/assets/headache-types/</code></li>
-                <li>Add PNG files with transparency as specified in your documentation</li>
-                <li>Uncomment the img tag and comment out the FontAwesome icon</li>
-                <li>Import images at the top of the component if needed</li>
-              </ol>
+              {headacheTypes.map((type, index) => (
+                <button
+                  key={type.id}
+                  onClick={() => goToSlide(index)}
+                  style={{
+                    padding: '0.5rem',
+                    background: index === currentSlide ? '#E3F2FD' : '#F9FAFB',
+                    border: index === currentSlide ? '1px solid #4682B4' : '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    color: index === currentSlide ? '#4682B4' : '#4B5563',
+                    lineHeight: '1.2'
+                  }}
+                >
+                  {type.name.replace(' Headache', '')}
+                </button>
+              ))}
             </div>
           </div>
         );
