@@ -401,24 +401,39 @@ export default function EnhancedDashboard() {
           <p style={{ fontWeight: 'bold', marginBottom: '0.75rem', color: '#4682B4', fontSize: '0.9rem' }}>{label}</p>
           
           {payload.map((entry, index) => {
-            if (entry.dataKey === 'painPercentage') {
+            if (entry.dataKey === 'sleepQualityPercent') {
               return (
                 <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
-                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Daily Pain: {entry.value}%</span>
+                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Sleep Quality: {entry.value}%</span>
                 </div>
               );
             }
-            return (
-              <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
-                <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>
-                  {entry.name}: {entry.value}
-                  {entry.dataKey === 'sleepHours' && ' hrs'}
-                  {(entry.dataKey === 'sleepQualityPercent' || entry.dataKey === 'stressPercent') && '%'}
-                </span>
-              </div>
-            );
+            if (entry.dataKey === 'stressPercent') {
+              return (
+                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
+                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Stress Level: {entry.value}%</span>
+                </div>
+              );
+            }
+            if (entry.dataKey === 'headaches') {
+              return (
+                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
+                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Headaches: {entry.value}</span>
+                </div>
+              );
+            }
+            if (entry.dataKey === 'avgPainLevel') {
+              return (
+                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
+                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Avg Pain: {Math.round(entry.value)}/10</span>
+                </div>
+              );
+            }
+            return null;
           })}
           
           {data?.headachesByIntensity && Object.keys(data.headachesByIntensity).length > 0 && (
@@ -555,7 +570,7 @@ export default function EnhancedDashboard() {
             </div>
           )}
 
-          {/* Quick Actions Toggle */}
+          {/* Quick Actions - Swipeable */}
           <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
             <button
               onClick={() => setShowQuickActions(!showQuickActions)}
@@ -581,26 +596,193 @@ export default function EnhancedDashboard() {
               <i className={`fas fa-chevron-${showQuickActions ? 'up' : 'down'}`} style={{ fontSize: '0.8rem', marginLeft: '0.5rem' }}></i>
             </button>
 
-            {/* Collapsible Quick Actions */}
+            {/* Swipeable Quick Actions */}
             {showQuickActions && (
               <div style={{
                 marginTop: '1rem',
-                padding: '1.5rem',
+                padding: '1rem',
                 background: '#FFFFFF',
                 border: '1px solid #E5E7EB',
                 borderRadius: '12px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                overflow: 'hidden'
               }}>
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, 1fr)',
-                  gap: '1rem'
+                  display: 'flex',
+                  gap: '1rem',
+                  overflowX: 'auto',
+                  scrollBehavior: 'smooth',
+                  paddingBottom: '0.5rem'
                 }}>
-                  <ActionButton icon="fas fa-head-side-virus" label="Log Headache" primary={true} to="/record-headache" />
-                  <ActionButton icon="fas fa-bed" label="Log Sleep" to="/record-sleep" />
-                  <ActionButton icon="fas fa-brain" label="Log Stress" to="/record-stress" />
-                  <ActionButton icon="fas fa-running" label="Log Exercise" to="/record-exercise" />
+                  <div style={{ minWidth: '140px', flex: 'none' }}>
+                    <ActionButton icon="fas fa-head-side-virus" label="Log Headache" primary={true} to="/record-headache" />
+                  </div>
+                  <div style={{ minWidth: '140px', flex: 'none' }}>
+                    <ActionButton icon="fas fa-bed" label="Log Sleep" to="/record-sleep" />
+                  </div>
+                  <div style={{ minWidth: '140px', flex: 'none' }}>
+                    <ActionButton icon="fas fa-brain" label="Log Stress" to="/record-stress" />
+                  </div>
+                  <div style={{ minWidth: '140px', flex: 'none' }}>
+                    <ActionButton icon="fas fa-running" label="Log Exercise" to="/record-exercise" />
+                  </div>
+                  <div style={{ minWidth: '140px', flex: 'none' }}>
+                    <ActionButton icon="fas fa-apple-alt" label="Log Nutrition" to="/record-nutrition" />
+                  </div>
+                  <div style={{ minWidth: '140px', flex: 'none' }}>
+                    <ActionButton icon="fas fa-user-injured" label="Log Body Pain" to="/record-body-pain" />
+                  </div>
                 </div>
+                <div style={{ textAlign: 'center', marginTop: '0.5rem', color: '#9CA3AF', fontSize: '0.8rem' }}>
+                  <i className="fas fa-hand-point-left" style={{ marginRight: '0.5rem' }}></i>
+                  Swipe to see all options
+                  <i className="fas fa-hand-point-right" style={{ marginLeft: '0.5rem' }}></i>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Main Chart - Above Metrics with Enhanced Design */}
+          <div style={{
+            background: '#FFFFFF',
+            border: '1px solid #E5E7EB',
+            borderRadius: '16px',
+            padding: '1rem',
+            marginBottom: '3rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            overflow: 'hidden'
+          }}>
+            <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+              <h3 style={{ 
+                margin: '0 0 0.5rem 0', 
+                fontSize: '1.4rem', 
+                fontWeight: '600',
+                color: '#1E3A8A'
+              }}>
+                Weekly Health Overview
+              </h3>
+              <p style={{ 
+                color: '#4B5563', 
+                fontSize: '0.9rem', 
+                margin: 0
+              }}>
+                Sleep quality, stress levels & headache tracking
+              </p>
+            </div>
+            
+            {dashboardData.sleepStressData.some(d => d.hasData) ? (
+              <div style={{ width: '100%', height: '400px', minWidth: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart 
+                    data={dashboardData.sleepStressData} 
+                    margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
+                  >
+                    <defs>
+                      <linearGradient id="sleepQualityGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#20c997" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#20c997" stopOpacity={0.4}/>
+                      </linearGradient>
+                      <linearGradient id="stressGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#dc3545" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#dc3545" stopOpacity={0.4}/>
+                      </linearGradient>
+                    </defs>
+                    
+                    <CartesianGrid strokeDasharray="2 2" stroke="rgba(75, 85, 99, 0.2)" />
+                    <XAxis 
+                      dataKey="day" 
+                      stroke="#4B5563"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      yAxisId="scale" 
+                      orientation="left" 
+                      domain={[0, 100]} 
+                      stroke="#4B5563"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      width={30}
+                    />
+                    <YAxis 
+                      yAxisId="count" 
+                      orientation="right" 
+                      domain={[0, 5]} 
+                      stroke="#4B5563"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      width={30}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '15px', color: '#4B5563', fontSize: '12px' }}
+                      iconType="circle"
+                    />
+                    
+                    {/* Sleep Quality Bars */}
+                    <Bar 
+                      yAxisId="scale"
+                      dataKey="sleepQualityPercent" 
+                      fill="url(#sleepQualityGradient)"
+                      name="Sleep Quality %"
+                      radius={[2, 2, 0, 0]}
+                      maxBarSize={25}
+                    />
+                    
+                    {/* Stress Level Bars */}
+                    <Bar 
+                      yAxisId="scale"
+                      dataKey="stressPercent" 
+                      fill="url(#stressGradient)"
+                      name="Stress Level %"
+                      radius={[2, 2, 0, 0]}
+                      maxBarSize={25}
+                    />
+                    
+                    {/* Headache Count Line */}
+                    <Line 
+                      yAxisId="count"
+                      type="monotone" 
+                      dataKey="headaches" 
+                      stroke="#4682B4" 
+                      strokeWidth={3}
+                      name="Headache Count"
+                      dot={{ fill: '#4682B4', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, stroke: '#4682B4', strokeWidth: 2 }}
+                    />
+                    
+                    {/* Average Headache Intensity Line */}
+                    <Line 
+                      yAxisId="scale"
+                      type="monotone" 
+                      dataKey="avgPainLevel" 
+                      stroke="#ff6b35" 
+                      strokeWidth={3}
+                      strokeDasharray="5 5"
+                      name="Avg Headache Intensity"
+                      dot={{ fill: '#ff6b35', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, stroke: '#ff6b35', strokeWidth: 2 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '3rem 1rem',
+                color: '#9CA3AF',
+                fontSize: '1.1rem'
+              }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>
+                  <i className="fas fa-chart-area"></i>
+                </div>
+                <p style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '500' }}>No data available yet</p>
+                <p style={{ fontSize: '1rem', margin: '0', lineHeight: '1.5' }}>
+                  Start tracking your sleep, stress, and headaches to see patterns here!
+                </p>
               </div>
             )}
           </div>
@@ -740,151 +922,6 @@ export default function EnhancedDashboard() {
               Swipe or use arrows to see previous days
               <i className="fas fa-hand-point-right" style={{ marginLeft: '0.5rem' }}></i>
             </div>
-          </div>
-
-          {/* Main Chart - Mobile Optimized Width */}
-          <div style={{
-            background: '#FFFFFF',
-            border: '1px solid #E5E7EB',
-            borderRadius: '16px',
-            padding: '1rem',
-            marginBottom: '3rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-            overflow: 'hidden'
-          }}>
-            <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-              <h3 style={{ 
-                margin: '0 0 0.5rem 0', 
-                fontSize: '1.4rem', 
-                fontWeight: '600',
-                color: '#1E3A8A'
-              }}>
-                Weekly Health Overview
-              </h3>
-              <p style={{ 
-                color: '#4B5563', 
-                fontSize: '0.9rem', 
-                margin: 0
-              }}>
-                Sleep, stress & headache correlation
-              </p>
-            </div>
-            
-            {dashboardData.sleepStressData.some(d => d.hasData) ? (
-              <div style={{ width: '100%', height: '400px', minWidth: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart 
-                    data={dashboardData.sleepStressData} 
-                    margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
-                  >
-                    <defs>
-                      <linearGradient id="painGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#4682B4" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#4682B4" stopOpacity={0.3}/>
-                      </linearGradient>
-                      <linearGradient id="sleepGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#20c997" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#20c997" stopOpacity={0.3}/>
-                      </linearGradient>
-                    </defs>
-                    
-                    <CartesianGrid strokeDasharray="2 2" stroke="rgba(75, 85, 99, 0.2)" />
-                    <XAxis 
-                      dataKey="day" 
-                      stroke="#4B5563"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis 
-                      yAxisId="hours" 
-                      orientation="left" 
-                      domain={[0, 12]} 
-                      stroke="#4B5563"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={false}
-                      width={30}
-                    />
-                    <YAxis 
-                      yAxisId="scale" 
-                      orientation="right" 
-                      domain={[0, 100]} 
-                      stroke="#4B5563"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={false}
-                      width={30}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend 
-                      wrapperStyle={{ paddingTop: '15px', color: '#4B5563', fontSize: '12px' }}
-                      iconType="circle"
-                    />
-                    
-                    {/* Pain Percentage Bars */}
-                    <Bar 
-                      yAxisId="scale"
-                      dataKey="painPercentage" 
-                      fill="url(#painGradient)"
-                      name="Pain %"
-                      radius={[2, 2, 0, 0]}
-                      maxBarSize={30}
-                    />
-                    
-                    {/* Sleep Hours Bars */}
-                    <Bar 
-                      yAxisId="hours"
-                      dataKey="sleepHours" 
-                      fill="url(#sleepGradient)"
-                      name="Sleep hrs"
-                      radius={[2, 2, 0, 0]}
-                      maxBarSize={20}
-                      opacity={0.7}
-                    />
-                    
-                    {/* Sleep Quality Line */}
-                    <Line 
-                      yAxisId="scale"
-                      type="monotone" 
-                      dataKey="sleepQualityPercent" 
-                      stroke="#28a745" 
-                      strokeWidth={2}
-                      name="Sleep Quality %"
-                      dot={{ fill: '#28a745', strokeWidth: 2, r: 3 }}
-                      activeDot={{ r: 5, stroke: '#28a745', strokeWidth: 2 }}
-                    />
-                    
-                    {/* Stress Level Line */}
-                    <Line 
-                      yAxisId="scale"
-                      type="monotone" 
-                      dataKey="stressPercent" 
-                      stroke="#dc3545" 
-                      strokeWidth={2}
-                      name="Stress %"
-                      dot={{ fill: '#dc3545', strokeWidth: 2, r: 3 }}
-                      activeDot={{ r: 5, stroke: '#dc3545', strokeWidth: 2 }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div style={{
-                textAlign: 'center',
-                padding: '3rem 1rem',
-                color: '#9CA3AF',
-                fontSize: '1.1rem'
-              }}>
-                <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>
-                  <i className="fas fa-chart-area"></i>
-                </div>
-                <p style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: '500' }}>No data available yet</p>
-                <p style={{ fontSize: '1rem', margin: '0', lineHeight: '1.5' }}>
-                  Start tracking your sleep, stress, and headaches to see patterns here!
-                </p>
-              </div>
-            )}
           </div>
 
           {/* AI Insights */}
