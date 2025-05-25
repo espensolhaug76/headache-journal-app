@@ -18,33 +18,71 @@ body {
   padding: 20px;
 }
 
-/* Navigation */
+/* Navigation with Centered Logo */
 .nav {
   background: #fff;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   padding: 1rem 0;
   margin-bottom: 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .nav-content {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
+  position: relative;
 }
 
+.nav-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-logo {
+  height: 40px;
+  width: auto;
+  transition: transform 0.2s ease;
+}
+
+.nav-logo:hover {
+  transform: scale(1.05);
+}
+
+/* Responsive logo sizing */
+@media (max-width: 768px) {
+  .nav-logo {
+    height: 32px;
+  }
+  
+  .nav {
+    padding: 0.75rem 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-logo {
+    height: 28px;
+  }
+}
+
+/* Remove old nav-brand styles and update nav-links if needed */
 .nav-brand {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #2c5aa0;
+  display: none; /* Hide the old text brand */
 }
 
 .nav-links {
   display: flex;
   gap: 1rem;
   list-style: none;
+  position: absolute;
+  right: 20px;
 }
 
 .nav-links a {
