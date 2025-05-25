@@ -30,9 +30,12 @@ export default function EnhancedDashboard() {
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [dashboardData, setDashboardData] = useState({
     sleepStressData: [],
     dailyMetrics: [], // New: last 3 days metrics
+    calendarData: {}, // New: monthly calendar data
     loading: true,
     error: null,
     stats: {
@@ -85,11 +88,36 @@ export default function EnhancedDashboard() {
         const headacheSnapshot = await getDocs(headacheQuery);
         const headacheData = headacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+        // Fetch monthly calendar data (headaches and medications)
+        const monthStart = new Date(currentYear, currentMonth, 1);
+        const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+        
+        const monthlyHeadacheQuery = query(
+          collection(db, 'users', currentUser.uid, 'headaches'),
+          where('createdAt', '>=', Timestamp.fromDate(monthStart)),
+          where('createdAt', '<=', Timestamp.fromDate(monthEnd)),
+          orderBy('createdAt', 'desc')
+        );
+        const monthlyHeadacheSnapshot = await getDocs(monthlyHeadacheQuery);
+        const monthlyHeadaches = monthlyHeadacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const monthlyMedicationQuery = query(
+          collection(db, 'users', currentUser.uid, 'medications'),
+          where('createdAt', '>=', Timestamp.fromDate(monthStart)),
+          where('createdAt', '<=', Timestamp.fromDate(monthEnd)),
+          orderBy('createdAt', 'desc')
+        );
+        const monthlyMedicationSnapshot = await getDocs(monthlyMedicationQuery);
+        const monthlyMedications = monthlyMedicationSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
         // Process and combine data for the last 7 days
         const processedData = processLast7Days(sleepData, stressData, headacheData);
         
         // Process daily metrics for last 3 days
         const dailyMetrics = processDailyMetrics(sleepData, stressData, headacheData);
+        
+        // Process calendar data
+        const calendarData = processCalendarData(monthlyHeadaches, monthlyMedications);
         
         // Calculate stats
         const stats = calculateStats(sleepData, stressData, headacheData);
@@ -97,6 +125,7 @@ export default function EnhancedDashboard() {
         setDashboardData({
           sleepStressData: processedData,
           dailyMetrics: dailyMetrics,
+          calendarData: calendarData,
           loading: false,
           error: null,
           stats
@@ -113,7 +142,43 @@ export default function EnhancedDashboard() {
     };
 
     fetchDashboardData();
-  }, [currentUser]);
+  }, [currentUser, currentMonth, currentYear]);
+
+  // Process calendar data for monthly view
+  const processCalendarData = (headaches, medications) => {
+    const calendarData = {};
+    
+    headaches.forEach(headache => {
+      const date = headache.createdAt?.toDate ? 
+        headache.createdAt.toDate().toISOString().split('T')[0] : 
+        headache.date;
+      
+      if (!calendarData[date]) {
+        calendarData[date] = { headaches: [], medications: [] };
+      }
+      calendarData[date].headaches.push({
+        painLevel: headache.painLevel,
+        location: headache.location
+      });
+    });
+
+    medications.forEach(medication => {
+      const date = medication.createdAt?.toDate ? 
+        medication.createdAt.toDate().toISOString().split('T')[0] : 
+        medication.date;
+      
+      if (!calendarData[date]) {
+        calendarData[date] = { headaches: [], medications: [] };
+      }
+      calendarData[date].medications.push({
+        name: medication.medicationName,
+        type: medication.medicationType,
+        effectiveness: medication.effectiveness
+      });
+    });
+
+    return calendarData;
+  };
 
   // Process daily metrics for last 3 days
   const processDailyMetrics = (sleepData, stressData, headacheData) => {
@@ -174,6 +239,7 @@ export default function EnhancedDashboard() {
       const headacheCount = dayHeadaches.length;
       const totalPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
       const avgPainLevel = headacheCount > 0 ? totalPainScore / headacheCount : 0;
+      const avgPainLevelPercent = avgPainLevel * 10; // Convert to percentage
 
       // Group headaches by intensity for visualization
       const headachesByIntensity = {};
@@ -192,6 +258,7 @@ export default function EnhancedDashboard() {
         stressPercent: stressEntry ? (stressEntry.stressLevel || 0) * 10 : 0,
         headaches: headacheCount,
         avgPainLevel: avgPainLevel,
+        avgPainLevelPercent: avgPainLevelPercent, // Add percentage version
         totalPainScore: totalPainScore,
         headachesByIntensity: headachesByIntensity,
         hasData: sleepEntry || stressEntry || headacheCount > 0
@@ -227,6 +294,211 @@ export default function EnhancedDashboard() {
       avgStressLevel: Math.round(avgStressLevel * 10) / 10,
       personalWorstDay
     };
+  };
+
+  // Calendar component
+  const CalendarView = () => {
+    const getDaysInMonth = (year, month) => {
+      return new Date(year, month + 1, 0).getDate();
+    };
+
+    const getFirstDayOfMonth = (year, month) => {
+      return new Date(year, month, 1).getDay();
+    };
+
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    const days = [];
+    
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} style={{ padding: '0.5rem' }}></div>);
+    }
+    
+    // Add cells for each day of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayData = dashboardData.calendarData[dateStr];
+      const hasHeadache = dayData && dayData.headaches.length > 0;
+      const hasMedication = dayData && dayData.medications.length > 0;
+      const isToday = dateStr === new Date().toISOString().split('T')[0];
+      
+      days.push(
+        <div
+          key={day}
+          style={{
+            padding: '0.5rem',
+            minHeight: '60px',
+            border: isToday ? '2px solid #4682B4' : '1px solid #E5E7EB',
+            borderRadius: '8px',
+            cursor: dayData ? 'pointer' : 'default',
+            position: 'relative',
+            background: isToday ? 'rgba(70, 130, 180, 0.1)' : '#FFFFFF'
+          }}
+          title={dayData ? `${dayData.headaches.length} headache(s), ${dayData.medications.length} medication(s)` : ''}
+        >
+          <div style={{ fontSize: '0.9rem', fontWeight: isToday ? 'bold' : 'normal' }}>
+            {day}
+          </div>
+          {hasHeadache && (
+            <div style={{
+              width: '8px',
+              height: '8px',
+              background: '#dc3545',
+              borderRadius: '50%',
+              position: 'absolute',
+              top: '8px',
+              right: '8px'
+            }} />
+          )}
+          {hasMedication && (
+            <div style={{
+              width: '8px',
+              height: '8px',
+              background: '#28a745',
+              borderRadius: '50%',
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px'
+            }} />
+          )}
+          {dayData && (
+            <div style={{ fontSize: '0.7rem', color: '#9CA3AF', marginTop: '0.25rem' }}>
+              {dayData.headaches.length > 0 && `H:${dayData.headaches.length} `}
+              {dayData.medications.length > 0 && `M:${dayData.medications.length}`}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div style={{
+        background: '#FFFFFF',
+        border: '1px solid #E5E7EB',
+        borderRadius: '16px',
+        padding: '1.5rem',
+        marginBottom: '3rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '1.5rem' 
+        }}>
+          <button
+            onClick={() => {
+              if (currentMonth === 0) {
+                setCurrentMonth(11);
+                setCurrentYear(currentYear - 1);
+              } else {
+                setCurrentMonth(currentMonth - 1);
+              }
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#4682B4',
+              cursor: 'pointer',
+              fontSize: '1.5rem'
+            }}
+          >
+            <i className="fas fa-chevron-left"></i>
+          </button>
+          
+          <h3 style={{ 
+            margin: 0, 
+            fontSize: '1.3rem', 
+            fontWeight: '600', 
+            color: '#1E3A8A',
+            textAlign: 'center' 
+          }}>
+            {monthNames[currentMonth]} {currentYear}
+          </h3>
+          
+          <button
+            onClick={() => {
+              if (currentMonth === 11) {
+                setCurrentMonth(0);
+                setCurrentYear(currentYear + 1);
+              } else {
+                setCurrentMonth(currentMonth + 1);
+              }
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#4682B4',
+              cursor: 'pointer',
+              fontSize: '1.5rem'
+            }}
+          >
+            <i className="fas fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: '0.5rem',
+          marginBottom: '1rem'
+        }}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} style={{
+              padding: '0.5rem',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              color: '#4B5563',
+              fontSize: '0.9rem'
+            }}>
+              {day}
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: '0.5rem'
+        }}>
+          {days}
+        </div>
+
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '2rem',
+          marginTop: '1rem',
+          fontSize: '0.85rem',
+          color: '#4B5563'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '8px',
+              height: '8px',
+              background: '#dc3545',
+              borderRadius: '50%'
+            }} />
+            Headache
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '8px',
+              height: '8px',
+              background: '#28a745',
+              borderRadius: '50%'
+            }} />
+            Medication
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // Touch handlers for metric swiping
@@ -425,11 +697,11 @@ export default function EnhancedDashboard() {
                 </div>
               );
             }
-            if (entry.dataKey === 'avgPainLevel') {
+            if (entry.dataKey === 'avgPainLevelPercent') {
               return (
                 <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
-                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Avg Pain: {Math.round(entry.value)}/10</span>
+                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Avg Pain: {Math.round(entry.value)}%</span>
                 </div>
               );
             }
@@ -541,7 +813,7 @@ export default function EnhancedDashboard() {
             color: '#1E3A8A',
             textAlign: 'center'
           }}>
-            Health Dashboard
+            Ultimate Migraine Tracker
           </h1>
           <p style={{ 
             color: '#4B5563', 
@@ -757,15 +1029,15 @@ export default function EnhancedDashboard() {
                       activeDot={{ r: 6, stroke: '#4682B4', strokeWidth: 2 }}
                     />
                     
-                    {/* Average Headache Intensity Line */}
+                    {/* Average Headache Intensity Line (as percentage) */}
                     <Line 
                       yAxisId="scale"
                       type="monotone" 
-                      dataKey="avgPainLevel" 
+                      dataKey="avgPainLevelPercent" 
                       stroke="#ff6b35" 
                       strokeWidth={3}
                       strokeDasharray="5 5"
-                      name="Avg Headache Intensity"
+                      name="Avg Headache Intensity %"
                       dot={{ fill: '#ff6b35', strokeWidth: 2, r: 4 }}
                       activeDot={{ r: 6, stroke: '#ff6b35', strokeWidth: 2 }}
                     />
@@ -927,6 +1199,9 @@ export default function EnhancedDashboard() {
             </div>
           </div>
 
+          {/* Monthly Calendar */}
+          <CalendarView />
+
           {/* AI Insights */}
           <div style={{
             background: '#FFFFFF',
@@ -1003,81 +1278,6 @@ export default function EnhancedDashboard() {
                     : 'Focus on improving sleep quality and reducing stress for better headache management.'}
                 </span>
               </div>
-            </div>
-          </div>
-
-          {/* Additional Tracking Links */}
-          <div style={{ marginBottom: '4rem' }}>
-            <h3 style={{ 
-              margin: '0 0 1.5rem 0', 
-              fontSize: '1.2rem', 
-              fontWeight: '600', 
-              color: '#4682B4',
-              textAlign: 'center'
-            }}>
-              <i className="fas fa-clipboard-list" style={{ marginRight: '0.5rem' }}></i>
-              Record More Data
-            </h3>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '1rem'
-            }}>
-              <Link to="/record-medication" style={{
-              background: '#FFFFFF',
-                color: '#000000',
-                textDecoration: 'none',
-                padding: '1.5rem',
-                borderRadius: '12px',
-                border: '1px solid #E5E7EB',
-                textAlign: 'center',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.75rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-}}>
-  <i className="fas fa-pills" style={{ fontSize: '2rem', color: '#6f42c1' }}></i>
-  <span style={{ fontSize: '1rem', fontWeight: '500' }}>Medication</span>
-</Link>
-                <Link to="/record-nutrition" style={{
-                background: '#FFFFFF',
-                color: '#000000',
-                textDecoration: 'none',
-                padding: '1.5rem',
-                borderRadius: '12px',
-                border: '1px solid #E5E7EB',
-                textAlign: 'center',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.75rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}>
-                <i className="fas fa-apple-alt" style={{ fontSize: '2rem', color: '#28a745' }}></i>
-                <span style={{ fontSize: '1rem', fontWeight: '500' }}>Nutrition</span>
-              </Link>
-              
-              <Link to="/record-body-pain" style={{
-                background: '#FFFFFF',
-                color: '#000000',
-                textDecoration: 'none',
-                padding: '1.5rem',
-                borderRadius: '12px',
-                border: '1px solid #E5E7EB',
-                textAlign: 'center',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.75rem',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}>
-                <i className="fas fa-user-injured" style={{ fontSize: '2rem', color: '#dc3545' }}></i>
-                <span style={{ fontSize: '1rem', fontWeight: '500' }}>Body Pain</span>
-              </Link>
             </div>
           </div>
 
