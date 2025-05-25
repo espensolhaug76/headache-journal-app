@@ -14,6 +14,9 @@ import RecordBodyPain from './pages/RecordBodyPain';
 import RecordMedication from './pages/RecordMedication';
 import './App.css';
 
+// Import your SVG logo
+import Logo from './assets/logo.svg';
+
 function App() {
   return (
     <div className="App">
@@ -21,7 +24,14 @@ function App() {
         <Router>
           <div className="nav">
             <div className="nav-content">
-              <div className="nav-brand">Headache Journal</div>
+              {/* Centered Logo */}
+              <div className="nav-logo-container">
+                <img 
+                  src={Logo} 
+                  alt="Logo" 
+                  className="nav-logo"
+                />
+              </div>
             </div>
           </div>
           <div className="container">
