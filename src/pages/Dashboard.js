@@ -27,11 +27,8 @@ export default function EnhancedDashboard() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const [currentMetricDay, setCurrentMetricDay] = useState(0); // 0 = today, 1 = yesterday, 2 = day before
-  const [touchStart, setTouchStart] = useState(null);
-  const [touchEnd, setTouchEnd] = useState(null);
-  const [showQuickActions, setShowQuickActions] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentMonth] = useState(new Date().getMonth());
+  const [currentYear] = useState(new Date().getFullYear());
   const [dashboardData, setDashboardData] = useState({
     sleepStressData: [],
     dailyMetrics: [], // New: last 3 days metrics
@@ -56,7 +53,6 @@ export default function EnhancedDashboard() {
 
     // Count headache types
     const typeCount = {};
-    const locationPatterns = {};
     const triggerPatterns = {};
     const timePatterns = {};
     
