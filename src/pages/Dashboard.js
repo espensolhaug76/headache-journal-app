@@ -671,4 +671,5 @@ export default function EnhancedDashboard() {
         const entryDate = entry.createdAt?.toDate ? 
           entry.createdAt.toDate().toISOString().split('T')[0] : 
           entry.date;
-        return entry
+        return entryDate === dateStr;
+      });
