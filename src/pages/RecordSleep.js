@@ -127,13 +127,36 @@ export default function RecordSleep() {
     setSleepMode('woke-up');
   };
 
-  // Function to request alarm permission and potentially set alarm
-  const requestAlarmPermission = async () => {
-    // Note: Web browsers have limited alarm capabilities
-    // This is a placeholder for future native app implementation
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
+  // Optional notification for wake-up reminder (web has limitations)
+  const requestWakeUpReminder = async () => {
+    // Web browsers can only do basic notifications, not alarms
+    // This would work better in a native app with proper alarm APIs
+    if ('Notification' in window && formData.intendedWakeTime) {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          // Calculate time until wake up for a simple reminder
+          const now = new Date();
+          const wakeTime = new Date(`${formData.date}T${formData.intendedWakeTime}`);
+          if (wakeTime <= now) {
+            wakeTime.setDate(wakeTime.getDate() + 1);
+          }
+          
+          // Only set reminder if wake time is within 12 hours
+          const timeDiff = wakeTime - now;
+          if (timeDiff > 0 && timeDiff <= 12 * 60 * 60 * 1000) {
+            setTimeout(() => {
+              new Notification('Wake Up Reminder', {
+                body: `Time to wake up! You planned to get up at ${formData.intendedWakeTime}`,
+                icon: '/favicon.ico'
+              });
+            }, timeDiff);
+            return true;
+          }
+        }
+      } catch (error) {
+        console.log('Notification not supported or failed');
+      }
     }
     return false;
   };
@@ -296,9 +319,12 @@ export default function RecordSleep() {
       
       await addDoc(collection(db, 'users', currentUser.uid, 'pendingSleep'), pendingData);
       
-      // Request alarm permission if we set an intended wake time
+      // Optional wake-up reminder (only if user wants it and it's within reasonable time)
       if (formData.intendedWakeTime) {
-        await requestAlarmPermission();
+        const reminderSet = await requestWakeUpReminder();
+        if (reminderSet) {
+          console.log('Wake-up reminder set successfully');
+        }
       }
       
       navigate('/dashboard');
@@ -563,19 +589,19 @@ export default function RecordSleep() {
                 </div>
               )}
 
-              {/* Alarm notification info */}
+              {/* Optional wake-up reminder info */}
               <div style={{
                 marginTop: '1.5rem',
                 padding: '1rem',
-                background: 'rgba(255, 193, 7, 0.1)',
-                border: '1px solid rgba(255, 193, 7, 0.3)',
+                background: 'rgba(23, 162, 184, 0.1)',
+                border: '1px solid rgba(23, 162, 184, 0.3)',
                 borderRadius: '8px',
                 fontSize: '0.9rem',
-                color: '#856404'
+                color: '#0c5460'
               }}>
                 <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
-                <strong>Note:</strong> We'll request notification permission to help remind you of your wake-up time. 
-                For full alarm functionality, consider using your device's built-in alarm app.
+                <strong>Optional:</strong> We can try to send you a wake-up reminder notification. 
+                This works best when your device supports notifications and you're planning to wake up within the next 12 hours.
               </div>
             </div>
           </div>
