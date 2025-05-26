@@ -818,7 +818,7 @@ export default function RecordHeadache() {
 
   // Default return (should not reach here)
   return null;
-}7EB',
+}
                 borderRadius: '8px',
                 color: '#4B5563',
                 padding: '12px 20px',
