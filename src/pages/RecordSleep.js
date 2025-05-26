@@ -10,7 +10,7 @@ export default function RecordSleep() {
   
   // Check if there's a pending sleep session (going to bed was logged)
   const [pendingSleepSession, setPendingSleepSession] = useState(null);
-  const [sleepMode, setSleepMode] = useState(''); // 'going-to-bed', 'woke-up', 'complete-retrospective'
+  const [sleepMode, setSleepMode] = useState(''); // 'going-to-bed', 'woke-up', 'manual-entry'
   const [currentStep, setCurrentStep] = useState(0);
   
   const [formData, setFormData] = useState({
@@ -101,6 +101,43 @@ export default function RecordSleep() {
     checkForPendingSleepSession();
   }, [checkForPendingSleepSession]);
 
+  // Function to automatically capture current time for bedtime
+  const handleGoingToBed = () => {
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    
+    setFormData(prev => ({
+      ...prev,
+      bedTime: currentTime,
+      date: now.toISOString().split('T')[0]
+    }));
+    setSleepMode('going-to-bed');
+  };
+
+  // Function to automatically capture wake up time
+  const handleWokeUp = () => {
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    
+    setFormData(prev => ({
+      ...prev,
+      wakeTime: currentTime,
+      date: now.toISOString().split('T')[0]
+    }));
+    setSleepMode('woke-up');
+  };
+
+  // Function to request alarm permission and potentially set alarm
+  const requestAlarmPermission = async () => {
+    // Note: Web browsers have limited alarm capabilities
+    // This is a placeholder for future native app implementation
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    }
+    return false;
+  };
+
   const questions = [
     // Sleep mode selection (only if no pending session)
     {
@@ -111,14 +148,7 @@ export default function RecordSleep() {
       condition: () => !pendingSleepSession
     },
     
-    // Going to bed flow
-    {
-      id: 'bedtime-setup',
-      title: 'Setting up for sleep',
-      subtitle: 'What time are you going to bed?',
-      component: 'bedtime-setup',
-      condition: () => sleepMode === 'going-to-bed'
-    },
+    // Going to bed flow (removed bedtime-setup since time is auto-captured)
     {
       id: 'wake-intention',
       title: 'When do you want to wake up?',
@@ -141,55 +171,50 @@ export default function RecordSleep() {
       condition: () => sleepMode === 'going-to-bed'
     },
     
-    // Woke up flow (or complete retrospective)
-    {
-      id: 'wake-up-time',
-      title: 'When did you wake up?',
-      subtitle: pendingSleepSession ? 'Good morning! How did you sleep?' : 'Enter your wake time',
-      component: 'wake-up-time',
-      condition: () => sleepMode === 'woke-up' || sleepMode === 'complete-retrospective'
-    },
-    {
-      id: 'sleep-times',
-      title: 'Sleep duration',
-      subtitle: 'Confirm your sleep and wake times',
-      component: 'sleep-times',
-      condition: () => sleepMode === 'complete-retrospective'
-    },
+    // Woke up flow (removed wake-up-time since time is auto-captured for woke-up mode)
     {
       id: 'sleep-quality',
       title: 'How was your sleep quality?',
       subtitle: 'Rate your overall sleep experience',
       component: 'sleep-quality',
-      condition: () => sleepMode === 'woke-up' || sleepMode === 'complete-retrospective'
+      condition: () => sleepMode === 'woke-up' || sleepMode === 'manual-entry'
     },
     {
       id: 'sleep-disruptions',
       title: 'Any sleep disruptions?',
       subtitle: 'Tell us about interruptions to your sleep',
       component: 'sleep-disruptions',
-      condition: () => sleepMode === 'woke-up' || sleepMode === 'complete-retrospective'
+      condition: () => sleepMode === 'woke-up' || sleepMode === 'manual-entry'
     },
     {
       id: 'sleep-problems',
       title: 'What sleep problems did you experience?',
       subtitle: 'Select any issues that affected your sleep',
       component: 'sleep-problems',
-      condition: () => sleepMode === 'woke-up' || sleepMode === 'complete-retrospective'
+      condition: () => sleepMode === 'woke-up' || sleepMode === 'manual-entry'
+    },
+    
+    // Manual entry flow
+    {
+      id: 'sleep-times',
+      title: 'Sleep duration',
+      subtitle: 'Enter your sleep and wake times',
+      component: 'sleep-times',
+      condition: () => sleepMode === 'manual-entry'
     },
     {
       id: 'screen-time',
       title: 'Screen time before bed',
       subtitle: 'Screen exposure can affect sleep quality',
       component: 'screen-time',
-      condition: () => sleepMode === 'complete-retrospective'
+      condition: () => sleepMode === 'manual-entry'
     },
     {
       id: 'notes',
       title: 'Additional sleep notes',
       subtitle: 'Any other details about your sleep',
       component: 'notes',
-      condition: () => sleepMode === 'woke-up' || sleepMode === 'complete-retrospective'
+      condition: () => sleepMode === 'woke-up' || sleepMode === 'manual-entry'
     }
   ];
 
@@ -269,8 +294,12 @@ export default function RecordSleep() {
         createdAt: Timestamp.now()
       };
       
-      // Fixed: Remove unused variable and use correct collection reference
       await addDoc(collection(db, 'users', currentUser.uid, 'pendingSleep'), pendingData);
+      
+      // Request alarm permission if we set an intended wake time
+      if (formData.intendedWakeTime) {
+        await requestAlarmPermission();
+      }
       
       navigate('/dashboard');
     } catch (error) {
@@ -294,7 +323,7 @@ export default function RecordSleep() {
         return;
       }
 
-      // Complete sleep record (woke-up or retrospective)
+      // Complete sleep record (woke-up or manual-entry)
       if (!formData.bedTime || !formData.wakeTime) {
         setError('Please enter both bed time and wake time');
         setLoading(false);
@@ -360,7 +389,7 @@ export default function RecordSleep() {
             margin: '0 auto'
           }}>
             <button
-              onClick={() => setSleepMode('going-to-bed')}
+              onClick={handleGoingToBed}
               style={{
                 padding: '2rem',
                 background: sleepMode === 'going-to-bed' ? 'rgba(70, 130, 180, 0.1)' : '#FFFFFF',
@@ -372,18 +401,27 @@ export default function RecordSleep() {
               }}
             >
               <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#4682B4' }}>
-                🌙
+                <i className="fas fa-moon"></i>
               </div>
               <h3 style={{ margin: '0 0 1rem 0', color: '#4682B4', fontSize: '1.3rem' }}>
-                I'm Going to Bed
+                I'm Going to Bed Now
               </h3>
               <p style={{ margin: 0, color: '#4B5563', fontSize: '1rem', lineHeight: '1.5' }}>
-                Log your bedtime, set wake-up intention, and track pre-sleep routine
+                Automatically capture bedtime and set up sleep tracking
               </p>
+              <div style={{ 
+                marginTop: '1rem', 
+                fontSize: '0.9rem', 
+                color: '#28a745',
+                fontWeight: '500'
+              }}>
+                <i className="fas fa-clock" style={{ marginRight: '0.5rem' }}></i>
+                Current time: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </button>
 
             <button
-              onClick={() => setSleepMode('woke-up')}
+              onClick={handleWokeUp}
               style={{
                 padding: '2rem',
                 background: sleepMode === 'woke-up' ? 'rgba(40, 167, 69, 0.1)' : '#FFFFFF',
@@ -395,22 +433,31 @@ export default function RecordSleep() {
               }}
             >
               <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#28a745' }}>
-                ☀️
+                <i className="fas fa-sun"></i>
               </div>
               <h3 style={{ margin: '0 0 1rem 0', color: '#28a745', fontSize: '1.3rem' }}>
                 I Just Woke Up
               </h3>
               <p style={{ margin: 0, color: '#4B5563', fontSize: '1rem', lineHeight: '1.5' }}>
-                Record how you slept, quality, and any issues you experienced
+                Automatically capture wake time and record how you slept
               </p>
+              <div style={{ 
+                marginTop: '1rem', 
+                fontSize: '0.9rem', 
+                color: '#28a745',
+                fontWeight: '500'
+              }}>
+                <i className="fas fa-clock" style={{ marginRight: '0.5rem' }}></i>
+                Current time: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </button>
 
             <button
-              onClick={() => setSleepMode('complete-retrospective')}
+              onClick={() => setSleepMode('manual-entry')}
               style={{
                 padding: '2rem',
-                background: sleepMode === 'complete-retrospective' ? 'rgba(255, 193, 7, 0.1)' : '#FFFFFF',
-                border: sleepMode === 'complete-retrospective' ? '2px solid #ffc107' : '1px solid #E5E7EB',
+                background: sleepMode === 'manual-entry' ? 'rgba(255, 193, 7, 0.1)' : '#FFFFFF',
+                border: sleepMode === 'manual-entry' ? '2px solid #ffc107' : '1px solid #E5E7EB',
                 borderRadius: '16px',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
@@ -418,65 +465,15 @@ export default function RecordSleep() {
               }}
             >
               <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ffc107' }}>
-                📝
+                <i className="fas fa-edit"></i>
               </div>
               <h3 style={{ margin: '0 0 1rem 0', color: '#ffc107', fontSize: '1.3rem' }}>
-                Record Past Sleep
+                Register Sleep Manually
               </h3>
               <p style={{ margin: 0, color: '#4B5563', fontSize: '1rem', lineHeight: '1.5' }}>
-                Enter complete sleep information from a previous night
+                Enter complete sleep information from a previous time
               </p>
             </button>
-          </div>
-        );
-
-      case 'bedtime-setup':
-        return (
-          <div style={{ maxWidth: '400px', margin: '0 auto' }}>
-            <div style={{
-              background: 'rgba(70, 130, 180, 0.1)',
-              border: '1px solid rgba(70, 130, 180, 0.3)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              marginBottom: '2rem',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🌙</div>
-              <h3 style={{ color: '#4682B4', margin: '0 0 0.5rem 0' }}>Good Night!</h3>
-              <p style={{ margin: 0, color: '#4B5563' }}>
-                Let's set up your sleep tracking for tonight
-              </p>
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                marginBottom: '1rem',
-                fontSize: '1.2rem',
-                fontWeight: '600',
-                color: '#4682B4',
-                textAlign: 'center'
-              }}>
-                What time are you going to bed?
-              </label>
-              <input
-                type="time"
-                value={formData.bedTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, bedTime: e.target.value }))}
-                required
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  borderRadius: '12px',
-                  border: '2px solid #E5E7EB',
-                  background: '#FFFFFF',
-                  color: '#000000',
-                  fontSize: '1.3rem',
-                  textAlign: 'center',
-                  fontWeight: '600'
-                }}
-              />
-            </div>
           </div>
         );
 
@@ -491,11 +488,24 @@ export default function RecordSleep() {
               marginBottom: '2rem',
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⏰</div>
+              <div style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#28a745' }}>
+                <i className="fas fa-alarm-clock"></i>
+              </div>
               <h3 style={{ color: '#28a745', margin: '0 0 0.5rem 0' }}>Set Your Wake-Up Goal</h3>
-              <p style={{ margin: 0, color: '#4B5563' }}>
+              <p style={{ margin: '0 0 1rem 0', color: '#4B5563' }}>
                 This helps track if you meet your sleep goals
               </p>
+              <div style={{ 
+                fontSize: '1.1rem', 
+                color: '#4682B4',
+                fontWeight: '600',
+                padding: '0.5rem',
+                background: 'rgba(70, 130, 180, 0.1)',
+                borderRadius: '8px'
+              }}>
+                <i className="fas fa-bed" style={{ marginRight: '0.5rem' }}></i>
+                Bedtime set: {formData.bedTime}
+              </div>
             </div>
 
             <div>
@@ -507,6 +517,7 @@ export default function RecordSleep() {
                 color: '#4682B4',
                 textAlign: 'center'
               }}>
+                <i className="fas fa-alarm-clock" style={{ marginRight: '0.5rem' }}></i>
                 When do you want to wake up?
               </label>
               <input
@@ -535,6 +546,7 @@ export default function RecordSleep() {
                   textAlign: 'center'
                 }}>
                   <p style={{ margin: '0 0 0.5rem 0', color: '#17a2b8', fontWeight: '600' }}>
+                    <i className="fas fa-hourglass-half" style={{ marginRight: '0.5rem' }}></i>
                     Planned Sleep Duration
                   </p>
                   <p style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#4682B4' }}>
@@ -550,6 +562,21 @@ export default function RecordSleep() {
                   </p>
                 </div>
               )}
+
+              {/* Alarm notification info */}
+              <div style={{
+                marginTop: '1.5rem',
+                padding: '1rem',
+                background: 'rgba(255, 193, 7, 0.1)',
+                border: '1px solid rgba(255, 193, 7, 0.3)',
+                borderRadius: '8px',
+                fontSize: '0.9rem',
+                color: '#856404'
+              }}>
+                <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+                <strong>Note:</strong> We'll request notification permission to help remind you of your wake-up time. 
+                For full alarm functionality, consider using your device's built-in alarm app.
+              </div>
             </div>
           </div>
         );
@@ -597,6 +624,7 @@ export default function RecordSleep() {
               padding: '1.5rem'
             }}>
               <h4 style={{ color: '#28a745', margin: '0 0 1rem 0' }}>
+                <i className="fas fa-spa" style={{ marginRight: '0.5rem' }}></i>
                 Good Sleep Hygiene Tips
               </h4>
               <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#4B5563', fontSize: '0.9rem' }}>
@@ -621,6 +649,7 @@ export default function RecordSleep() {
                 color: '#4682B4',
                 textAlign: 'center'
               }}>
+                <i className="fas fa-brain" style={{ marginRight: '0.5rem' }}></i>
                 How stressed do you feel right now?
               </label>
               <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
@@ -654,6 +683,7 @@ export default function RecordSleep() {
                 fontWeight: '600',
                 color: '#4682B4'
               }}>
+                <i className="fas fa-coffee" style={{ marginRight: '0.5rem' }}></i>
                 How much caffeine did you have today? (cups)
               </label>
               <input
@@ -675,7 +705,8 @@ export default function RecordSleep() {
               />
               {formData.caffeineToday > 4 && (
                 <p style={{ color: '#ffc107', marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                  ⚠️ High caffeine intake may affect sleep quality
+                  <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                  High caffeine intake may affect sleep quality
                 </p>
               )}
             </div>
@@ -688,6 +719,7 @@ export default function RecordSleep() {
                 fontWeight: '600',
                 color: '#4682B4'
               }}>
+                <i className="fas fa-home" style={{ marginRight: '0.5rem' }}></i>
                 Sleep environment notes (optional)
               </label>
               <textarea
@@ -711,7 +743,7 @@ export default function RecordSleep() {
           </div>
         );
 
-      case 'wake-up-time':
+      case 'sleep-quality':
         const actualSleepHours = pendingSleepSession && formData.wakeTime ? 
           (() => {
             const bedDateTime = new Date(`${pendingSleepSession.date}T${pendingSleepSession.bedTime}`);
@@ -720,10 +752,11 @@ export default function RecordSleep() {
               wakeDateTime.setDate(wakeDateTime.getDate() + 1);
             }
             return (wakeDateTime - bedDateTime) / (1000 * 60 * 60);
-          })() : 0;
+          })() : calculateSleepHours();
 
         return (
-          <div style={{ maxWidth: '400px', margin: '0 auto' }}>
+          <div>
+            {/* Sleep summary for woke-up mode */}
             {pendingSleepSession && (
               <div style={{
                 background: 'rgba(40, 167, 69, 0.1)',
@@ -733,221 +766,99 @@ export default function RecordSleep() {
                 marginBottom: '2rem',
                 textAlign: 'center'
               }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>☀️</div>
-                <h3 style={{ color: '#28a745', margin: '0 0 0.5rem 0' }}>Good Morning!</h3>
-                <p style={{ margin: '0 0 1rem 0', color: '#4B5563' }}>
-                  You went to bed at {pendingSleepSession.bedTime}
-                </p>
-                <p style={{ margin: 0, color: '#4B5563', fontSize: '0.9rem' }}>
-                  Intended wake time: {pendingSleepSession.intendedWakeTime}
-                </p>
+                <div style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#28a745' }}>
+                  <i className="fas fa-sun"></i>
+                </div>
+                <h3 style={{ color: '#28a745', margin: '0 0 1rem 0' }}>Good Morning!</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.9rem', color: '#4B5563' }}>Bedtime</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#4682B4' }}>
+                      <i className="fas fa-moon" style={{ marginRight: '0.5rem' }}></i>
+                      {pendingSleepSession.bedTime}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.9rem', color: '#4B5563' }}>Wake Time</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#4682B4' }}>
+                      <i className="fas fa-sun" style={{ marginRight: '0.5rem' }}></i>
+                      {formData.wakeTime}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.9rem', color: '#4B5563' }}>Total Sleep</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#28a745' }}>
+                      <i className="fas fa-hourglass-half" style={{ marginRight: '0.5rem' }}></i>
+                      {Math.round(actualSleepHours * 10) / 10}h
+                    </div>
+                  </div>
+                </div>
+                {pendingSleepSession.intendedWakeTime && (
+                  <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#4B5563' }}>
+                    {(() => {
+                      const intendedTime = new Date(`${formData.date}T${pendingSleepSession.intendedWakeTime}`);
+                      const actualWakeTime = new Date(`${formData.date}T${formData.wakeTime}`);
+                      const diffMinutes = (actualWakeTime - intendedTime) / (1000 * 60);
+                      
+                      if (Math.abs(diffMinutes) < 15) {
+                        return <><i className="fas fa-bullseye" style={{ marginRight: '0.5rem', color: '#28a745' }}></i>Right on time!</>;
+                      } else if (diffMinutes > 0) {
+                        return <><i className="fas fa-clock" style={{ marginRight: '0.5rem', color: '#ffc107' }}></i>{Math.round(diffMinutes)} min later than planned</>;
+                      } else {
+                        return <><i className="fas fa-sunrise" style={{ marginRight: '0.5rem', color: '#17a2b8' }}></i>{Math.round(Math.abs(diffMinutes))} min earlier than planned</>;
+                      }
+                    })()}
+                  </div>
+                )}
               </div>
             )}
 
-            <div>
-              <label style={{
-                display: 'block',
+            {/* Sleep quality rating */}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                fontSize: '4rem',
                 marginBottom: '1rem',
-                fontSize: '1.2rem',
-                fontWeight: '600',
-                color: '#4682B4',
-                textAlign: 'center'
+                color: getSleepQualityColor(formData.sleepQuality)
               }}>
-                What time did you actually wake up?
-              </label>
+                {formData.sleepQuality}/10
+              </div>
+              <div style={{
+                fontSize: '1.5rem',
+                marginBottom: '2rem',
+                color: getSleepQualityColor(formData.sleepQuality),
+                fontWeight: '600'
+              }}>
+                <i className="fas fa-star" style={{ marginRight: '0.5rem' }}></i>
+                {getSleepQualityText(formData.sleepQuality)}
+              </div>
               <input
-                type="time"
-                value={formData.wakeTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, wakeTime: e.target.value }))}
-                required
+                type="range"
+                min="1"
+                max="10"
+                value={formData.sleepQuality}
+                onChange={(e) => setFormData(prev => ({ ...prev, sleepQuality: e.target.value }))}
                 style={{
                   width: '100%',
-                  padding: '1rem',
-                  borderRadius: '12px',
-                  border: '2px solid #E5E7EB',
-                  background: '#FFFFFF',
-                  color: '#000000',
-                  fontSize: '1.3rem',
-                  textAlign: 'center',
-                  fontWeight: '600'
+                  height: '12px',
+                  borderRadius: '6px',
+                  background: `linear-gradient(to right, #dc3545 0%, #ffc107 50%, #28a745 100%)`,
+                  outline: 'none',
+                  cursor: 'pointer',
+                  marginBottom: '1rem'
                 }}
               />
-              
-              {actualSleepHours > 0 && (
-                <div style={{
-                  marginTop: '1.5rem',
-                  padding: '1rem',
-                  background: actualSleepHours >= 7 && actualSleepHours <= 9 ? 
-                    'rgba(40, 167, 69, 0.1)' : 'rgba(255, 193, 7, 0.1)',
-                  borderRadius: '8px',
-                  textAlign: 'center'
-                }}>
-                  <p style={{ 
-                    margin: '0 0 0.5rem 0', 
-                    color: actualSleepHours >= 7 && actualSleepHours <= 9 ? '#28a745' : '#856404', 
-                    fontWeight: '600' 
-                  }}>
-                    Total Sleep Time
-                  </p>
-                  <p style={{ 
-                    margin: '0 0 0.5rem 0', 
-                    fontSize: '1.4rem', 
-                    fontWeight: 'bold', 
-                    color: '#4682B4' 
-                  }}>
-                    {Math.round(actualSleepHours * 10) / 10} hours
-                  </p>
-                  {pendingSleepSession?.intendedWakeTime && (
-                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#4B5563' }}>
-                      {(() => {
-                        const intendedTime = new Date(`${formData.date}T${pendingSleepSession.intendedWakeTime}`);
-                        const actualWakeTime = new Date(`${formData.date}T${formData.wakeTime}`);
-                        const diffMinutes = (actualWakeTime - intendedTime) / (1000 * 60);
-                        
-                        if (Math.abs(diffMinutes) < 15) {
-                          return '🎯 Right on time!';
-                        } else if (diffMinutes > 0) {
-                          return `⏰ ${Math.round(diffMinutes)} min later than planned`;
-                        } else {
-                          return `🌅 ${Math.round(Math.abs(diffMinutes))} min earlier than planned`;
-                        }
-                      })()}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-
-      case 'sleep-times':
-        const sleepHours = calculateSleepHours();
-        
-        return (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '1rem',
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  color: '#4682B4'
-                }}>
-                  Went to Bed
-                </label>
-                <input
-                  type="time"
-                  value={formData.bedTime}
-                  onChange={(e) => setFormData(prev => ({ ...prev, bedTime: e.target.value }))}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
-                    background: '#FFFFFF',
-                    color: '#000000',
-                    fontSize: '1.1rem'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '1rem',
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  color: '#4682B4'
-                }}>
-                  Woke Up
-                </label>
-                <input
-                  type="time"
-                  value={formData.wakeTime}
-                  onChange={(e) => setFormData(prev => ({ ...prev, wakeTime: e.target.value }))}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
-                    background: '#FFFFFF',
-                    color: '#000000',
-                    fontSize: '1.1rem'
-                  }}
-                />
-              </div>
-            </div>
-
-            {sleepHours > 0 && (
               <div style={{
-                background: 'rgba(70, 130, 180, 0.1)',
-                border: '1px solid rgba(70, 130, 180, 0.3)',
-                borderRadius: '12px',
-                padding: '1.5rem',
-                textAlign: 'center',
-                marginBottom: '2rem'
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.9rem',
+                color: '#9CA3AF',
+                marginTop: '1rem'
               }}>
-                <h3 style={{ color: '#4682B4', margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>
-                  Total Sleep: {sleepHours} hours
-                </h3>
-                <p style={{ margin: 0, color: '#4B5563', fontSize: '1rem' }}>
-                  {sleepHours < 7 ? '⚠️ Consider getting more sleep for optimal health' : 
-                   sleepHours > 9 ? 'That\'s plenty of sleep!' : 
-                   '✅ Good amount of sleep!'}
-                </p>
+                <span><i className="fas fa-frown"></i> Poor</span>
+                <span><i className="fas fa-meh"></i> Fair</span>
+                <span><i className="fas fa-smile"></i> Good</span>
+                <span><i className="fas fa-grin-stars"></i> Excellent</span>
               </div>
-            )}
-          </div>
-        );
-
-      case 'sleep-quality':
-        return (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: '4rem',
-              marginBottom: '1rem',
-              color: getSleepQualityColor(formData.sleepQuality)
-            }}>
-              {formData.sleepQuality}/10
-            </div>
-            <div style={{
-              fontSize: '1.5rem',
-              marginBottom: '2rem',
-              color: getSleepQualityColor(formData.sleepQuality),
-              fontWeight: '600'
-            }}>
-              {getSleepQualityText(formData.sleepQuality)}
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="10"
-              value={formData.sleepQuality}
-              onChange={(e) => setFormData(prev => ({ ...prev, sleepQuality: e.target.value }))}
-              style={{
-                width: '100%',
-                height: '12px',
-                borderRadius: '6px',
-                background: `linear-gradient(to right, #dc3545 0%, #ffc107 50%, #28a745 100%)`,
-                outline: 'none',
-                cursor: 'pointer',
-                marginBottom: '1rem'
-              }}
-            />
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: '0.9rem',
-              color: '#9CA3AF',
-              marginTop: '1rem'
-            }}>
-              <span>Poor</span>
-              <span>Fair</span>
-              <span>Good</span>
-              <span>Excellent</span>
             </div>
           </div>
         );
@@ -962,6 +873,7 @@ export default function RecordSleep() {
               fontWeight: '600',
               color: '#4682B4'
             }}>
+              <i className="fas fa-exclamation-circle" style={{ marginRight: '0.5rem' }}></i>
               How often did you wake up during the night?
             </label>
             <input
@@ -984,6 +896,7 @@ export default function RecordSleep() {
               color: '#9CA3AF',
               fontSize: '0.9rem'
             }}>
+              <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
               Include details like frequency, duration, or reasons (bathroom, noise, etc.)
             </p>
           </div>
@@ -1024,6 +937,94 @@ export default function RecordSleep() {
           </div>
         );
 
+      case 'sleep-times':
+        const sleepHours = calculateSleepHours();
+        
+        return (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '1rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '600',
+                  color: '#4682B4'
+                }}>
+                  <i className="fas fa-moon" style={{ marginRight: '0.5rem' }}></i>
+                  Went to Bed
+                </label>
+                <input
+                  type="time"
+                  value={formData.bedTime}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bedTime: e.target.value }))}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1.1rem'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '1rem',
+                  fontSize: '1.1rem',
+                  fontWeight: '600',
+                  color: '#4682B4'
+                }}>
+                  <i className="fas fa-sun" style={{ marginRight: '0.5rem' }}></i>
+                  Woke Up
+                </label>
+                <input
+                  type="time"
+                  value={formData.wakeTime}
+                  onChange={(e) => setFormData(prev => ({ ...prev, wakeTime: e.target.value }))}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1.1rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            {sleepHours > 0 && (
+              <div style={{
+                background: 'rgba(70, 130, 180, 0.1)',
+                border: '1px solid rgba(70, 130, 180, 0.3)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                textAlign: 'center',
+                marginBottom: '2rem'
+              }}>
+                <h3 style={{ color: '#4682B4', margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>
+                  <i className="fas fa-hourglass-half" style={{ marginRight: '0.5rem' }}></i>
+                  Total Sleep: {sleepHours} hours
+                </h3>
+                <p style={{ margin: 0, color: '#4B5563', fontSize: '1rem' }}>
+                  {sleepHours < 7 ? 
+                    <><i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem', color: '#ffc107' }}></i>Consider getting more sleep for optimal health</> : 
+                   sleepHours > 9 ? 
+                    <><i className="fas fa-check-circle" style={{ marginRight: '0.5rem', color: '#28a745' }}></i>That's plenty of sleep!</> : 
+                    <><i className="fas fa-thumbs-up" style={{ marginRight: '0.5rem', color: '#28a745' }}></i>Good amount of sleep!</>}
+                </p>
+              </div>
+            )}
+          </div>
+        );
+
       case 'screen-time':
         return (
           <div>
@@ -1036,6 +1037,7 @@ export default function RecordSleep() {
                   fontWeight: '600',
                   color: '#4682B4'
                 }}>
+                  <i className="fas fa-mobile-alt" style={{ marginRight: '0.5rem' }}></i>
                   Mobile Screen Time (hours)
                 </label>
                 <input
@@ -1057,7 +1059,8 @@ export default function RecordSleep() {
                 />
                 {formData.screenTimeMobile > 3 && (
                   <p style={{ color: '#ffc107', marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                    ⚠️ High screen time may affect sleep quality
+                    <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                    High screen time may affect sleep quality
                   </p>
                 )}
               </div>
@@ -1070,6 +1073,7 @@ export default function RecordSleep() {
                   fontWeight: '600',
                   color: '#4682B4'
                 }}>
+                  <i className="fas fa-desktop" style={{ marginRight: '0.5rem' }}></i>
                   Computer Screen Time (hours)
                 </label>
                 <input
@@ -1091,7 +1095,8 @@ export default function RecordSleep() {
                 />
                 {formData.screenTimeComputer > 8 && (
                   <p style={{ color: '#ffc107', marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                    ⚠️ Consider blue light filters before bed
+                    <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                    Consider blue light filters before bed
                   </p>
                 )}
               </div>
@@ -1104,6 +1109,7 @@ export default function RecordSleep() {
               padding: '1.5rem'
             }}>
               <h4 style={{ color: '#28a745', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
+                <i className="fas fa-shield-alt" style={{ marginRight: '0.5rem' }}></i>
                 Screen Time & Sleep Tips
               </h4>
               <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#4B5563', fontSize: '0.9rem' }}>
@@ -1142,6 +1148,7 @@ export default function RecordSleep() {
               fontSize: '0.9rem',
               textAlign: 'center'
             }}>
+              <i className="fas fa-lightbulb" style={{ marginRight: '0.5rem' }}></i>
               This information helps identify sleep patterns that may affect your headaches
             </p>
             
@@ -1154,19 +1161,24 @@ export default function RecordSleep() {
                 marginTop: '2rem'
               }}>
                 <h4 style={{ color: '#28a745', margin: '0 0 1rem 0' }}>
+                  <i className="fas fa-clipboard-check" style={{ marginRight: '0.5rem' }}></i>
                   Sleep Session Summary
                 </h4>
                 <div style={{ color: '#4B5563', fontSize: '0.9rem' }}>
                   <p style={{ margin: '0.5rem 0' }}>
+                    <i className="fas fa-moon" style={{ marginRight: '0.5rem' }}></i>
                     <strong>Bedtime:</strong> {pendingSleepSession.bedTime}
                   </p>
                   <p style={{ margin: '0.5rem 0' }}>
+                    <i className="fas fa-alarm-clock" style={{ marginRight: '0.5rem' }}></i>
                     <strong>Intended wake time:</strong> {pendingSleepSession.intendedWakeTime}
                   </p>
                   <p style={{ margin: '0.5rem 0' }}>
+                    <i className="fas fa-sun" style={{ marginRight: '0.5rem' }}></i>
                     <strong>Actual wake time:</strong> {formData.wakeTime}
                   </p>
                   <p style={{ margin: '0.5rem 0' }}>
+                    <i className="fas fa-spa" style={{ marginRight: '0.5rem' }}></i>
                     <strong>Pre-bed routine:</strong> {pendingSleepSession.preBedRoutine?.join(', ') || 'None recorded'}
                   </p>
                 </div>
@@ -1189,12 +1201,8 @@ export default function RecordSleep() {
     switch (currentQuestion.component) {
       case 'sleep-mode-selection':
         return sleepMode !== '';
-      case 'bedtime-setup':
-        return formData.bedTime !== '';
       case 'wake-intention':
         return formData.intendedWakeTime !== '';
-      case 'wake-up-time':
-        return formData.wakeTime !== '';
       case 'sleep-times':
         return formData.bedTime && formData.wakeTime;
       default:
@@ -1204,7 +1212,7 @@ export default function RecordSleep() {
 
   const getButtonText = () => {
     if (loading) return 'Saving...';
-    if (sleepMode === 'going-to-bed' && isLastStep) return 'Save Bedtime & Set Alarm';
+    if (sleepMode === 'going-to-bed' && isLastStep) return 'Save Bedtime & Set Reminder';
     if (isLastStep) return 'Record Sleep Data';
     return 'Next →';
   };
@@ -1217,6 +1225,15 @@ export default function RecordSleep() {
       padding: '20px',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
+      {/* Font Awesome CSS */}
+      <link 
+        rel="stylesheet" 
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+        crossOrigin="anonymous" 
+        referrerPolicy="no-referrer" 
+      />
+
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: '40px' }}>
@@ -1229,6 +1246,7 @@ export default function RecordSleep() {
               textAlign: 'center',
               flex: 1
             }}>
+              <i className="fas fa-bed" style={{ marginRight: '0.5rem' }}></i>
               {sleepMode === 'going-to-bed' ? 'Bedtime Setup' : 
                sleepMode === 'woke-up' ? 'Morning Sleep Review' : 
                'Record Sleep'}
@@ -1245,6 +1263,7 @@ export default function RecordSleep() {
                 fontSize: '0.9rem'
               }}
             >
+              <i className="fas fa-times" style={{ marginRight: '0.5rem' }}></i>
               Cancel
             </Link>
           </div>
@@ -1291,6 +1310,7 @@ export default function RecordSleep() {
             textAlign: 'center'
           }}>
             <h4 style={{ color: '#17a2b8', margin: '0 0 0.5rem 0' }}>
+              <i className="fas fa-link" style={{ marginRight: '0.5rem' }}></i>
               Continuing Your Sleep Session
             </h4>
             <p style={{ margin: 0, color: '#4B5563', fontSize: '0.9rem' }}>
@@ -1331,6 +1351,7 @@ export default function RecordSleep() {
                   color: '#721c24',
                   textAlign: 'center'
                 }}>
+                  <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
                   {error}
                 </div>
               )}
@@ -1360,7 +1381,8 @@ export default function RecordSleep() {
               fontSize: '1rem'
             }}
           >
-            ← Previous
+            <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+            Previous
           </button>
 
           <div style={{ display: 'flex', gap: '1rem' }}>
@@ -1377,6 +1399,7 @@ export default function RecordSleep() {
                   fontSize: '1rem'
                 }}
               >
+                <i className="fas fa-forward" style={{ marginRight: '0.5rem' }}></i>
                 Skip
               </button>
             )}
@@ -1397,7 +1420,13 @@ export default function RecordSleep() {
                 minWidth: '180px'
               }}
             >
-              {getButtonText()}
+              {loading ? (
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Saving...</>
+              ) : isLastStep ? (
+                <><i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>{getButtonText()}</>
+              ) : (
+                <>Next <i className="fas fa-arrow-right" style={{ marginLeft: '0.5rem' }}></i></>
+              )}
             </button>
           </div>
         </div>
