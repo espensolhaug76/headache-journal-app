@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -67,12 +67,8 @@ export default function RecordSleep() {
     'Physical discomfort'
   ];
 
-  // Check for pending sleep session on component mount
-  React.useEffect(() => {
-    checkForPendingSleepSession();
-  }, [currentUser]);
-
-  const checkForPendingSleepSession = async () => {
+  // Check for pending sleep session on component mount - useCallback to fix ESLint warning
+  const checkForPendingSleepSession = useCallback(async () => {
     if (!currentUser) return;
     
     try {
@@ -99,7 +95,11 @@ export default function RecordSleep() {
     } catch (error) {
       console.error('Error checking for pending sleep session:', error);
     }
-  };
+  }, [currentUser]);
+
+  React.useEffect(() => {
+    checkForPendingSleepSession();
+  }, [checkForPendingSleepSession]);
 
   const questions = [
     // Sleep mode selection (only if no pending session)
@@ -269,7 +269,7 @@ export default function RecordSleep() {
         createdAt: Timestamp.now()
       };
       
-      const pendingDocRef = doc(db, 'users', currentUser.uid, 'pendingSleep', 'current');
+      // Fixed: Remove unused variable and use correct collection reference
       await addDoc(collection(db, 'users', currentUser.uid, 'pendingSleep'), pendingData);
       
       navigate('/dashboard');
@@ -755,7 +755,7 @@ export default function RecordSleep() {
               }}>
                 What time did you actually wake up?
               </label>
-                              <input
+              <input
                 type="time"
                 value={formData.wakeTime}
                 onChange={(e) => setFormData(prev => ({ ...prev, wakeTime: e.target.value }))}
