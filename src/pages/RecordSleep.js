@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, addDoc, Timestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, updateDoc, getDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export default function RecordSleep() {
@@ -30,21 +30,35 @@ export default function RecordSleep() {
     if (!currentUser) return;
     
     try {
-      const pendingDocRef = doc(db, 'users', currentUser.uid, 'pendingSleep', 'current');
-      const pendingDoc = await getDoc(pendingDocRef);
+      // Query the pendingSleep collection for any uncompleted sessions
+      const pendingSleepQuery = query(
+        collection(db, 'users', currentUser.uid, 'pendingSleep'),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+      const pendingSleepSnapshot = await getDocs(pendingSleepQuery);
       
-      if (pendingDoc.exists()) {
-        const pendingData = pendingDoc.data();
-        setPendingSleepSession(pendingData);
-        setSleepMode('woke-up');
+      if (!pendingSleepSnapshot.empty) {
+        const pendingDoc = pendingSleepSnapshot.docs[0];
+        const pendingData = { id: pendingDoc.id, ...pendingDoc.data() };
         
-        // Pre-fill form with pending data
-        setFormData(prev => ({
-          ...prev,
-          bedTime: pendingData.bedTime,
-          intendedWakeTime: pendingData.intendedWakeTime || '',
-          date: pendingData.date
-        }));
+        // Check if this session is not completed and is recent (within 24 hours)
+        const bedTime = new Date(`${pendingData.date}T${pendingData.bedTime}`);
+        const now = new Date();
+        const hoursDiff = (now - bedTime) / (1000 * 60 * 60);
+        
+        if (!pendingData.completed && hoursDiff <= 24) {
+          setPendingSleepSession(pendingData);
+          setSleepMode('woke-up');
+          
+          // Pre-fill form with pending data
+          setFormData(prev => ({
+            ...prev,
+            bedTime: pendingData.bedTime,
+            intendedWakeTime: pendingData.intendedWakeTime || '',
+            date: pendingData.date
+          }));
+        }
       }
     } catch (error) {
       console.error('Error checking for pending sleep session:', error);
@@ -216,7 +230,7 @@ export default function RecordSleep() {
         />
 
         <div style={{ maxWidth: '400px', width: '100%', textAlign: 'center' }}>
-          {/* Good morning header */}
+          {/* Good morning header with editable bedtime */}
           <div style={{
             background: 'rgba(40, 167, 69, 0.1)',
             border: '1px solid rgba(40, 167, 69, 0.3)',
@@ -229,10 +243,25 @@ export default function RecordSleep() {
             </div>
             <h2 style={{ color: '#28a745', margin: '0 0 1rem 0' }}>Good Morning!</h2>
             <div style={{ color: '#4B5563', fontSize: '1rem' }}>
-              <p style={{ margin: '0.5rem 0' }}>
-                <i className="fas fa-bed" style={{ marginRight: '0.5rem' }}></i>
-                Bedtime: {pendingSleepSession?.bedTime || formData.bedTime}
-              </p>
+              <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+                <span>
+                  <i className="fas fa-bed" style={{ marginRight: '0.5rem' }}></i>
+                  Bedtime:
+                </span>
+                <input
+                  type="time"
+                  value={formData.bedTime}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bedTime: e.target.value }))}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
               <p style={{ margin: '0.5rem 0' }}>
                 <i className="fas fa-sun" style={{ marginRight: '0.5rem' }}></i>
                 Wake time: {formData.wakeTime}
