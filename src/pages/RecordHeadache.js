@@ -511,7 +511,7 @@ export default function RecordHeadache() {
                 width: '100%',
                 height: '12px',
                 borderRadius: '6px',
-                background: `linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)`,
+                background: 'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
                 outline: 'none',
                 cursor: 'pointer',
                 marginBottom: '1rem'
@@ -1052,8 +1052,8 @@ export default function RecordHeadache() {
     </div>
   );
 } 'none',
-                cursor: 'pointer';
-                marginBottom: '1rem';
+                cursor: 'pointer',
+                marginBottom: '1rem'
               }}
             />
           </div>
