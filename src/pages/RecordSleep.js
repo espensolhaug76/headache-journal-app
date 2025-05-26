@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, addDoc, Timestamp, doc, updateDoc, getDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, updateDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export default function RecordSleep() {
@@ -182,9 +182,9 @@ export default function RecordSleep() {
 
       await addDoc(collection(db, 'users', currentUser.uid, 'sleep'), sleepData);
       
-      // If this was from a pending session, clean it up
+      // If this was from a pending session, mark it as completed
       if (pendingSleepSession) {
-        const pendingDocRef = doc(db, 'users', currentUser.uid, 'pendingSleep', 'current');
+        const pendingDocRef = doc(db, 'users', currentUser.uid, 'pendingSleep', pendingSleepSession.id);
         await updateDoc(pendingDocRef, { completed: true });
       }
       
