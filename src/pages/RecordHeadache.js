@@ -1052,8 +1052,8 @@ export default function RecordHeadache() {
     </div>
   );
 } 'none',
-                cursor: 'pointer',
-                marginBottom: '1rem'
+                cursor: 'pointer';
+                marginBottom: '1rem';
               }}
             />
           </div>
