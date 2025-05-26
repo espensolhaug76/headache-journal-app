@@ -713,4 +713,430 @@ export default function RecordHeadache() {
             <div style={{
               display: 'flex',
               justifyContent: 'center',
-              gap:
+              gap: '0.5rem',
+              marginTop: '1rem'
+            }}>
+              {headacheTypes.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: index === currentSlide ? '#4682B4' : '#E5E7EB',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('selection')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+
+            <button
+              onClick={submitManualEntry}
+              disabled={loading || !formData.location}
+              style={{
+                background: (loading || !formData.location) ? '#E5E7EB' : '#ffc107',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: (loading || !formData.location) ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Saving...</>
+              ) : (
+                <><i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>Save Headache</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // AUTO-TIMER MODE (Active Headache Session)
+  if (mode === 'auto-timer') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          {/* Active Session Header */}
+          <div style={{
+            background: 'rgba(220, 53, 69, 0.1)',
+            border: '2px solid #dc3545',
+            borderRadius: '16px',
+            padding: '2rem',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#dc3545' }}>
+              <i className="fas fa-stopwatch"></i>
+            </div>
+            <h2 style={{ color: '#dc3545', margin: '0 0 1rem 0' }}>
+              Tracking Active Headache
+            </h2>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#dc3545', marginBottom: '0.5rem' }}>
+              {ongoingSession && formatDuration(ongoingSession.startTime)}
+            </div>
+            <div style={{ color: '#4B5563', fontSize: '1rem' }}>
+              Pain Level: {ongoingSession?.painLevel}/10 • Type: {ongoingSession?.location}
+            </div>
+          </div>
+
+          {/* Pain Level Adjustment */}
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <h3 style={{ color: '#4682B4', marginBottom: '1rem' }}>Update Pain Level</h3>
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem', color: getPainLevelColor(formData.painLevel || ongoingSession?.painLevel || 5) }}>
+              {formData.painLevel || ongoingSession?.painLevel || 5}/10
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={formData.painLevel || ongoingSession?.painLevel || 5}
+              onChange={(e) => setFormData(prev => ({ ...prev, painLevel: e.target.value }))}
+              style={{
+                width: '100%',
+                height: '12px',
+                borderRadius: '6px',
+                background: 'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+
+          {/* Premium Features Preview */}
+          {isPremiumMode && (
+            <>
+              {/* Current Symptoms */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i> Current Symptoms
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                  {currentSymptoms.map(symptom => (
+                    <label key={symptom} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                      background: formData.currentSymptoms.includes(symptom) ? 'rgba(70, 130, 180, 0.1)' : '#F9FAFB',
+                      border: formData.currentSymptoms.includes(symptom) ? '1px solid #4682B4' : '1px solid #E5E7EB',
+                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem'
+                    }}>
+                      <input type="checkbox" checked={formData.currentSymptoms.includes(symptom)} onChange={() => handleCheckboxChange(symptom, 'currentSymptoms')} />
+                      {symptom}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Triggers */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i> Possible Triggers
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                  {commonTriggers.map(trigger => (
+                    <label key={trigger} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                      background: formData.triggers.includes(trigger) ? 'rgba(255, 193, 7, 0.1)' : '#F9FAFB',
+                      border: formData.triggers.includes(trigger) ? '1px solid #ffc107' : '1px solid #E5E7EB',
+                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem'
+                    }}>
+                      <input type="checkbox" checked={formData.triggers.includes(trigger)} onChange={() => handleCheckboxChange(trigger, 'triggers')} />
+                      {trigger}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Premium Teaser for Free Users */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Track Symptoms & Triggers</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Get AI insights and pattern recognition
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* End Session Button */}
+          <div style={{ textAlign: 'center' }}>
+            <button
+              onClick={endHeadacheSession}
+              disabled={loading}
+              style={{
+                background: loading ? '#E5E7EB' : '#28a745',
+                border: 'none',
+                borderRadius: '12px',
+                color: 'white',
+                padding: '16px 32px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '1rem'
+              }}
+            >
+              {loading ? (
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Ending...</>
+              ) : (
+                <><i className="fas fa-stop" style={{ marginRight: '0.5rem' }}></i>End Headache</>
+              )}
+            </button>
+            <div>
+              <button
+                onClick={() => setMode('selection')}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '8px',
+                  color: '#4B5563',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i> Back to Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // END HEADACHE FLOW
+  if (mode === 'end-headache') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          {/* Session Summary */}
+          <div style={{
+            background: 'rgba(40, 167, 69, 0.1)',
+            border: '2px solid #28a745',
+            borderRadius: '16px',
+            padding: '2rem',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#28a745' }}>
+              <i className="fas fa-check-circle"></i>
+            </div>
+            <h2 style={{ color: '#28a745', margin: '0 0 1rem 0' }}>
+              Ending Headache Session
+            </h2>
+            {ongoingSession && (
+              <>
+                <div style={{
+                  fontSize: '1.5rem', fontWeight: 'bold', color: '#28a745', marginBottom: '0.5rem'
+                }}>
+                  Total Duration: {formatDuration(ongoingSession.startTime)}
+                </div>
+                <div style={{ color: '#4B5563', fontSize: '1rem' }}>
+                  Started: {ongoingSession.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <br /> Type: {ongoingSession.location} • Pain: {ongoingSession.painLevel}/10
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Premium Features for Session End */}
+          {isPremiumMode && (
+            <>
+              {/* Session Notes */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i> Session Notes
+                </h4>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="How did this headache progress? What helped or made it worse?"
+                  rows="4"
+                  style={{
+                    width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #E5E7EB',
+                    background: '#FFFFFF', color: '#000000', fontSize: '1rem', resize: 'vertical', fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+
+              {/* What Helped */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i> What Helped End This Headache?
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                  {['Rest', 'Medication', 'Sleep', 'Water', 'Cold compress', 'Dark room', 'Fresh air', 'Food'].map(remedy => (
+                    <label key={remedy} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                      background: formData.currentSymptoms.includes(remedy) ? 'rgba(40, 167, 69, 0.1)' : '#F9FAFB',
+                      border: formData.currentSymptoms.includes(remedy) ? '1px solid #28a745' : '1px solid #E5E7EB',
+                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem'
+                    }}>
+                      <input type="checkbox" checked={formData.currentSymptoms.includes(remedy)} onChange={() => handleCheckboxChange(remedy, 'currentSymptoms')} />
+                      {remedy}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Premium Teaser for Free Users */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Detailed Session Analysis</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Track what helps, session notes & recovery patterns
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('selection')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i> Back
+            </button>
+            <button
+              onClick={endHeadacheSession}
+              disabled={loading}
+              style={{
+                background: loading ? '#E5E7EB' : '#28a745',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Ending...</>
+              ) : (
+                <><i className="fas fa-stop" style={{ marginRight: '0.5rem' }}></i>End Headache</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Default return (should not reach here)
+  return null;
+}
