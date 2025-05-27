@@ -96,10 +96,11 @@ export default function RecordStress() {
     'Traffic/Commuting', 'Technology issues', 'Deadlines', 'Conflict'
   ];
 
-  const physicalSymptoms = [
-    'Headache', 'Muscle tension', 'Jaw clenching', 'Rapid heartbeat',
-    'Shallow breathing', 'Stomach upset', 'Fatigue', 'Sweating'
-  ];
+  // Physical symptoms for premium features (currently unused in free version)
+  // const physicalSymptoms = [
+  //   'Headache', 'Muscle tension', 'Jaw clenching', 'Rapid heartbeat',
+  //   'Shallow breathing', 'Stomach upset', 'Fatigue', 'Sweating'
+  // ];
 
   const copingStrategies = [
     'Deep breathing', 'Meditation', 'Exercise', 'Talking to someone',
