@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, addDoc, Timestamp, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Import headache images
@@ -1279,7 +1279,7 @@ export default function RecordHeadache() {
             />
           </div>
 
-          {/* Headache Type Selector */}
+          {/* Headache Type Selector - Same as start-headache */}
           <div style={{ marginBottom: '2rem' }}>
             <h3 style={{ color: '#4682B4', marginBottom: '1rem', textAlign: 'center' }}>Headache Type</h3>
             
@@ -1290,7 +1290,6 @@ export default function RecordHeadache() {
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              {/* Navigation Arrows */}
               <button
                 onClick={prevSlide}
                 style={{
@@ -1335,7 +1334,6 @@ export default function RecordHeadache() {
                 <i className="fas fa-chevron-right" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
               </button>
 
-              {/* Current Type Display */}
               <div style={{ textAlign: 'center', padding: '0 4rem', width: '100%' }}>
                 <div style={{ 
                   height: '150px',
@@ -1403,7 +1401,6 @@ export default function RecordHeadache() {
               </div>
             </div>
 
-            {/* Slide Indicators */}
             <div style={{
               display: 'flex',
               justifyContent: 'center',
@@ -1428,65 +1425,82 @@ export default function RecordHeadache() {
           </div>
 
           {/* Premium Features for Manual Entry */}
-          {isPremiumMode && (
-            <>
-              {/* Prodrome Symptoms */}
-              <div style={{ marginBottom: '2rem' }}>
-                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
-                  Warning Signs (Prodrome)
-                </h4>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                  gap: '0.5rem'
-                }}>
-                  {prodromeSymptoms.map(symptom => (
-                    <label key={symptom} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.75rem',
-                      background: formData.prodromeSymptoms.includes(symptom) ? 'rgba(255, 193, 7, 0.1)' : '#F9FAFB',
-                      border: formData.prodromeSymptoms.includes(symptom) ? '1px solid #ffc107' : '1px solid #E5E7EB',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={formData.prodromeSymptoms.includes(symptom)}
-                        onChange={() => handleCheckboxChange(symptom, 'prodromeSymptoms')}
-                      />
-                      {symptom}
-                    </label>
-                  ))}
-                </div>
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
               </div>
-
-              {/* Notes */}
-              <div style={{ marginBottom: '2rem' }}>
-                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
-                  Notes
-                </h4>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Additional details about this headache..."
-                  rows="3"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
-                    background: '#FFFFFF',
-                    color: '#000000',
-                    fontSize: '1rem',
-                    resize: 'vertical',
-                    fontFamily: 'inherit'
-                  }}
-                />
-              </div>
-            </>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Advanced Tracking</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Track triggers, symptoms, and detailed notes
+              </p>
+            </div>
           )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('selection')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+            
+            <button
+              onClick={submitManualEntry}
+              disabled={loading || !formData.location}
+              style={{
+                background: (loading || !formData.location) ? '#E5E7EB' : '#ffc107',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: (loading || !formData.location) ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Saving...</>
+              ) : (
+                <><i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>Save Headache</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
