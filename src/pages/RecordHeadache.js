@@ -561,7 +561,7 @@ export default function RecordHeadache() {
       }}>
         <div style={{ maxWidth: '500px', width: '100%' }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h2 style={{ color: '#dc3545', marginBottom: '1rem' }}>
+            <h2 style={{ color: '#EF4444', marginBottom: '1rem' }}>
               <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
               Starting Headache Tracking
             </h2>
@@ -569,7 +569,7 @@ export default function RecordHeadache() {
 
           {/* Pain Level */}
           <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-            <h3 style={{ color: '#4682B4', marginBottom: '1rem' }}>Current Pain Level</h3>
+            <h3 style={{ color: '#1E40AF', marginBottom: '1rem' }}>Current Pain Level</h3>
             <div style={{
               fontSize: '3rem',
               marginBottom: '1rem',
@@ -605,7 +605,7 @@ export default function RecordHeadache() {
 
           {/* Headache Type Selector */}
           <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ color: '#4682B4', marginBottom: '1rem', textAlign: 'center' }}>Headache Type</h3>
+            <h3 style={{ color: '#1E40AF', marginBottom: '1rem', textAlign: 'center' }}>Headache Type</h3>
             
             <div style={{
               position: 'relative',
@@ -685,7 +685,7 @@ export default function RecordHeadache() {
                 
                 <h4 style={{ 
                   margin: '0 0 0.5rem 0', 
-                  color: formData.location === headacheTypes[currentSlide].name ? '#4682B4' : '#000000',
+                  color: formData.location === headacheTypes[currentSlide].name ? '#1E40AF' : '#374151',
                   fontSize: '1.2rem',
                   fontWeight: '600'
                 }}>
@@ -704,8 +704,8 @@ export default function RecordHeadache() {
                   onClick={() => setFormData(prev => ({ ...prev, location: headacheTypes[currentSlide].name }))}
                   style={{
                     background: formData.location === headacheTypes[currentSlide].name 
-                      ? 'linear-gradient(135deg, #28a745, #20c997)' 
-                      : 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+                      ? 'linear-gradient(135deg, #10B981, #059669)' 
+                      : 'linear-gradient(135deg, #1E40AF, #1E3A8A)',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
@@ -743,7 +743,7 @@ export default function RecordHeadache() {
                     height: '8px',
                     borderRadius: '50%',
                     border: 'none',
-                    background: index === currentSlide ? '#4682B4' : '#E5E7EB',
+                    background: index === currentSlide ? '#1E40AF' : '#E5E7EB',
                     cursor: 'pointer'
                   }}
                 />
@@ -787,7 +787,7 @@ export default function RecordHeadache() {
               onClick={startHeadacheSession}
               disabled={loading || !formData.location}
               style={{
-                background: (loading || !formData.location) ? '#E5E7EB' : '#dc3545',
+                background: (loading || !formData.location) ? '#E5E7EB' : '#EF4444',
                 border: 'none',
                 borderRadius: '8px',
                 color: 'white',
