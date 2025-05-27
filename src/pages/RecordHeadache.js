@@ -100,11 +100,6 @@ export default function RecordHeadache() {
   ];
 
   // Premium features data
-  const prodromeSymptoms = [
-    'Mood changes', 'Food cravings', 'Fatigue', 'Neck stiffness', 
-    'Visual disturbances', 'Sensitivity to light', 'Sensitivity to sound', 'Nausea'
-  ];
-
   const currentSymptoms = [
     'Nausea', 'Vomiting', 'Light sensitivity', 'Sound sensitivity', 
     'Dizziness', 'Blurred vision', 'Neck pain', 'Jaw tension'
@@ -116,10 +111,42 @@ export default function RecordHeadache() {
     'Hormonal changes', 'Skipped meals', 'Dehydration', 'Screen time'
   ];
 
+  const checkForOngoingSession = React.useCallback(async () => {
+    if (!currentUser) return;
+
+    try {
+      const ongoingQuery = query(
+        collection(db, 'users', currentUser.uid, 'ongoingHeadaches'),
+        where('ended', '==', false)
+      );
+      
+      const ongoingSnapshot = await getDocs(ongoingQuery);
+      
+      if (!ongoingSnapshot.empty) {
+        const sessionDoc = ongoingSnapshot.docs[0];
+        const sessionData = { id: sessionDoc.id, ...sessionDoc.data() };
+        
+        // Check if session is within 24 hours
+        const startTime = sessionData.startTime.toDate();
+        const now = new Date();
+        const hoursDiff = (now - startTime) / (1000 * 60 * 60);
+        
+        if (hoursDiff <= 24) {
+          setOngoingSession(sessionData);
+        } else {
+          // Clean up stale session
+          await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingHeadaches', sessionDoc.id));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for ongoing session:', error);
+    }
+  }, [currentUser]);
+
   // Check for ongoing sessions on component mount
   useEffect(() => {
     checkForOngoingSession();
-  }, [currentUser]);
+  }, [checkForOngoingSession]);
 
   const checkForOngoingSession = async () => {
     if (!currentUser) return;
@@ -219,7 +246,6 @@ export default function RecordHeadache() {
         createdAt: Timestamp.now(),
         // Premium fields
         ...(isPremiumMode && {
-          prodromeSymptoms: formData.prodromeSymptoms,
           currentSymptoms: formData.currentSymptoms,
           triggers: formData.triggers,
           notes: formData.notes
@@ -263,7 +289,6 @@ export default function RecordHeadache() {
         createdAt: Timestamp.now(),
         // Premium fields
         ...(isPremiumMode && {
-          prodromeSymptoms: formData.prodromeSymptoms,
           currentSymptoms: formData.currentSymptoms,
           triggers: formData.triggers,
           notes: formData.notes
