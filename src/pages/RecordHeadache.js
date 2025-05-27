@@ -148,38 +148,6 @@ export default function RecordHeadache() {
     checkForOngoingSession();
   }, [checkForOngoingSession]);
 
-  const checkForOngoingSession = async () => {
-    if (!currentUser) return;
-
-    try {
-      const ongoingQuery = query(
-        collection(db, 'users', currentUser.uid, 'ongoingHeadaches'),
-        where('ended', '==', false)
-      );
-      
-      const ongoingSnapshot = await getDocs(ongoingQuery);
-      
-      if (!ongoingSnapshot.empty) {
-        const sessionDoc = ongoingSnapshot.docs[0];
-        const sessionData = { id: sessionDoc.id, ...sessionDoc.data() };
-        
-        // Check if session is within 24 hours
-        const startTime = sessionData.startTime.toDate();
-        const now = new Date();
-        const hoursDiff = (now - startTime) / (1000 * 60 * 60);
-        
-        if (hoursDiff <= 24) {
-          setOngoingSession(sessionData);
-        } else {
-          // Clean up stale session
-          await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingHeadaches', sessionDoc.id));
-        }
-      }
-    } catch (error) {
-      console.error('Error checking for ongoing session:', error);
-    }
-  };
-
   const formatDuration = (startTime) => {
     const now = new Date();
     const start = startTime.toDate();
