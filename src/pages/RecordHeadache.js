@@ -355,12 +355,12 @@ export default function RecordHeadache() {
               margin: '0 0 1rem 0',
               fontSize: '2rem',
               fontWeight: 'bold',
-              color: '#2563EB'
+              color: '#1E3A8A'
             }}>
               <i className="fas fa-head-side-virus" style={{ marginRight: '0.5rem' }}></i>
               Headache Tracker
             </h1>
-            <p style={{ color: '#64748B', fontSize: '1.1rem', margin: 0 }}>
+            <p style={{ color: '#6B7280', fontSize: '1.1rem', margin: 0 }}>
               Record in seconds with auto-timer
             </p>
           </div>
@@ -369,22 +369,22 @@ export default function RecordHeadache() {
           {ongoingSession && (
             <div style={{
               background: 'rgba(239, 68, 68, 0.1)',
-              border: '2px solid #EF4444',
+              border: '2px solid #F87171',
               borderRadius: '16px',
               padding: '1.5rem',
               marginBottom: '2rem',
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#EF4444' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#F87171' }}>
                 <i className="fas fa-exclamation-triangle"></i>
               </div>
-              <h4 style={{ color: '#EF4444', margin: '0 0 0.5rem 0' }}>
+              <h4 style={{ color: '#F87171', margin: '0 0 0.5rem 0' }}>
                 Headache in Progress
               </h4>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#EF4444', marginBottom: '0.5rem' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#F87171', marginBottom: '0.5rem' }}>
                 Duration: {formatDuration(ongoingSession.startTime)}
               </div>
-              <p style={{ margin: 0, color: '#64748B', fontSize: '0.9rem' }}>
+              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.9rem' }}>
                 Pain Level: {ongoingSession.painLevel}/10 • Type: {ongoingSession.location}
               </p>
             </div>
@@ -420,15 +420,15 @@ export default function RecordHeadache() {
               style={{
                 padding: '2rem 1rem',
                 background: ongoingSession 
-                  ? '#E2E8F0' 
-                  : 'linear-gradient(135deg, #EF4444, #DC2626)',
+                  ? '#F3F4F6' 
+                  : 'linear-gradient(135deg, #F87171, #EF4444)',
                 border: 'none',
                 borderRadius: '16px',
                 cursor: ongoingSession || loading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
                 textAlign: 'center',
                 color: 'white',
-                boxShadow: ongoingSession ? 'none' : '0 4px 12px rgba(239, 68, 68, 0.3)',
+                boxShadow: ongoingSession ? 'none' : '0 4px 12px rgba(248, 113, 113, 0.2)',
                 opacity: ongoingSession ? 0.6 : 1
               }}
             >
@@ -450,15 +450,15 @@ export default function RecordHeadache() {
               style={{
                 padding: '2rem 1rem',
                 background: !ongoingSession 
-                  ? '#E2E8F0' 
-                  : 'linear-gradient(135deg, #10B981, #059669)',
+                  ? '#F3F4F6' 
+                  : 'linear-gradient(135deg, #34D399, #10B981)',
                 border: 'none',
                 borderRadius: '16px',
                 cursor: !ongoingSession || loading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
                 textAlign: 'center',
                 color: 'white',
-                boxShadow: !ongoingSession ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)',
+                boxShadow: !ongoingSession ? 'none' : '0 4px 12px rgba(52, 211, 153, 0.2)',
                 opacity: !ongoingSession ? 0.6 : 1
               }}
             >
@@ -479,14 +479,14 @@ export default function RecordHeadache() {
               disabled={loading}
               style={{
                 padding: '2rem 1rem',
-                background: 'linear-gradient(135deg, #F59E0B, #D97706)',
+                background: 'linear-gradient(135deg, #FBBF24, #F59E0B)',
                 border: 'none',
                 borderRadius: '16px',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
                 textAlign: 'center',
                 color: 'white',
-                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
+                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.2)'
               }}
             >
               <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
@@ -504,7 +504,7 @@ export default function RecordHeadache() {
           {/* Premium Teaser */}
           {!isPremiumMode && (
             <div style={{
-              background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+              background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
               borderRadius: '12px',
               padding: '1.5rem',
               textAlign: 'center',
@@ -527,9 +527,9 @@ export default function RecordHeadache() {
               to="/dashboard"
               style={{
                 background: 'transparent',
-                border: '1px solid #E2E8F0',
+                border: '1px solid #F3F4F6',
                 borderRadius: '8px',
-                color: '#64748B',
+                color: '#6B7280',
                 padding: '8px 16px',
                 textDecoration: 'none',
                 fontSize: '0.9rem',
