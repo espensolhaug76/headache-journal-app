@@ -17,13 +17,15 @@ import sinusHeadacheImg from '../assets/headache-types/sinus-headache.png';
 export default function RecordHeadache() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  
   // Dev toggle for testing freemium vs premium (remove in production)
   const [isPremiumMode, setIsPremiumMode] = useState(false);
+  
   // App state management
   const [mode, setMode] = useState('selection'); // 'selection', 'auto-timer', 'manual-entry'
   const [ongoingSession, setOngoingSession] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
-
+  
   // Form data
   const [formData, setFormData] = useState({
     painLevel: 5,
@@ -34,8 +36,10 @@ export default function RecordHeadache() {
     triggers: [],
     notes: ''
   });
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
   const headacheTypes = [
     {
       id: 'tension',
@@ -97,39 +101,46 @@ export default function RecordHeadache() {
 
   // Premium features data
   const prodromeSymptoms = [
-    'Mood changes', 'Food cravings', 'Fatigue', 'Neck stiffness',
+    'Mood changes', 'Food cravings', 'Fatigue', 'Neck stiffness', 
     'Visual disturbances', 'Sensitivity to light', 'Sensitivity to sound', 'Nausea'
   ];
+
   const currentSymptoms = [
-    'Nausea', 'Vomiting', 'Light sensitivity', 'Sound sensitivity',
+    'Nausea', 'Vomiting', 'Light sensitivity', 'Sound sensitivity', 
     'Dizziness', 'Blurred vision', 'Neck pain', 'Jaw tension'
   ];
+
   const commonTriggers = [
     'Stress', 'Lack of sleep', 'Weather changes', 'Bright lights',
     'Loud noises', 'Strong smells', 'Certain foods', 'Alcohol',
     'Hormonal changes', 'Skipped meals', 'Dehydration', 'Screen time'
   ];
+
   // Check for ongoing sessions on component mount
   useEffect(() => {
     checkForOngoingSession();
   }, [currentUser]);
+
   const checkForOngoingSession = async () => {
     if (!currentUser) return;
+
     try {
       const ongoingQuery = query(
         collection(db, 'users', currentUser.uid, 'ongoingHeadaches'),
         where('ended', '==', false)
       );
+      
       const ongoingSnapshot = await getDocs(ongoingQuery);
-
+      
       if (!ongoingSnapshot.empty) {
         const sessionDoc = ongoingSnapshot.docs[0];
         const sessionData = { id: sessionDoc.id, ...sessionDoc.data() };
-
+        
         // Check if session is within 24 hours
         const startTime = sessionData.startTime.toDate();
         const now = new Date();
         const hoursDiff = (now - startTime) / (1000 * 60 * 60);
+        
         if (hoursDiff <= 24) {
           setOngoingSession(sessionData);
         } else {
@@ -148,11 +159,13 @@ export default function RecordHeadache() {
     const diffMs = now - start;
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
   };
+
   const startHeadacheSession = async () => {
     if (!currentUser) {
       setError('You must be logged in to track headaches');
@@ -170,10 +183,12 @@ export default function RecordHeadache() {
         ended: false,
         createdAt: Timestamp.now()
       };
-      await addDoc(collection(db, 'users', currentUser.uid, 'ongoingHeadaches'), sessionData);
 
-      setOngoingSession({ id: docRef.id, ...sessionData });
+      const sessionRef = await addDoc(collection(db, 'users', currentUser.uid, 'ongoingHeadaches'), sessionData);
+      
+      setOngoingSession({ id: sessionRef.id, ...sessionData });
       setMode('auto-timer');
+      
     } catch (error) {
       console.error('Error starting headache session:', error);
       setError('Failed to start tracking. Please try again.');
@@ -181,11 +196,13 @@ export default function RecordHeadache() {
 
     setLoading(false);
   };
+
   const endHeadacheSession = async () => {
     if (!ongoingSession) return;
 
     setLoading(true);
     setError('');
+
     try {
       const endTime = Timestamp.now();
       const duration = Math.round((endTime.toDate() - ongoingSession.startTime.toDate()) / (1000 * 60)); // minutes
@@ -208,10 +225,12 @@ export default function RecordHeadache() {
           notes: formData.notes
         })
       };
-      await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
 
+      await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
+      
       // Delete ongoing session
       await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingHeadaches', ongoingSession.id));
+      
       navigate('/dashboard');
 
     } catch (error) {
@@ -221,6 +240,7 @@ export default function RecordHeadache() {
 
     setLoading(false);
   };
+
   const submitManualEntry = async () => {
     if (!currentUser || !formData.location) {
       setError('Please select a headache type');
@@ -249,6 +269,7 @@ export default function RecordHeadache() {
           notes: formData.notes
         })
       };
+
       await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
       navigate('/dashboard');
 
@@ -259,18 +280,22 @@ export default function RecordHeadache() {
 
     setLoading(false);
   };
+
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % headacheTypes.length);
   };
+
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + headacheTypes.length) % headacheTypes.length);
   };
+
   const getPainLevelColor = (level) => {
     if (level <= 3) return '#28a745';
     if (level <= 6) return '#ffc107';
     if (level <= 8) return '#fd7e14';
     return '#dc3545';
   };
+
   const getPainLevelText = (level) => {
     if (level <= 2) return 'Mild';
     if (level <= 4) return 'Moderate';
@@ -301,12 +326,12 @@ export default function RecordHeadache() {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
-          crossOrigin="anonymous"
-          referrerPolicy="no-referrer"
+        <link 
+          rel="stylesheet" 
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
         />
 
         <div style={{ maxWidth: '500px', width: '100%' }}>
@@ -401,8 +426,8 @@ export default function RecordHeadache() {
               disabled={loading || ongoingSession}
               style={{
                 padding: '2rem 1rem',
-                background: ongoingSession
-                  ? '#E5E7EB'
+                background: ongoingSession 
+                  ? '#E5E7EB' 
                   : 'linear-gradient(135deg, #dc3545, #c82333)',
                 border: 'none',
                 borderRadius: '16px',
@@ -431,8 +456,8 @@ export default function RecordHeadache() {
               disabled={loading || !ongoingSession}
               style={{
                 padding: '2rem 1rem',
-                background: !ongoingSession
-                  ? '#E5E7EB'
+                background: !ongoingSession 
+                  ? '#E5E7EB' 
                   : 'linear-gradient(135deg, #28a745, #20c997)',
                 border: 'none',
                 borderRadius: '16px',
@@ -536,7 +561,7 @@ export default function RecordHeadache() {
         background: '#F9FAFB',
         color: '#000000',
         padding: '20px',
-        fontFamily: '-apple-system, BlinkMacMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
@@ -588,7 +613,7 @@ export default function RecordHeadache() {
           {/* Headache Type Selector */}
           <div style={{ marginBottom: '2rem' }}>
             <h3 style={{ color: '#4682B4', marginBottom: '1rem', textAlign: 'center' }}>Headache Type</h3>
-
+            
             <div style={{
               position: 'relative',
               minHeight: '300px',
@@ -643,17 +668,17 @@ export default function RecordHeadache() {
 
               {/* Current Type Display */}
               <div style={{ textAlign: 'center', padding: '0 4rem', width: '100%' }}>
-                <div style={{
+                <div style={{ 
                   height: '150px',
                   marginBottom: '1rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <img
-                    src={headacheTypes[currentSlide].image}
+                  <img 
+                    src={headacheTypes[currentSlide].image} 
                     alt={headacheTypes[currentSlide].name}
-                    style={{
+                    style={{ 
                       maxHeight: '120px',
                       maxWidth: '120px',
                       objectFit: 'contain',
@@ -664,18 +689,18 @@ export default function RecordHeadache() {
                     }}
                   />
                 </div>
-
-                <h4 style={{
-                  margin: '0 0 0.5rem 0',
+                
+                <h4 style={{ 
+                  margin: '0 0 0.5rem 0', 
                   color: formData.location === headacheTypes[currentSlide].name ? '#4682B4' : '#000000',
                   fontSize: '1.2rem',
                   fontWeight: '600'
                 }}>
                   {headacheTypes[currentSlide].name}
                 </h4>
-
-                <p style={{
-                  margin: '0 0 1rem 0',
+                
+                <p style={{ 
+                  margin: '0 0 1rem 0', 
                   color: '#9CA3AF',
                   fontSize: '0.9rem'
                 }}>
@@ -685,8 +710,8 @@ export default function RecordHeadache() {
                 <button
                   onClick={() => setFormData(prev => ({ ...prev, location: headacheTypes[currentSlide].name }))}
                   style={{
-                    background: formData.location === headacheTypes[currentSlide].name
-                      ? 'linear-gradient(135deg, #28a745, #20c997)'
+                    background: formData.location === headacheTypes[currentSlide].name 
+                      ? 'linear-gradient(135deg, #28a745, #20c997)' 
                       : 'linear-gradient(135deg, #4682B4, #2c5aa0)',
                     color: 'white',
                     border: 'none',
@@ -764,12 +789,12 @@ export default function RecordHeadache() {
               <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
               Back
             </button>
-
+            
             <button
-              onClick={submitManualEntry}
+              onClick={startHeadacheSession}
               disabled={loading || !formData.location}
               style={{
-                background: (loading || !formData.location) ? '#E5E7EB' : '#ffc107',
+                background: (loading || !formData.location) ? '#E5E7EB' : '#dc3545',
                 border: 'none',
                 borderRadius: '8px',
                 color: 'white',
@@ -780,9 +805,9 @@ export default function RecordHeadache() {
               }}
             >
               {loading ? (
-                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Saving...</>
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Starting...</>
               ) : (
-                <><i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>Save Headache</>
+                <><i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>Start Tracking</>
               )}
             </button>
           </div>
@@ -831,7 +856,11 @@ export default function RecordHeadache() {
           {/* Pain Level Adjustment */}
           <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
             <h3 style={{ color: '#4682B4', marginBottom: '1rem' }}>Update Pain Level</h3>
-            <div style={{ fontSize: '2.5rem', marginBottom: '1rem', color: getPainLevelColor(formData.painLevel || ongoingSession?.painLevel || 5) }}>
+            <div style={{
+              fontSize: '2.5rem',
+              marginBottom: '1rem',
+              color: getPainLevelColor(formData.painLevel || ongoingSession?.painLevel || 5)
+            }}>
               {formData.painLevel || ongoingSession?.painLevel || 5}/10
             </div>
             <input
@@ -857,17 +886,31 @@ export default function RecordHeadache() {
               {/* Current Symptoms */}
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i> Current Symptoms
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  Current Symptoms
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: '0.5rem'
+                }}>
                   {currentSymptoms.map(symptom => (
                     <label key={symptom} style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem',
                       background: formData.currentSymptoms.includes(symptom) ? 'rgba(70, 130, 180, 0.1)' : '#F9FAFB',
                       border: formData.currentSymptoms.includes(symptom) ? '1px solid #4682B4' : '1px solid #E5E7EB',
-                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem'
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
                     }}>
-                      <input type="checkbox" checked={formData.currentSymptoms.includes(symptom)} onChange={() => handleCheckboxChange(symptom, 'currentSymptoms')} />
+                      <input
+                        type="checkbox"
+                        checked={formData.currentSymptoms.includes(symptom)}
+                        onChange={() => handleCheckboxChange(symptom, 'currentSymptoms')}
+                      />
                       {symptom}
                     </label>
                   ))}
@@ -877,17 +920,31 @@ export default function RecordHeadache() {
               {/* Triggers */}
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i> Possible Triggers
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  Possible Triggers
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: '0.5rem'
+                }}>
                   {commonTriggers.map(trigger => (
                     <label key={trigger} style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem',
                       background: formData.triggers.includes(trigger) ? 'rgba(255, 193, 7, 0.1)' : '#F9FAFB',
                       border: formData.triggers.includes(trigger) ? '1px solid #ffc107' : '1px solid #E5E7EB',
-                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem'
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
                     }}>
-                      <input type="checkbox" checked={formData.triggers.includes(trigger)} onChange={() => handleCheckboxChange(trigger, 'triggers')} />
+                      <input
+                        type="checkbox"
+                        checked={formData.triggers.includes(trigger)}
+                        onChange={() => handleCheckboxChange(trigger, 'triggers')}
+                      />
                       {trigger}
                     </label>
                   ))}
@@ -953,6 +1010,7 @@ export default function RecordHeadache() {
                 <><i className="fas fa-stop" style={{ marginRight: '0.5rem' }}></i>End Headache</>
               )}
             </button>
+
             <div>
               <button
                 onClick={() => setMode('selection')}
@@ -966,7 +1024,8 @@ export default function RecordHeadache() {
                   fontSize: '0.9rem'
                 }}
               >
-                <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i> Back to Menu
+                <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+                Back to Menu
               </button>
             </div>
           </div>
@@ -1006,14 +1065,13 @@ export default function RecordHeadache() {
             </h2>
             {ongoingSession && (
               <>
-                <div style={{
-                  fontSize: '1.5rem', fontWeight: 'bold', color: '#28a745', marginBottom: '0.5rem'
-                }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#28a745', marginBottom: '0.5rem' }}>
                   Total Duration: {formatDuration(ongoingSession.startTime)}
                 </div>
                 <div style={{ color: '#4B5563', fontSize: '1rem' }}>
                   Started: {ongoingSession.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  <br /> Type: {ongoingSession.location} • Pain: {ongoingSession.painLevel}/10
+                  <br />
+                  Type: {ongoingSession.location} • Pain: {ongoingSession.painLevel}/10
                 </div>
               </>
             )}
@@ -1025,7 +1083,8 @@ export default function RecordHeadache() {
               {/* Session Notes */}
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i> Session Notes
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  Session Notes
                 </h4>
                 <textarea
                   value={formData.notes}
@@ -1033,8 +1092,15 @@ export default function RecordHeadache() {
                   placeholder="How did this headache progress? What helped or made it worse?"
                   rows="4"
                   style={{
-                    width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #E5E7EB',
-                    background: '#FFFFFF', color: '#000000', fontSize: '1rem', resize: 'vertical', fontFamily: 'inherit'
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1rem',
+                    resize: 'vertical',
+                    fontFamily: 'inherit'
                   }}
                 />
               </div>
@@ -1042,17 +1108,31 @@ export default function RecordHeadache() {
               {/* What Helped */}
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i> What Helped End This Headache?
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  What Helped End This Headache?
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: '0.5rem'
+                }}>
                   {['Rest', 'Medication', 'Sleep', 'Water', 'Cold compress', 'Dark room', 'Fresh air', 'Food'].map(remedy => (
                     <label key={remedy} style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem',
                       background: formData.currentSymptoms.includes(remedy) ? 'rgba(40, 167, 69, 0.1)' : '#F9FAFB',
                       border: formData.currentSymptoms.includes(remedy) ? '1px solid #28a745' : '1px solid #E5E7EB',
-                      borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem'
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
                     }}>
-                      <input type="checkbox" checked={formData.currentSymptoms.includes(remedy)} onChange={() => handleCheckboxChange(remedy, 'currentSymptoms')} />
+                      <input
+                        type="checkbox"
+                        checked={formData.currentSymptoms.includes(remedy)}
+                        onChange={() => handleCheckboxChange(remedy, 'currentSymptoms')}
+                      />
                       {remedy}
                     </label>
                   ))}
@@ -1109,8 +1189,10 @@ export default function RecordHeadache() {
                 fontSize: '1rem'
               }}
             >
-              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i> Back
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
             </button>
+            
             <button
               onClick={endHeadacheSession}
               disabled={loading}
@@ -1126,9 +1208,9 @@ export default function RecordHeadache() {
               }}
             >
               {loading ? (
-                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Ending...</>
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Saving...</>
               ) : (
-                <><i className="fas fa-stop" style={{ marginRight: '0.5rem' }}></i>End Headache</>
+                <><i className="fas fa-check" style={{ marginRight: '0.5rem' }}></i>Complete Session</>
               )}
             </button>
           </div>
@@ -1137,6 +1219,274 @@ export default function RecordHeadache() {
     );
   }
 
-  // Default return (should not reach here)
-  return null;
-}
+  // MANUAL ENTRY MODE
+  if (mode === 'manual-entry') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ color: '#ffc107', marginBottom: '1rem' }}>
+              <i className="fas fa-edit" style={{ marginRight: '0.5rem' }}></i>
+              Manual Headache Entry
+            </h2>
+            <p style={{ color: '#9CA3AF', fontSize: '1rem', margin: 0 }}>
+              Log a past headache
+            </p>
+          </div>
+
+          {/* Pain Level */}
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <h3 style={{ color: '#4682B4', marginBottom: '1rem' }}>Pain Level</h3>
+            <div style={{
+              fontSize: '3rem',
+              marginBottom: '1rem',
+              color: getPainLevelColor(formData.painLevel)
+            }}>
+              {formData.painLevel}/10
+            </div>
+            <div style={{
+              fontSize: '1.2rem',
+              marginBottom: '1.5rem',
+              color: getPainLevelColor(formData.painLevel),
+              fontWeight: '600'
+            }}>
+              {getPainLevelText(formData.painLevel)}
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={formData.painLevel}
+              onChange={(e) => setFormData(prev => ({ ...prev, painLevel: e.target.value }))}
+              style={{
+                width: '100%',
+                height: '12px',
+                borderRadius: '6px',
+                background: 'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
+                outline: 'none',
+                cursor: 'pointer',
+                marginBottom: '1rem'
+              }}
+            />
+          </div>
+
+          {/* Headache Type Selector */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ color: '#4682B4', marginBottom: '1rem', textAlign: 'center' }}>Headache Type</h3>
+            
+            <div style={{
+              position: 'relative',
+              minHeight: '300px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {/* Navigation Arrows */}
+              <button
+                onClick={prevSlide}
+                style={{
+                  position: 'absolute',
+                  left: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10
+                }}
+              >
+                <i className="fas fa-chevron-left" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
+              </button>
+
+              <button
+                onClick={nextSlide}
+                style={{
+                  position: 'absolute',
+                  right: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10
+                }}
+              >
+                <i className="fas fa-chevron-right" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
+              </button>
+
+              {/* Current Type Display */}
+              <div style={{ textAlign: 'center', padding: '0 4rem', width: '100%' }}>
+                <div style={{ 
+                  height: '150px',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <img 
+                    src={headacheTypes[currentSlide].image} 
+                    alt={headacheTypes[currentSlide].name}
+                    style={{ 
+                      maxHeight: '120px',
+                      maxWidth: '120px',
+                      objectFit: 'contain',
+                      transition: 'all 0.3s ease',
+                      filter: formData.location === headacheTypes[currentSlide].name ? 'none' : 'grayscale(20%)',
+                      transform: formData.location === headacheTypes[currentSlide].name ? 'scale(1.05)' : 'scale(1)',
+                      boxShadow: formData.location === headacheTypes[currentSlide].name ? '0 8px 25px rgba(70, 130, 180, 0.3)' : 'none'
+                    }}
+                  />
+                </div>
+                
+                <h4 style={{ 
+                  margin: '0 0 0.5rem 0', 
+                  color: formData.location === headacheTypes[currentSlide].name ? '#4682B4' : '#000000',
+                  fontSize: '1.2rem',
+                  fontWeight: '600'
+                }}>
+                  {headacheTypes[currentSlide].name}
+                </h4>
+                
+                <p style={{ 
+                  margin: '0 0 1rem 0', 
+                  color: '#9CA3AF',
+                  fontSize: '0.9rem'
+                }}>
+                  {headacheTypes[currentSlide].pattern}
+                </p>
+
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, location: headacheTypes[currentSlide].name }))}
+                  style={{
+                    background: formData.location === headacheTypes[currentSlide].name 
+                      ? 'linear-gradient(135deg, #28a745, #20c997)' 
+                      : 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 24px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {formData.location === headacheTypes[currentSlide].name ? (
+                    <>
+                      <i className="fas fa-check" style={{ marginRight: '0.5rem' }}></i>
+                      Selected
+                    </>
+                  ) : (
+                    'Select This Type'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Slide Indicators */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              marginTop: '1rem'
+            }}>
+              {headacheTypes.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: index === currentSlide ? '#4682B4' : '#E5E7EB',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Premium Features for Manual Entry */}
+          {isPremiumMode && (
+            <>
+              {/* Prodrome Symptoms */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  Warning Signs (Prodrome)
+                </h4>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: '0.5rem'
+                }}>
+                  {prodromeSymptoms.map(symptom => (
+                    <label key={symptom} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem',
+                      background: formData.prodromeSymptoms.includes(symptom) ? 'rgba(255, 193, 7, 0.1)' : '#F9FAFB',
+                      border: formData.prodromeSymptoms.includes(symptom) ? '1px solid #ffc107' : '1px solid #E5E7EB',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.prodromeSymptoms.includes(symptom)}
+                        onChange={() => handleCheckboxChange(symptom, 'prodromeSymptoms')}
+                      />
+                      {symptom}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  Notes
+                </h4>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Additional details about this headache..."
+                  rows="3"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1rem',
+                    resize: 'vertical',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+            </>
+          )}
