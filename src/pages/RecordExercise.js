@@ -95,21 +95,21 @@ export default function RecordExercise() {
     { 
       value: 'light', 
       label: 'Light',
-      description: 'Easy pace, can sing',
+      description: 'Easy pace, full conversation',
       color: '#28a745',
       icon: 'fas fa-leaf'
     },
     { 
       value: 'moderate', 
       label: 'Moderate',
-      description: 'Can talk but not sing',
+      description: 'Can talk in sentences',
       color: '#ffc107',
       icon: 'fas fa-fire'
     },
     { 
       value: 'intense', 
       label: 'Intense',
-      description: 'Hard to talk',
+      description: 'Hard to talk, heavy breathing',
       color: '#dc3545',
       icon: 'fas fa-bolt'
     }
