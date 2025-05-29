@@ -1,201 +1,293 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export default function RecordExercise() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
+  
+  // Dev toggle for testing freemium vs premium
+  const [isPremiumMode, setIsPremiumMode] = useState(false);
+  
+  // App state management
+  const [mode, setMode] = useState('selection'); // 'selection', 'start-exercise', 'active-exercise', 'end-exercise', 'manual-entry'
+  const [ongoingSession, setOngoingSession] = useState(null);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  
+  // Form data
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    exercises: '',
-    duration: 30,
-    type: '',
+    exerciseType: '',
+    duration: 30, // minutes
     intensity: 'moderate',
+    // Premium fields
     heartRate: '',
-    activities: '',
     environment: '',
-    hydration: 'adequate',
-    preExerciseFood: '',
-    postExerciseSymptoms: [],
+    postWorkoutFeeling: '',
     notes: ''
   });
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [warnings, setWarnings] = useState([]);
 
+  // Exercise types with Font Awesome icons
   const exerciseTypes = [
-    'Walking',
-    'Running', 
-    'Cycling',
-    'Swimming',
-    'Yoga',
-    'Pilates',
-    'Strength training',
-    'HIIT',
-    'Cardio machines',
-    'Dancing',
-    'Hiking',
-    'Tennis',
-    'Basketball',
-    'Soccer',
-    'Weightlifting',
-    'CrossFit',
-    'Rock climbing',
-    'Martial arts',
-    'Other'
+    {
+      id: 'running',
+      name: 'Running',
+      icon: 'fas fa-running',
+      description: 'Outdoor or treadmill running',
+      color: '#dc3545'
+    },
+    {
+      id: 'walking',
+      name: 'Walking',
+      icon: 'fas fa-walking',
+      description: 'Casual or brisk walking',
+      color: '#28a745'
+    },
+    {
+      id: 'gym',
+      name: 'Gym Workout',
+      icon: 'fas fa-dumbbell',
+      description: 'Weight training, machines',
+      color: '#6c757d'
+    },
+    {
+      id: 'cycling',
+      name: 'Cycling',
+      icon: 'fas fa-bicycle',
+      description: 'Bike riding, spinning',
+      color: '#17a2b8'
+    },
+    {
+      id: 'swimming',
+      name: 'Swimming',
+      icon: 'fas fa-swimmer',
+      description: 'Pool or open water',
+      color: '#007bff'
+    },
+    {
+      id: 'yoga',
+      name: 'Yoga',
+      icon: 'fas fa-pray',
+      description: 'Yoga, stretching, meditation',
+      color: '#6f42c1'
+    },
+    {
+      id: 'sports',
+      name: 'Sports',
+      icon: 'fas fa-futbol',
+      description: 'Tennis, basketball, soccer',
+      color: '#fd7e14'
+    },
+    {
+      id: 'other',
+      name: 'Other',
+      icon: 'fas fa-heart',
+      description: 'Dancing, hiking, etc.',
+      color: '#e83e8c'
+    }
   ];
 
   const intensityLevels = [
     { 
       value: 'light', 
       label: 'Light',
-      description: 'Can sing while exercising',
-      color: '#28a745'
+      description: 'Easy pace, can sing',
+      color: '#28a745',
+      icon: 'fas fa-leaf'
     },
     { 
       value: 'moderate', 
       label: 'Moderate',
       description: 'Can talk but not sing',
-      color: '#ffc107'
+      color: '#ffc107',
+      icon: 'fas fa-fire'
     },
     { 
-      value: 'vigorous', 
-      label: 'Vigorous',
-      description: 'Difficult to talk',
-      color: '#fd7e14'
-    },
-    { 
-      value: 'high', 
-      label: 'High Intensity',
-      description: 'Cannot maintain conversation',
-      color: '#dc3545'
+      value: 'intense', 
+      label: 'Intense',
+      description: 'Hard to talk',
+      color: '#dc3545',
+      icon: 'fas fa-bolt'
     }
   ];
 
-  const environmentOptions = [
-    'Indoor gym',
-    'Home workout',
-    'Outdoor park',
-    'Beach/waterfront',
-    'Mountain/hiking trail',
-    'Swimming pool',
-    'Sports facility',
-    'Urban streets',
-    'Other'
-  ];
+  const checkForOngoingSession = useCallback(async () => {
+    if (!currentUser) return;
 
-  const postExerciseSymptoms = [
-    'Headache',
-    'Dizziness',
-    'Nausea',
-    'Excessive fatigue',
-    'Muscle tension',
-    'Neck stiffness',
-    'Eye strain',
-    'Dehydration symptoms',
-    'Rapid heartbeat (prolonged)',
-    'Difficulty breathing',
-    'Joint pain',
-    'None - felt great!'
-  ];
-
-  // High-impact exercises that may trigger headaches
-  const highImpactExercises = ['running', 'hiit', 'crossfit', 'basketball', 'soccer', 'weightlifting', 'boxing', 'jumping'];
-
-  const questions = [
-    {
-      id: 'exercise-type',
-      title: 'What type of exercise did you do?',
-      subtitle: 'Select your primary activity today',
-      component: 'exercise-type'
-    },
-    {
-      id: 'duration-intensity',
-      title: 'How long and intense was your workout?',
-      subtitle: 'Duration and intensity level',
-      component: 'duration-intensity'
-    },
-    {
-      id: 'exercise-details',
-      title: 'Tell us about your workout',
-      subtitle: 'Describe what you did in detail',
-      component: 'exercise-details'
-    },
-    {
-      id: 'environment-conditions',
-      title: 'Where and how did you exercise?',
-      subtitle: 'Environment and conditions',
-      component: 'environment-conditions'
-    },
-    {
-      id: 'pre-exercise',
-      title: 'How did you prepare for exercise?',
-      subtitle: 'Food, hydration, and preparation',
-      component: 'pre-exercise'
-    },
-    {
-      id: 'post-exercise',
-      title: 'How did you feel after exercising?',
-      subtitle: 'Any symptoms or effects afterward',
-      component: 'post-exercise'
-    },
-    {
-      id: 'exercise-summary',
-      title: 'Exercise and headache insights',
-      subtitle: 'Personalized recommendations for your workout',
-      component: 'exercise-summary'
-    },
-    {
-      id: 'notes',
-      title: 'Additional exercise notes',
-      subtitle: 'Any other details about your workout',
-      component: 'notes'
+    try {
+      const ongoingQuery = query(
+        collection(db, 'users', currentUser.uid, 'ongoingExercise'),
+        where('ended', '==', false)
+      );
+      
+      const ongoingSnapshot = await getDocs(ongoingQuery);
+      
+      if (!ongoingSnapshot.empty) {
+        const sessionDoc = ongoingSnapshot.docs[0];
+        const sessionData = { id: sessionDoc.id, ...sessionDoc.data() };
+        
+        // Check if session is within 6 hours (reasonable workout duration)
+        const startTime = sessionData.startTime.toDate();
+        const now = new Date();
+        const hoursDiff = (now - startTime) / (1000 * 60 * 60);
+        
+        if (hoursDiff <= 6) {
+          setOngoingSession(sessionData);
+          setMode('active-exercise');
+          setFormData(prev => ({
+            ...prev,
+            exerciseType: sessionData.exerciseType
+          }));
+        } else {
+          // Clean up stale session
+          await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingExercise', sessionDoc.id));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for ongoing session:', error);
     }
-  ];
+  }, [currentUser]);
 
-  const handleNext = () => {
-    if (currentStep < questions.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
+  useEffect(() => {
+    checkForOngoingSession();
+  }, [checkForOngoingSession]);
 
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleSkip = () => {
-    if (currentStep < questions.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handleCheckboxChange = (value, field) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: prev[field].includes(value)
-        ? prev[field].filter(item => item !== value)
-        : [...prev[field], value]
-    }));
-  };
-
-  const checkHighImpactExercise = (exerciseType) => {
-    const isHighImpact = highImpactExercises.some(exercise => 
-      exerciseType.toLowerCase().includes(exercise)
-    );
+  const formatDuration = (startTime) => {
+    const now = new Date();
+    const start = startTime.toDate();
+    const diffMs = now - start;
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     
-    if (isHighImpact) {
-      setWarnings(prev => {
-        const filtered = prev.filter(w => !w.includes('high-impact'));
-        return [...filtered, 'This is a high-impact exercise that may trigger headaches in some people. Monitor for headaches in the next 4-24 hours.'];
-      });
-    } else {
-      setWarnings(prev => prev.filter(w => !w.includes('high-impact')));
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
     }
+    return `${minutes}m`;
+  };
+
+  const startExerciseSession = async () => {
+    if (!currentUser || !formData.exerciseType) {
+      setError('Please select an exercise type');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const sessionData = {
+        startTime: Timestamp.now(),
+        exerciseType: formData.exerciseType,
+        ended: false,
+        createdAt: Timestamp.now()
+      };
+
+      const sessionRef = await addDoc(collection(db, 'users', currentUser.uid, 'ongoingExercise'), sessionData);
+      
+      setOngoingSession({ id: sessionRef.id, ...sessionData });
+      setMode('active-exercise');
+      
+    } catch (error) {
+      console.error('Error starting exercise session:', error);
+      setError('Failed to start tracking. Please try again.');
+    }
+
+    setLoading(false);
+  };
+
+  const endExerciseSession = async () => {
+    if (!ongoingSession) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const endTime = Timestamp.now();
+      const duration = Math.round((endTime.toDate() - ongoingSession.startTime.toDate()) / (1000 * 60)); // minutes
+
+      const exerciseData = {
+        userId: currentUser.uid,
+        exerciseType: ongoingSession.exerciseType,
+        startTime: ongoingSession.startTime,
+        endTime: endTime,
+        duration: duration,
+        intensity: formData.intensity,
+        date: ongoingSession.startTime.toDate().toISOString().split('T')[0],
+        createdAt: Timestamp.now(),
+        // Premium fields
+        ...(isPremiumMode && {
+          heartRate: formData.heartRate,
+          environment: formData.environment,
+          postWorkoutFeeling: formData.postWorkoutFeeling,
+          notes: formData.notes
+        })
+      };
+
+      await addDoc(collection(db, 'users', currentUser.uid, 'exercise'), exerciseData);
+      
+      // Delete ongoing session
+      await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingExercise', ongoingSession.id));
+      
+      navigate('/dashboard');
+
+    } catch (error) {
+      console.error('Error ending exercise session:', error);
+      setError('Failed to end tracking. Please try again.');
+    }
+
+    setLoading(false);
+  };
+
+  const submitManualEntry = async () => {
+    if (!currentUser || !formData.exerciseType) {
+      setError('Please select an exercise type');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const now = new Date();
+      const exerciseData = {
+        userId: currentUser.uid,
+        exerciseType: formData.exerciseType,
+        duration: parseInt(formData.duration),
+        intensity: formData.intensity,
+        startTime: Timestamp.fromDate(now),
+        endTime: Timestamp.fromDate(now),
+        date: now.toISOString().split('T')[0],
+        createdAt: Timestamp.now(),
+        // Premium fields
+        ...(isPremiumMode && {
+          heartRate: formData.heartRate,
+          environment: formData.environment,
+          postWorkoutFeeling: formData.postWorkoutFeeling,
+          notes: formData.notes
+        })
+      };
+
+      await addDoc(collection(db, 'users', currentUser.uid, 'exercise'), exerciseData);
+      navigate('/dashboard');
+
+    } catch (error) {
+      console.error('Error recording exercise:', error);
+      setError('Failed to record exercise. Please try again.');
+    }
+
+    setLoading(false);
+  };
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % exerciseTypes.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + exerciseTypes.length) % exerciseTypes.length);
   };
 
   const getDurationColor = (duration) => {
@@ -214,969 +306,404 @@ export default function RecordExercise() {
     return 'Very Long';
   };
 
-  const handleSubmit = async () => {
-    if (!currentUser) {
-      setError('You must be logged in to record exercise data');
-      return;
-    }
+  // MAIN SELECTION SCREEN
+  if (mode === 'selection') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F8FAFC',
+        color: '#1E293B',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <link 
+          rel="stylesheet" 
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
+        />
 
-    if (!formData.type || !formData.exercises) {
-      setError('Please provide exercise type and description');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const exerciseData = {
-        userId: currentUser.uid,
-        date: formData.date,
-        exercises: formData.exercises,
-        duration: formData.duration,
-        type: formData.type,
-        intensity: formData.intensity,
-        heartRate: formData.heartRate,
-        activities: formData.activities,
-        environment: formData.environment,
-        hydration: formData.hydration,
-        preExerciseFood: formData.preExerciseFood,
-        postExerciseSymptoms: formData.postExerciseSymptoms,
-        notes: formData.notes,
-        createdAt: Timestamp.now()
-      };
-
-      await addDoc(collection(db, 'users', currentUser.uid, 'exercise'), exerciseData);
-      navigate('/dashboard');
-
-    } catch (error) {
-      console.error('Error recording exercise:', error);
-      setError('Failed to record exercise data. Please try again.');
-    }
-
-    setLoading(false);
-  };
-
-  const renderCurrentQuestion = () => {
-    const question = questions[currentStep];
-
-    switch (question.component) {
-      case 'exercise-type':
-        return (
-          <div>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-              gap: '1rem',
-              marginBottom: '2rem'
-            }}>
-              {exerciseTypes.map(type => (
-                <button
-                  key={type}
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, type }));
-                    checkHighImpactExercise(type);
-                  }}
-                  style={{
-                    padding: '1rem',
-                    background: formData.type === type 
-                      ? 'linear-gradient(135deg, #28a745, #20c997)'
-                      : '#FFFFFF',
-                    border: formData.type === type 
-                      ? 'none'
-                      : '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontSize: '0.95rem',
-                    fontWeight: formData.type === type ? '600' : '400',
-                    color: formData.type === type ? 'white' : '#000000',
-                    textAlign: 'center'
-                  }}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-
-            {/* High impact warning */}
-            {warnings.length > 0 && (
-              <div style={{
-                background: 'rgba(255, 193, 7, 0.1)',
-                border: '1px solid rgba(255, 193, 7, 0.3)',
-                borderRadius: '12px',
-                padding: '1.5rem',
-                marginBottom: '2rem'
-              }}>
-                <h4 style={{ color: '#856404', margin: '0 0 0.5rem 0' }}>
-                  Exercise & Headache Alert
-                </h4>
-                {warnings.map((warning, idx) => (
-                  <p key={idx} style={{ margin: '0.25rem 0', color: '#856404', fontSize: '0.9rem' }}>
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            )}
-
-            {/* Exercise selection tips */}
-            <div style={{
-              background: 'rgba(23, 162, 184, 0.1)',
-              border: '1px solid rgba(23, 162, 184, 0.3)',
-              borderRadius: '12px',
-              padding: '1.5rem'
-            }}>
-              <h4 style={{ color: '#17a2b8', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
-                Exercise & Headache Prevention
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-                <div>
-                  <h5 style={{ color: '#20c997', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Low Risk:</h5>
-                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
-                    <li>Walking, swimming, yoga</li>
-                    <li>Steady-state cardio</li>
-                    <li>Light strength training</li>
-                    <li>Stretching and flexibility</li>
-                  </ul>
-                </div>
-                <div>
-                  <h5 style={{ color: '#ffc107', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Higher Risk:</h5>
-                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
-                    <li>High-intensity interval training</li>
-                    <li>Heavy weightlifting</li>
-                    <li>Contact sports</li>
-                    <li>Explosive movements</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'duration-intensity':
-        return (
-          <div>
-            <div style={{ marginBottom: '3rem' }}>
-              <h3 style={{
-                margin: '0 0 2rem 0',
-                fontSize: '1.3rem',
-                fontWeight: '600',
-                color: '#4682B4',
-                textAlign: 'center'
-              }}>
-                Duration: {formData.duration} minutes
-              </h3>
-              <div style={{
-                fontSize: '2rem',
-                textAlign: 'center',
-                marginBottom: '1rem',
-                color: getDurationColor(formData.duration),
-                fontWeight: 'bold'
-              }}>
-                {getDurationText(formData.duration)}
-              </div>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          {/* Dev Toggle */}
+          <div style={{
+            position: 'fixed',
+            top: '10px',
+            right: '10px',
+            background: '#fff',
+            padding: '10px',
+            borderRadius: '8px',
+            border: '1px solid #ddd',
+            fontSize: '0.8rem'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input
-                type="range"
-                min="5"
-                max="180"
-                step="5"
-                value={formData.duration}
-                onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) }))}
-                style={{
-                  width: '100%',
-                  height: '12px',
-                  borderRadius: '6px',
-                  background: `linear-gradient(to right, #dc3545 0%, #28a745 33%, #20c997 66%, #ffc107 100%)`,
-                  outline: 'none',
-                  cursor: 'pointer',
-                  marginBottom: '1rem'
-                }}
+                type="checkbox"
+                checked={isPremiumMode}
+                onChange={(e) => setIsPremiumMode(e.target.checked)}
               />
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '0.8rem',
-                color: '#9CA3AF'
-              }}>
-                <span>5 min</span>
-                <span>3 hours</span>
-              </div>
-              {formData.duration < 30 && (
-                <p style={{ textAlign: 'center', color: '#856404', fontSize: '0.9rem', marginTop: '1rem' }}>
-                  Tip: Aim for at least 30 minutes of exercise for optimal health benefits
-                </p>
-              )}
-            </div>
-
-            <div style={{ marginBottom: '3rem' }}>
-              <h3 style={{
-                margin: '0 0 2rem 0',
-                fontSize: '1.3rem',
-                fontWeight: '600',
-                color: '#4682B4',
-                textAlign: 'center'
-              }}>
-                Exercise Intensity
-              </h3>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem'
-              }}>
-                {intensityLevels.map(level => (
-                  <label key={level.value} style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '1.5rem',
-                    background: formData.intensity === level.value
-                      ? `rgba(${level.color === '#28a745' ? '40, 167, 69' : 
-                                   level.color === '#ffc107' ? '255, 193, 7' :
-                                   level.color === '#fd7e14' ? '253, 126, 20' : '220, 53, 69'}, 0.1)`
-                      : '#F9FAFB',
-                    border: formData.intensity === level.value
-                      ? `1px solid ${level.color}`
-                      : '1px solid #E5E7EB',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    textAlign: 'center'
-                  }}>
-                    <input
-                      type="radio"
-                      name="intensity"
-                      value={level.value}
-                      checked={formData.intensity === level.value}
-                      onChange={(e) => setFormData(prev => ({ ...prev, intensity: e.target.value }))}
-                      style={{ marginBottom: '0.5rem' }}
-                    />
-                    <div style={{
-                      fontSize: '1.1rem',
-                      fontWeight: '600',
-                      color: formData.intensity === level.value ? level.color : '#000000'
-                    }}>
-                      {level.label}
-                    </div>
-                    <div style={{
-                      fontSize: '0.9rem',
-                      color: '#4B5563',
-                      fontStyle: 'italic'
-                    }}>
-                      {level.description}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Heart rate input */}
-            <div>
-              <label style={{
-                display: 'block',
-                marginBottom: '1rem',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#4682B4'
-              }}>
-                Peak Heart Rate (optional)
-              </label>
-              <input
-                type="number"
-                min="60"
-                max="220"
-                value={formData.heartRate}
-                onChange={(e) => setFormData(prev => ({ ...prev, heartRate: e.target.value }))}
-                placeholder="e.g., 150 bpm"
-                style={{
-                  width: '100%',
-                  maxWidth: '200px',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid #E5E7EB',
-                  background: '#FFFFFF',
-                  color: '#000000',
-                  fontSize: '1rem'
-                }}
-              />
-              <p style={{
-                margin: '0.5rem 0 0 0',
-                color: '#9CA3AF',
-                fontSize: '0.9rem'
-              }}>
-                If you wore a fitness tracker or monitored your heart rate
-              </p>
-            </div>
+              {isPremiumMode ? '💎 Premium Mode' : '🆓 Free Mode'}
+            </label>
           </div>
-        );
 
-      case 'exercise-details':
-        return (
-          <div>
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '1rem',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#4682B4'
-              }}>
-                Describe your workout in detail
-              </label>
-              <textarea
-                value={formData.exercises}
-                onChange={(e) => setFormData(prev => ({ ...prev, exercises: e.target.value }))}
-                placeholder="Describe what exercises you did, sets, reps, weights, distances, routes, etc..."
-                rows="5"
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid #E5E7EB',
-                  background: '#FFFFFF',
-                  color: '#000000',
-                  fontSize: '1rem',
-                  resize: 'vertical',
-                  fontFamily: 'inherit'
-                }}
-              />
-              <p style={{
-                margin: '0.5rem 0 0 0',
-                color: '#9CA3AF',
-                fontSize: '0.9rem'
-              }}>
-                Be specific about exercises, duration, intensity, and any equipment used
-              </p>
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                marginBottom: '1rem',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#4682B4'
-              }}>
-                Other physical activities today
-              </label>
-              <textarea
-                value={formData.activities}
-                onChange={(e) => setFormData(prev => ({ ...prev, activities: e.target.value }))}
-                placeholder="Other activities like walking to work, carrying groceries, playing with kids, yard work, etc..."
-                rows="3"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid #E5E7EB',
-                  background: '#FFFFFF',
-                  color: '#000000',
-                  fontSize: '1rem',
-                  resize: 'vertical',
-                  fontFamily: 'inherit'
-                }}
-              />
-              <p style={{
-                margin: '0.5rem 0 0 0',
-                color: '#9CA3AF',
-                fontSize: '0.9rem'
-              }}>
-                Include daily activities that might contribute to physical exertion
-              </p>
-            </div>
-          </div>
-        );
-
-      case 'environment-conditions':
-        return (
-          <div>
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '1rem',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#4682B4'
-              }}>
-                Where did you exercise?
-              </label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: '0.75rem'
-              }}>
-                {environmentOptions.map(env => (
-                  <label key={env} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '1rem',
-                    background: formData.environment === env 
-                      ? 'rgba(70, 130, 180, 0.1)'
-                      : '#F9FAFB',
-                    border: formData.environment === env 
-                      ? '1px solid #4682B4'
-                      : '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontSize: '0.95rem',
-                    color: '#000000'
-                  }}>
-                    <input
-                      type="radio"
-                      name="environment"
-                      value={env}
-                      checked={formData.environment === env}
-                      onChange={(e) => setFormData(prev => ({ ...prev, environment: e.target.value }))}
-                    />
-                    {env}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Environment-specific tips */}
-            <div style={{
-              background: 'rgba(40, 167, 69, 0.1)',
-              border: '1px solid rgba(40, 167, 69, 0.3)',
-              borderRadius: '12px',
-              padding: '1.5rem'
-            }}>
-              <h4 style={{ color: '#28a745', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
-                Environment & Headache Prevention
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-                <div>
-                  <h5 style={{ color: '#20c997', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Outdoor Exercise:</h5>
-                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
-                    <li>Protect from bright sunlight</li>
-                    <li>Stay hydrated in heat</li>
-                    <li>Watch for temperature extremes</li>
-                    <li>Be aware of air quality</li>
-                  </ul>
-                </div>
-                <div>
-                  <h5 style={{ color: '#17a2b8', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Indoor Exercise:</h5>
-                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
-                    <li>Ensure good ventilation</li>
-                    <li>Avoid fluorescent lighting</li>
-                    <li>Maintain comfortable temperature</li>
-                    <li>Use proper lighting</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'pre-exercise':
-        return (
-          <div>
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '1rem',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#4682B4'
-              }}>
-                Hydration before exercise
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
-                {[
-                  { value: 'poor', label: 'Poor', color: '#dc3545' },
-                  { value: 'fair', label: 'Fair', color: '#ffc107' },
-                  { value: 'adequate', label: 'Adequate', color: '#28a745' },
-                  { value: 'excellent', label: 'Excellent', color: '#20c997' }
-                ].map(option => (
-                  <label key={option.value} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '1rem',
-                    background: formData.hydration === option.value 
-                      ? `rgba(${option.color === '#dc3545' ? '220, 53, 69' :
-                                  option.color === '#ffc107' ? '255, 193, 7' :
-                                  option.color === '#28a745' ? '40, 167, 69' : '32, 201, 151'}, 0.1)`
-                      : '#F9FAFB',
-                    border: formData.hydration === option.value 
-                      ? `1px solid ${option.color}`
-                      : '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontSize: '0.95rem',
-                    color: '#000000'
-                  }}>
-                    <input
-                      type="radio"
-                      name="hydration"
-                      value={option.value}
-                      checked={formData.hydration === option.value}
-                      onChange={(e) => setFormData(prev => ({ ...prev, hydration: e.target.value }))}
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '1rem',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#4682B4'
-              }}>
-                What did you eat before exercising?
-              </label>
-              <input
-                type="text"
-                value={formData.preExerciseFood}
-                onChange={(e) => setFormData(prev => ({ ...prev, preExerciseFood: e.target.value }))}
-                placeholder="e.g., banana 30 minutes before, light breakfast 2 hours ago, nothing..."
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid #E5E7EB',
-                  background: '#FFFFFF',
-                  color: '#000000',
-                  fontSize: '1rem'
-                }}
-              />
-              <p style={{
-                margin: '0.5rem 0 0 0',
-                color: '#9CA3AF',
-                fontSize: '0.9rem'
-              }}>
-                Include timing and type of food/drink consumed before exercise
-              </p>
-            </div>
-
-            {/* Pre-exercise tips */}
-            <div style={{
-              background: 'rgba(23, 162, 184, 0.1)',
-              border: '1px solid rgba(23, 162, 184, 0.3)',
-              borderRadius: '12px',
-              padding: '1.5rem'
-            }}>
-              <h4 style={{ color: '#17a2b8', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
-                Pre-Exercise Headache Prevention
-              </h4>
-              <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#4B5563', fontSize: '0.9rem' }}>
-                <li><strong>Hydration:</strong> Drink water 2-3 hours before exercise</li>
-                <li><strong>Nutrition:</strong> Light snack 30-60 minutes before if needed</li>
-                <li><strong>Warm-up:</strong> Gradually increase intensity to prevent sudden strain</li>
-                <li><strong>Environment:</strong> Check temperature and lighting conditions</li>
-                <li><strong>Rest:</strong> Ensure adequate sleep the night before</li>
-              </ul>
-            </div>
-          </div>
-        );
-
-      case 'post-exercise':
-        return (
-          <div>
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '1rem', 
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                color: '#4682B4'
-              }}>
-                How did you feel after exercising?
-              </label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '0.75rem'
-              }}>
-                {postExerciseSymptoms.map(symptom => {
-                  const isPositive = symptom === 'None - felt great!';
-                  return (
-                    <label key={symptom} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: '1rem',
-                      background: formData.postExerciseSymptoms.includes(symptom)
-                        ? isPositive 
-                          ? 'rgba(40, 167, 69, 0.1)'
-                          : 'rgba(255, 193, 7, 0.1)'
-                        : '#F9FAFB',
-                      border: formData.postExerciseSymptoms.includes(symptom)
-                        ? isPositive 
-                          ? '1px solid #28a745'
-                          : '1px solid #ffc107'
-                        : '1px solid #E5E7EB',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      fontSize: '0.95rem',
-                      color: '#000000'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={formData.postExerciseSymptoms.includes(symptom)}
-                        onChange={() => handleCheckboxChange(symptom, 'postExerciseSymptoms')}
-                      />
-                      {symptom}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Post-exercise warnings */}
-            {formData.postExerciseSymptoms.filter(s => ['Headache', 'Dizziness', 'Nausea'].includes(s)).length > 0 && (
-              <div style={{
-                background: 'rgba(220, 53, 69, 0.1)',
-                border: '1px solid rgba(220, 53, 69, 0.3)',
-                borderRadius: '12px',
-                padding: '1.5rem',
-                marginBottom: '2rem'
-              }}>
-                <h4 style={{ color: '#dc3545', margin: '0 0 1rem 0' }}>
-                  Exercise-Related Symptoms Detected
-                </h4>
-                <p style={{ margin: '0 0 1rem 0', color: '#721c24', fontSize: '0.9rem' }}>
-                  You reported symptoms that may be related to exercise-induced headaches. Consider these strategies:
-                </p>
-                <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#721c24', fontSize: '0.85rem' }}>
-                  <li>Increase hydration before, during, and after exercise</li>
-                  <li>Extend warm-up and cool-down periods</li>
-                  <li>Reduce exercise intensity temporarily</li>
-                  <li>Check if symptoms persist with different activities</li>
-                  <li>Consider consulting a healthcare provider if symptoms are severe</li>
-                </ul>
-              </div>
-            )}
-
-            {/* Recovery tips */}
-            <div style={{
-              background: 'rgba(40, 167, 69, 0.1)',
-              border: '1px solid rgba(40, 167, 69, 0.3)',
-              borderRadius: '12px',
-              padding: '1.5rem'
-            }}>
-              <h4 style={{ color: '#28a745', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
-                Post-Exercise Recovery
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-                <div>
-                  <h5 style={{ color: '#20c997', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Immediate (0-30 min):</h5>
-                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
-                    <li>Cool down gradually</li>
-                    <li>Rehydrate with water</li>
-                    <li>Light stretching</li>
-                    <li>Monitor how you feel</li>
-                  </ul>
-                </div>
-                <div>
-                  <h5 style={{ color: '#17a2b8', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Later (30+ min):</h5>
-                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
-                    <li>Refuel with balanced nutrition</li>
-                    <li>Continue hydrating</li>
-                    <li>Rest and recover</li>
-                    <li>Track any delayed symptoms</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'exercise-summary':
-        const hasHighImpact = highImpactExercises.some(exercise => 
-          formData.type.toLowerCase().includes(exercise)
-        );
-        const hasSymptoms = formData.postExerciseSymptoms.filter(s => 
-          ['Headache', 'Dizziness', 'Nausea', 'Excessive fatigue'].includes(s)
-        ).length > 0;
-        const longDuration = formData.duration > 90;
-        const highIntensity = ['vigorous', 'high'].includes(formData.intensity);
-        
-        return (
-          <div>
-            <div style={{
-              background: 'rgba(70, 130, 180, 0.1)',
-              border: '1px solid rgba(70, 130, 180, 0.3)',
-              borderRadius: '12px',
-              padding: '2rem',
-              textAlign: 'center',
-              marginBottom: '2rem'
-            }}>
-              <h3 style={{ color: '#4682B4', margin: '0 0 1rem 0', fontSize: '1.5rem' }}>
-                Your Exercise Summary
-              </h3>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '2rem', marginTop: '1.5rem' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2.5rem', color: getDurationColor(formData.duration), fontWeight: 'bold' }}>
-                    {formData.duration}
-                  </div>
-                  <div style={{ fontSize: '1rem', color: '#4B5563', marginBottom: '0.5rem' }}>minutes</div>
-                  <div style={{ fontSize: '1.1rem', color: getDurationColor(formData.duration), fontWeight: '600' }}>
-                    {getDurationText(formData.duration)}
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2.5rem', color: intensityLevels.find(l => l.value === formData.intensity)?.color, fontWeight: 'bold' }}>
-                    {formData.intensity.charAt(0).toUpperCase() + formData.intensity.slice(1)}
-                  </div>
-                  <div style={{ fontSize: '1rem', color: '#4B5563', marginBottom: '0.5rem' }}>intensity</div>
-                  <div style={{ fontSize: '1.1rem', color: intensityLevels.find(l => l.value === formData.intensity)?.color, fontWeight: '600' }}>
-                    {formData.type}
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2.5rem', color: hasSymptoms ? '#dc3545' : '#28a745', fontWeight: 'bold' }}>
-                    {hasSymptoms ? '⚠️' : '✅'}
-                  </div>
-                  <div style={{ fontSize: '1rem', color: '#4B5563', marginBottom: '0.5rem' }}>recovery</div>
-                  <div style={{ fontSize: '1.1rem', color: hasSymptoms ? '#dc3545' : '#28a745', fontWeight: '600' }}>
-                    {hasSymptoms ? 'Monitor' : 'Good'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Personalized recommendations */}
-            <div style={{
-              background: 'rgba(23, 162, 184, 0.1)',
-              border: '1px solid rgba(23, 162, 184, 0.3)',
-              borderRadius: '12px',
-              padding: '1.5rem'
-            }}>
-              <h4 style={{ color: '#17a2b8', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
-                Personalized Exercise Recommendations
-              </h4>
-              <div style={{ fontSize: '0.9rem', color: '#4B5563' }}>
-                {hasSymptoms && (
-                  <p style={{ margin: '0.5rem 0', padding: '0.5rem', background: 'rgba(220, 53, 69, 0.1)', borderRadius: '6px' }}>
-                    ⚠️ <strong>Monitor symptoms:</strong> You experienced some concerning symptoms. Consider reducing intensity or duration next time.
-                  </p>
-                )}
-                {hasHighImpact && !hasSymptoms && (
-                  <p style={{ margin: '0.5rem 0', padding: '0.5rem', background: 'rgba(255, 193, 7, 0.1)', borderRadius: '6px' }}>
-                    🏃 <strong>High-impact exercise:</strong> Monitor for delayed headaches over the next 24 hours.
-                  </p>
-                )}
-                {longDuration && highIntensity && (
-                  <p style={{ margin: '0.5rem 0', padding: '0.5rem', background: 'rgba(255, 193, 7, 0.1)', borderRadius: '6px' }}>
-                    💪 <strong>Intense workout:</strong> Ensure adequate recovery with rest, hydration, and nutrition.
-                  </p>
-                )}
-                {formData.hydration === 'poor' && (
-                  <p style={{ margin: '0.5rem 0', padding: '0.5rem', background: 'rgba(220, 53, 69, 0.1)', borderRadius: '6px' }}>
-                    🚰 <strong>Improve hydration:</strong> Poor hydration before exercise increases headache risk.
-                  </p>
-                )}
-                {!hasSymptoms && formData.hydration !== 'poor' && formData.duration >= 30 && (
-                  <p style={{ margin: '0.5rem 0', padding: '0.5rem', background: 'rgba(40, 167, 69, 0.1)', borderRadius: '6px' }}>
-                    ✅ <strong>Great workout:</strong> Good duration, proper preparation, and no concerning symptoms!
-                  </p>
-                )}
-                <p style={{ margin: '1rem 0 0 0', fontSize: '0.85rem', fontStyle: 'italic' }}>
-                  Continue tracking to identify which exercises work best for you and which may trigger headaches
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'notes':
-        return (
-          <div>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Any additional notes about your exercise session - how you felt, what worked well, what you might change next time, equipment used, etc..."
-              rows="6"
-              style={{
-                width: '100%',
-                padding: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #E5E7EB',
-                background: '#FFFFFF',
-                color: '#000000',
-                fontSize: '1rem',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
-            />
-            <p style={{
-              margin: '1rem 0 0 0',
-              color: '#9CA3AF',
-              fontSize: '0.9rem',
-              textAlign: 'center'
-            }}>
-              This information helps identify exercise patterns that may contribute to or prevent your headaches
-            </p>
-
-            {/* Final exercise tips */}
-            <div style={{
-              background: 'rgba(40, 167, 69, 0.1)',
-              border: '1px solid rgba(40, 167, 69, 0.3)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              marginTop: '2rem'
-            }}>
-              <h4 style={{ color: '#28a745', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>
-                Exercise & Headache Prevention Summary
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-                <div>
-                  <h5 style={{ color: '#20c997', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Best Practices:</h5>
-                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
-                    <li>Stay consistently hydrated</li>
-                    <li>Warm up and cool down properly</li>
-                    <li>Exercise regularly but moderately</li>
-                    <li>Listen to your body's signals</li>
-                  </ul>
-                </div>
-                <div>
-                  <h5 style={{ color: '#17a2b8', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Monitor For:</h5>
-                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
-                    <li>Headaches during or after exercise</li>
-                    <li>Exercise in extreme temperatures</li>
-                    <li>High-intensity without proper buildup</li>
-                    <li>Changes in usual exercise patterns</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  const currentQuestion = questions[currentStep];
-  const isLastStep = currentStep === questions.length - 1;
-  const canProceed = () => {
-    switch (currentQuestion.component) {
-      case 'exercise-type':
-        return formData.type !== '';
-      case 'exercise-details':
-        return formData.exercises.trim() !== '';
-      default:
-        return true;
-    }
-  };
-
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#F9FAFB',
-      color: '#000000',
-      padding: '20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        {/* Header - No Card */}
-        <div style={{ marginBottom: '40px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
             <h1 style={{
-              margin: 0,
+              margin: '0 0 1rem 0',
               fontSize: '2rem',
               fontWeight: 'bold',
-              color: '#1E3A8A',
-              textAlign: 'center',
-              flex: 1
+              color: '#1E3A8A'
             }}>
-              Record Exercise & Activities
+              <i className="fas fa-dumbbell" style={{ marginRight: '0.5rem' }}></i>
+              Exercise Tracker
             </h1>
+            <p style={{ color: '#6B7280', fontSize: '1.1rem', margin: 0 }}>
+              Start workout timer or log manually
+            </p>
+          </div>
+
+          {/* Ongoing Session Alert */}
+          {ongoingSession && (
+            <div style={{
+              background: 'rgba(40, 167, 69, 0.1)',
+              border: '2px solid #28a745',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              marginBottom: '2rem',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#28a745' }}>
+                <i className="fas fa-stopwatch"></i>
+              </div>
+              <h4 style={{ color: '#28a745', margin: '0 0 0.5rem 0' }}>
+                Workout in Progress
+              </h4>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#28a745', marginBottom: '0.5rem' }}>
+                Duration: {formatDuration(ongoingSession.startTime)}
+              </div>
+              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.9rem' }}>
+                Type: {ongoingSession.exerciseType}
+              </p>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '2rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '2rem'
+          }}>
+            {/* Start Exercise */}
+            <button
+              onClick={() => setMode('start-exercise')}
+              disabled={loading || ongoingSession}
+              style={{
+                padding: '2rem 1rem',
+                background: ongoingSession 
+                  ? '#F3F4F6' 
+                  : 'linear-gradient(135deg, #28a745, #20c997)',
+                border: 'none',
+                borderRadius: '16px',
+                cursor: ongoingSession || loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                textAlign: 'center',
+                color: 'white',
+                boxShadow: ongoingSession ? 'none' : '0 4px 12px rgba(40, 167, 69, 0.3)',
+                opacity: ongoingSession ? 0.6 : 1
+              }}
+            >
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-play"></i>
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
+                Start Exercise
+              </h3>
+              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                Begin workout timer
+              </div>
+            </button>
+
+            {/* End Exercise */}
+            <button
+              onClick={() => setMode('end-exercise')}
+              disabled={loading || !ongoingSession}
+              style={{
+                padding: '2rem 1rem',
+                background: !ongoingSession 
+                  ? '#F3F4F6' 
+                  : 'linear-gradient(135deg, #dc3545, #c82333)',
+                border: 'none',
+                borderRadius: '16px',
+                cursor: !ongoingSession || loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                textAlign: 'center',
+                color: 'white',
+                boxShadow: !ongoingSession ? 'none' : '0 4px 12px rgba(220, 53, 69, 0.3)',
+                opacity: !ongoingSession ? 0.6 : 1
+              }}
+            >
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-stop"></i>
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
+                End Exercise
+              </h3>
+              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                Finish current workout
+              </div>
+            </button>
+
+            {/* Manual Entry */}
+            <button
+              onClick={() => setMode('manual-entry')}
+              disabled={loading}
+              style={{
+                padding: '2rem 1rem',
+                background: 'linear-gradient(135deg, #FBBF24, #F59E0B)',
+                border: 'none',
+                borderRadius: '16px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                textAlign: 'center',
+                color: 'white',
+                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.3)'
+              }}
+            >
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-edit"></i>
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
+                Manual Entry
+              </h3>
+              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                Log past workout
+              </div>
+            </button>
+          </div>
+
+          {/* Premium Teaser */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Unlock Premium Features</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Exercise-headache correlation, heart rate tracking & more
+              </p>
+            </div>
+          )}
+
+          {/* Back to Dashboard */}
+          <div style={{ textAlign: 'center' }}>
             <Link
               to="/dashboard"
               style={{
                 background: 'transparent',
-                border: '1px solid #E5E7EB',
+                border: '1px solid #F3F4F6',
                 borderRadius: '8px',
-                color: '#4B5563',
+                color: '#6B7280',
                 padding: '8px 16px',
                 textDecoration: 'none',
-                fontSize: '0.9rem'
+                fontSize: '0.9rem',
+                display: 'inline-flex',
+                alignItems: 'center'
               }}
             >
-              Cancel
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back to Dashboard
             </Link>
           </div>
-          
-          {/* Progress Bar - No Card */}
-          <div style={{
-            background: '#E5E7EB',
-            borderRadius: '10px',
-            height: '8px',
-            overflow: 'hidden',
-            marginBottom: '15px'
-          }}>
-            <div style={{
-              background: '#4682B4',
-              height: '100%',
-              width: `${((currentStep + 1) / questions.length) * 100}%`,
-              transition: 'width 0.3s ease'
-            }} />
-          </div>
-          
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '0.9rem',
-            color: '#9CA3AF'
-          }}>
-            <span>Step {currentStep + 1} of {questions.length}</span>
-            <span>{Math.round(((currentStep + 1) / questions.length) * 100)}% Complete</span>
-          </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* Warnings Display - No Card */}
-        {warnings.length > 0 && (
-          <div style={{
-            background: 'rgba(255, 193, 7, 0.1)',
-            border: '1px solid rgba(255, 193, 7, 0.3)',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            marginBottom: '2rem'
-          }}>
-            <h4 style={{ color: '#856404', margin: '0 0 1rem 0' }}>
-              Exercise & Headache Alert
-            </h4>
-            <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#856404', fontSize: '0.9rem' }}>
-              {warnings.map((warning, idx) => (
-                <li key={idx}>{warning}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Question Content - No Card */}
-        <div style={{ marginBottom: '40px', minHeight: '400px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <h2 style={{
-              margin: '0 0 15px 0',
-              fontSize: '1.8rem',
-              fontWeight: 'bold',
-              color: '#4682B4'
-            }}>
-              {currentQuestion.title}
+  // START EXERCISE FLOW
+  if (mode === 'start-exercise') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ color: '#28a745', marginBottom: '1rem' }}>
+              <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
+              Start Your Workout
             </h2>
-            <p style={{
-              margin: 0,
-              color: '#9CA3AF',
-              fontSize: '1.1rem'
-            }}>
-              {currentQuestion.subtitle}
+            <p style={{ color: '#6B7280', fontSize: '1rem', margin: 0 }}>
+              Choose your exercise type to begin timer
             </p>
+          </div>
+
+          {/* Exercise Type Selector */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ color: '#1E40AF', marginBottom: '1rem', textAlign: 'center' }}>What are you doing?</h3>
+            
+            <div style={{
+              position: 'relative',
+              minHeight: '250px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {/* Navigation Arrows */}
+              <button
+                onClick={prevSlide}
+                style={{
+                  position: 'absolute',
+                  left: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10
+                }}
+              >
+                <i className="fas fa-chevron-left" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
+              </button>
+
+              <button
+                onClick={nextSlide}
+                style={{
+                  position: 'absolute',
+                  right: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10
+                }}
+              >
+                <i className="fas fa-chevron-right" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
+              </button>
+
+              {/* Current Exercise Display */}
+              <div style={{ textAlign: 'center', padding: '0 4rem', width: '100%' }}>
+                <div style={{ 
+                  fontSize: '4rem',
+                  marginBottom: '1rem',
+                  color: exerciseTypes[currentSlide].color,
+                  transition: 'all 0.3s ease',
+                  transform: formData.exerciseType === exerciseTypes[currentSlide].name ? 'scale(1.1)' : 'scale(1)'
+                }}>
+                  <i className={exerciseTypes[currentSlide].icon}></i>
+                </div>
+                
+                <h4 style={{ 
+                  margin: '0 0 0.5rem 0', 
+                  color: formData.exerciseType === exerciseTypes[currentSlide].name ? exerciseTypes[currentSlide].color : '#374151',
+                  fontSize: '1.3rem',
+                  fontWeight: '600'
+                }}>
+                  {exerciseTypes[currentSlide].name}
+                </h4>
+                
+                <p style={{ 
+                  margin: '0 0 1.5rem 0', 
+                  color: '#9CA3AF',
+                  fontSize: '0.9rem'
+                }}>
+                  {exerciseTypes[currentSlide].description}
+                </p>
+
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, exerciseType: exerciseTypes[currentSlide].name }))}
+                  style={{
+                    background: formData.exerciseType === exerciseTypes[currentSlide].name 
+                      ? `linear-gradient(135deg, ${exerciseTypes[currentSlide].color}, ${exerciseTypes[currentSlide].color}dd)` 
+                      : 'linear-gradient(135deg, #1E40AF, #1E3A8A)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 24px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {formData.exerciseType === exerciseTypes[currentSlide].name ? (
+                    <>
+                      <i className="fas fa-check" style={{ marginRight: '0.5rem' }}></i>
+                      Selected
+                    </>
+                  ) : (
+                    'Select This Exercise'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Slide Indicators */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              marginTop: '1rem'
+            }}>
+              {exerciseTypes.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: index === currentSlide ? '#1E40AF' : '#E5E7EB',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
           </div>
 
           {error && (
@@ -1185,7 +712,7 @@ export default function RecordExercise() {
               border: '1px solid #dc3545',
               borderRadius: '8px',
               padding: '12px',
-              marginBottom: '30px',
+              marginBottom: '1rem',
               color: '#721c24',
               textAlign: 'center'
             }}>
@@ -1193,70 +720,797 @@ export default function RecordExercise() {
             </div>
           )}
 
-          {renderCurrentQuestion()}
-        </div>
-
-        {/* Navigation - No Card */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '1rem'
-        }}>
-          <button
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-            style={{
-              background: currentStep === 0 ? '#E5E7EB' : 'transparent',
-              border: '1px solid #E5E7EB',
-              borderRadius: '10px',
-              color: currentStep === 0 ? '#9CA3AF' : '#4B5563',
-              padding: '12px 24px',
-              cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            ← Previous
-          </button>
-
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            {!isLastStep && (
-              <button
-                onClick={handleSkip}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '10px',
-                  color: '#9CA3AF',
-                  padding: '12px 24px',
-                  cursor: 'pointer',
-                  fontSize: '1rem'
-                }}
-              >
-                Skip
-              </button>
-            )}
-
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
             <button
-              onClick={isLastStep ? handleSubmit : handleNext}
-              disabled={!canProceed() || loading}
+              onClick={() => setMode('selection')}
               style={{
-                background: !canProceed() || loading ? '#E5E7EB' : '#4682B4',
-                border: 'none',
-                borderRadius: '10px',
-                color: 'white',
-                padding: '12px 24px',
-                cursor: !canProceed() || loading ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                fontWeight: '600',
-                minWidth: '120px'
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
               }}
             >
-              {loading ? 'Saving...' : isLastStep ? 'Record Exercise Data' : 'Next →'}
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+            
+            <button
+              onClick={startExerciseSession}
+              disabled={loading || !formData.exerciseType}
+              style={{
+                background: (loading || !formData.exerciseType) ? '#E5E7EB' : '#28a745',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: (loading || !formData.exerciseType) ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Starting...</>
+              ) : (
+                <><i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>Start Timer</>
+              )}
             </button>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // ACTIVE EXERCISE MODE (Workout in Progress)
+  if (mode === 'active-exercise') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          {/* Active Session Header */}
+          <div style={{
+            background: 'rgba(40, 167, 69, 0.1)',
+            border: '2px solid #28a745',
+            borderRadius: '16px',
+            padding: '2rem',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#28a745' }}>
+              <i className="fas fa-stopwatch"></i>
+            </div>
+            <h2 style={{ color: '#28a745', margin: '0 0 1rem 0' }}>
+              Workout in Progress
+            </h2>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#28a745', marginBottom: '0.5rem' }}>
+              {ongoingSession && formatDuration(ongoingSession.startTime)}
+            </div>
+            <div style={{ color: '#4B5563', fontSize: '1rem' }}>
+              <i className="fas fa-dumbbell" style={{ marginRight: '0.5rem' }}></i>
+              {ongoingSession?.exerciseType}
+            </div>
+          </div>
+
+          {/* Premium Features Preview */}
+          {isPremiumMode && (
+            <>
+              {/* Heart Rate */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  Heart Rate (optional)
+                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <input
+                    type="number"
+                    min="60"
+                    max="220"
+                    value={formData.heartRate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, heartRate: e.target.value }))}
+                    placeholder="BPM"
+                    style={{
+                      width: '100px',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      background: '#FFFFFF',
+                      color: '#000000',
+                      fontSize: '1rem'
+                    }}
+                  />
+                  <span style={{ color: '#6B7280' }}>
+                    <i className="fas fa-heartbeat" style={{ marginRight: '0.5rem' }}></i>
+                    Peak or average heart rate
+                  </span>
+                </div>
+              </div>
+
+              {/* Environment */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  Where are you exercising?
+                </h4>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '0.75rem'
+                }}>
+                  {['Indoor Gym', 'Home', 'Outdoor', 'Pool', 'Park', 'Other'].map(env => (
+                    <button
+                      key={env}
+                      onClick={() => setFormData(prev => ({ ...prev, environment: env }))}
+                      style={{
+                        padding: '0.75rem',
+                        background: formData.environment === env 
+                          ? 'rgba(70, 130, 180, 0.1)'
+                          : '#FFFFFF',
+                        border: formData.environment === env 
+                          ? '2px solid #4682B4'
+                          : '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        color: '#000000'
+                      }}
+                    >
+                      {env}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Premium Teaser for Free Users */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Advanced Tracking</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Heart rate monitoring, environment tracking & exercise-headache correlation
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* End Workout Button */}
+          <div style={{ textAlign: 'center' }}>
+            <button
+              onClick={() => setMode('end-exercise')}
+              style={{
+                background: '#dc3545',
+                border: 'none',
+                borderRadius: '12px',
+                color: 'white',
+                padding: '16px 32px',
+                cursor: 'pointer',
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                marginBottom: '1rem'
+              }}
+            >
+              <i className="fas fa-stop" style={{ marginRight: '0.5rem' }}></i>
+              End Workout
+            </button>
+
+            <div>
+              <button
+                onClick={() => setMode('selection')}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '8px',
+                  color: '#4B5563',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+                Back to Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // END EXERCISE FLOW
+  if (mode === 'end-exercise') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          {/* Session Summary */}
+          <div style={{
+            background: 'rgba(220, 53, 69, 0.1)',
+            border: '2px solid #dc3545',
+            borderRadius: '16px',
+            padding: '2rem',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#dc3545' }}>
+              <i className="fas fa-flag-checkered"></i>
+            </div>
+            <h2 style={{ color: '#dc3545', margin: '0 0 1rem 0' }}>
+              Workout Complete!
+            </h2>
+            {ongoingSession && (
+              <>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc3545', marginBottom: '0.5rem' }}>
+                  Duration: {formatDuration(ongoingSession.startTime)}
+                </div>
+                <div style={{ color: '#4B5563', fontSize: '1rem' }}>
+                  Exercise: {ongoingSession.exerciseType}
+                  <br />
+                  Started: {ongoingSession.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Intensity Rating */}
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <h3 style={{ color: '#1E40AF', marginBottom: '1.5rem' }}>How intense was your workout?</h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '1rem'
+            }}>
+              {intensityLevels.map(level => (
+                <button
+                  key={level.value}
+                  onClick={() => setFormData(prev => ({ ...prev, intensity: level.value }))}
+                  style={{
+                    padding: '1.5rem 1rem',
+                    background: formData.intensity === level.value
+                      ? `rgba(${level.color === '#28a745' ? '40, 167, 69' : 
+                                   level.color === '#ffc107' ? '255, 193, 7' : '220, 53, 69'}, 0.1)`
+                      : '#FFFFFF',
+                    border: formData.intensity === level.value
+                      ? `2px solid ${level.color}`
+                      : '1px solid #E5E7EB',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem', color: level.color }}>
+                    <i className={level.icon}></i>
+                  </div>
+                  <h4 style={{ 
+                    margin: '0 0 0.5rem 0', 
+                    fontSize: '1.1rem', 
+                    fontWeight: '600',
+                    color: formData.intensity === level.value ? level.color : '#000000'
+                  }}>
+                    {level.label}
+                  </h4>
+                  <p style={{ 
+                    margin: 0, 
+                    fontSize: '0.85rem', 
+                    color: '#6B7280'
+                  }}>
+                    {level.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Premium Features for End Session */}
+          {isPremiumMode && (
+            <>
+              {/* Post-workout feeling */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  How do you feel after the workout?
+                </h4>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '0.75rem'
+                }}>
+                  {['Energized', 'Tired', 'Great', 'Exhausted', 'Normal', 'Sore'].map(feeling => (
+                    <button
+                      key={feeling}
+                      onClick={() => setFormData(prev => ({ ...prev, postWorkoutFeeling: feeling }))}
+                      style={{
+                        padding: '0.75rem',
+                        background: formData.postWorkoutFeeling === feeling 
+                          ? 'rgba(40, 167, 69, 0.1)'
+                          : '#FFFFFF',
+                        border: formData.postWorkoutFeeling === feeling 
+                          ? '2px solid #28a745'
+                          : '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        color: '#000000'
+                      }}
+                    >
+                      {feeling}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                  <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                  Workout notes (optional)
+                </h4>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="How did the workout go? Any specific exercises, achievements, or observations..."
+                  rows="3"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#000000',
+                    fontSize: '1rem',
+                    resize: 'vertical',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Premium Teaser for Free Users */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Post-Workout Analysis</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Track recovery, correlate with headaches & optimize your routine
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('selection')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+            
+            <button
+              onClick={endExerciseSession}
+              disabled={loading}
+              style={{
+                background: loading ? '#E5E7EB' : '#dc3545',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Saving...</>
+              ) : (
+                <><i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>Complete Workout</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // MANUAL ENTRY MODE
+  if (mode === 'manual-entry') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ color: '#ffc107', marginBottom: '1rem' }}>
+              <i className="fas fa-edit" style={{ marginRight: '0.5rem' }}></i>
+              Manual Exercise Entry
+            </h2>
+            <p style={{ color: '#9CA3AF', fontSize: '1rem', margin: 0 }}>
+              Log a past workout
+            </p>
+          </div>
+
+          {/* Exercise Type Selector - Same as start-exercise */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ color: '#4682B4', marginBottom: '1rem', textAlign: 'center' }}>Exercise Type</h3>
+            
+            <div style={{
+              position: 'relative',
+              minHeight: '200px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={prevSlide}
+                style={{
+                  position: 'absolute',
+                  left: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10
+                }}
+              >
+                <i className="fas fa-chevron-left" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
+              </button>
+
+              <button
+                onClick={nextSlide}
+                style={{
+                  position: 'absolute',
+                  right: '0',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(70, 130, 180, 0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10
+                }}
+              >
+                <i className="fas fa-chevron-right" style={{ color: '#4682B4', fontSize: '1.2rem' }}></i>
+              </button>
+
+              <div style={{ textAlign: 'center', padding: '0 4rem', width: '100%' }}>
+                <div style={{ 
+                  fontSize: '3rem',
+                  marginBottom: '1rem',
+                  color: exerciseTypes[currentSlide].color,
+                  transition: 'all 0.3s ease',
+                  transform: formData.exerciseType === exerciseTypes[currentSlide].name ? 'scale(1.1)' : 'scale(1)'
+                }}>
+                  <i className={exerciseTypes[currentSlide].icon}></i>
+                </div>
+                
+                <h4 style={{ 
+                  margin: '0 0 0.5rem 0', 
+                  color: formData.exerciseType === exerciseTypes[currentSlide].name ? exerciseTypes[currentSlide].color : '#374151',
+                  fontSize: '1.2rem',
+                  fontWeight: '600'
+                }}>
+                  {exerciseTypes[currentSlide].name}
+                </h4>
+                
+                <p style={{ 
+                  margin: '0 0 1rem 0', 
+                  color: '#9CA3AF',
+                  fontSize: '0.9rem'
+                }}>
+                  {exerciseTypes[currentSlide].description}
+                </p>
+
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, exerciseType: exerciseTypes[currentSlide].name }))}
+                  style={{
+                    background: formData.exerciseType === exerciseTypes[currentSlide].name 
+                      ? `linear-gradient(135deg, ${exerciseTypes[currentSlide].color}, ${exerciseTypes[currentSlide].color}dd)` 
+                      : 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 24px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {formData.exerciseType === exerciseTypes[currentSlide].name ? (
+                    <>
+                      <i className="fas fa-check" style={{ marginRight: '0.5rem' }}></i>
+                      Selected
+                    </>
+                  ) : (
+                    'Select This Exercise'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              marginTop: '1rem'
+            }}>
+              {exerciseTypes.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: index === currentSlide ? '#4682B4' : '#E5E7EB',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Duration */}
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <h3 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+              Duration: {formData.duration} minutes
+            </h3>
+            <div style={{
+              fontSize: '1.5rem',
+              marginBottom: '1rem',
+              color: getDurationColor(formData.duration),
+              fontWeight: 'bold'
+            }}>
+              {getDurationText(formData.duration)}
+            </div>
+            <input
+              type="range"
+              min="5"
+              max="180"
+              step="5"
+              value={formData.duration}
+              onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) }))}
+              style={{
+                width: '100%',
+                height: '12px',
+                borderRadius: '6px',
+                background: `linear-gradient(to right, #dc3545 0%, #28a745 33%, #20c997 66%, #ffc107 100%)`,
+                outline: 'none',
+                cursor: 'pointer',
+                marginBottom: '1rem'
+              }}
+            />
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '0.8rem',
+              color: '#9CA3AF'
+            }}>
+              <span>5 min</span>
+              <span>3 hours</span>
+            </div>
+          </div>
+
+          {/* Intensity */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ color: '#4682B4', marginBottom: '1rem', textAlign: 'center' }}>Intensity</h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '1rem'
+            }}>
+              {intensityLevels.map(level => (
+                <button
+                  key={level.value}
+                  onClick={() => setFormData(prev => ({ ...prev, intensity: level.value }))}
+                  style={{
+                    padding: '1rem',
+                    background: formData.intensity === level.value
+                      ? `rgba(${level.color === '#28a745' ? '40, 167, 69' : 
+                                   level.color === '#ffc107' ? '255, 193, 7' : '220, 53, 69'}, 0.1)`
+                      : '#FFFFFF',
+                    border: formData.intensity === level.value
+                      ? `2px solid ${level.color}`
+                      : '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: level.color }}>
+                    <i className={level.icon}></i>
+                  </div>
+                  <h4 style={{ 
+                    margin: '0 0 0.5rem 0', 
+                    fontSize: '1rem', 
+                    fontWeight: '600',
+                    color: formData.intensity === level.value ? level.color : '#000000'
+                  }}>
+                    {level.label}
+                  </h4>
+                  <p style={{ 
+                    margin: 0, 
+                    fontSize: '0.8rem', 
+                    color: '#6B7280'
+                  }}>
+                    {level.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Premium Teaser */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Detailed Exercise Tracking</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Heart rate, environment, recovery & headache correlation analysis
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('selection')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+            
+            <button
+              onClick={submitManualEntry}
+              disabled={loading || !formData.exerciseType}
+              style={{
+                background: (loading || !formData.exerciseType) ? '#E5E7EB' : '#ffc107',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: (loading || !formData.exerciseType) ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Saving...</>
+              ) : (
+                <><i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>Save Exercise</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
