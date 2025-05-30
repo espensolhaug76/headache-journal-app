@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
+  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -27,7 +27,7 @@ import {
 export default function EnhancedDashboard() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  const [currentMetricDay, setCurrentMetricDay] = useState(0); // 0 = today, 1 = yesterday, 2 = day before
+  const [currentMetricDay, setCurrentMetricDay] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -35,8 +35,8 @@ export default function EnhancedDashboard() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [dashboardData, setDashboardData] = useState({
     sleepStressData: [],
-    dailyMetrics: [], // New: last 3 days metrics
-    calendarData: {}, // New: monthly calendar data
+    dailyMetrics: [],
+    calendarData: {},
     loading: true,
     error: null,
     stats: {
@@ -56,7 +56,6 @@ export default function EnhancedDashboard() {
       try {
         setDashboardData(prev => ({ ...prev, loading: true, error: null }));
 
-        // Get last 7 days of data
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -89,7 +88,7 @@ export default function EnhancedDashboard() {
         const headacheSnapshot = await getDocs(headacheQuery);
         const headacheData = headacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Fetch monthly calendar data (headaches and medications)
+        // Fetch monthly calendar data
         const monthStart = new Date(currentYear, currentMonth, 1);
         const monthEnd = new Date(currentYear, currentMonth + 1, 0);
         
@@ -111,16 +110,10 @@ export default function EnhancedDashboard() {
         const monthlyMedicationSnapshot = await getDocs(monthlyMedicationQuery);
         const monthlyMedications = monthlyMedicationSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Process and combine data for the last 7 days
+        // Process data
         const processedData = processLast7Days(sleepData, stressData, headacheData);
-        
-        // Process daily metrics for last 3 days
         const dailyMetrics = processDailyMetrics(sleepData, stressData, headacheData);
-        
-        // Process calendar data
         const calendarData = processCalendarData(monthlyHeadaches, monthlyMedications);
-        
-        // Calculate stats
         const stats = calculateStats(sleepData, stressData, headacheData);
 
         setDashboardData({
@@ -191,7 +184,6 @@ export default function EnhancedDashboard() {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
       
-      // Find data for this date
       const sleepEntry = sleepData.find(entry => entry.date === dateStr);
       const stressEntry = stressData.find(entry => entry.date === dateStr);
       const dayHeadaches = headacheData.filter(entry => {
@@ -226,7 +218,6 @@ export default function EnhancedDashboard() {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
       
-      // Find data for this date
       const sleepEntry = sleepData.find(entry => entry.date === dateStr);
       const stressEntry = stressData.find(entry => entry.date === dateStr);
       const dayHeadaches = headacheData.filter(entry => {
@@ -236,13 +227,11 @@ export default function EnhancedDashboard() {
         return entryDate === dateStr;
       });
 
-      // Calculate headache metrics for this day
       const headacheCount = dayHeadaches.length;
       const totalPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
       const avgPainLevel = headacheCount > 0 ? totalPainScore / headacheCount : 0;
-      const avgPainLevelPercent = avgPainLevel * 10; // Convert to percentage
+      const avgPainLevelPercent = avgPainLevel * 10;
 
-      // Group headaches by intensity for visualization
       const headachesByIntensity = {};
       dayHeadaches.forEach(headache => {
         const intensity = headache.painLevel || 0;
@@ -259,14 +248,13 @@ export default function EnhancedDashboard() {
         stressPercent: stressEntry ? (stressEntry.stressLevel || 0) * 10 : 0,
         headaches: headacheCount,
         avgPainLevel: avgPainLevel,
-        avgPainLevelPercent: avgPainLevelPercent, // Add percentage version
+        avgPainLevelPercent: avgPainLevelPercent,
         totalPainScore: totalPainScore,
         headachesByIntensity: headachesByIntensity,
         hasData: sleepEntry || stressEntry || headacheCount > 0
       });
     }
 
-    // Calculate pain percentages relative to personal worst day
     const maxPainScore = Math.max(...days.map(d => d.totalPainScore), 1);
     days.forEach(day => {
       day.painPercentage = maxPainScore > 0 ? Math.round((day.totalPainScore / maxPainScore) * 100) : 0;
@@ -285,7 +273,6 @@ export default function EnhancedDashboard() {
     const avgStressLevel = stressData.length > 0 ? 
       stressData.reduce((sum, entry) => sum + (entry.stressLevel || 0), 0) / stressData.length : 0;
     
-    // Calculate personal worst day (highest total pain score)
     const personalWorstDay = Math.max(...headacheData.map(h => h.painLevel || 0), 1);
 
     return {
@@ -297,7 +284,7 @@ export default function EnhancedDashboard() {
     };
   };
 
-  // Calendar component
+  // Norwegian-style Calendar component
   const CalendarView = () => {
     const getDaysInMonth = (year, month) => {
       return new Date(year, month + 1, 0).getDate();
@@ -305,6 +292,19 @@ export default function EnhancedDashboard() {
 
     const getFirstDayOfMonth = (year, month) => {
       return new Date(year, month, 1).getDay();
+    };
+
+    const getDayColor = (dateStr) => {
+      const dayData = dashboardData.calendarData[dateStr];
+      if (!dayData || dayData.headaches.length === 0) {
+        return '#4CAF50'; // Green - no headache
+      }
+      
+      const avgPainLevel = dayData.headaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / dayData.headaches.length;
+      
+      if (avgPainLevel <= 3) return '#FFA726'; // Orange - mild
+      if (avgPainLevel <= 6) return '#FF7043'; // Orange-red - moderate  
+      return '#F44336'; // Red - severe
     };
 
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
@@ -325,55 +325,54 @@ export default function EnhancedDashboard() {
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayData = dashboardData.calendarData[dateStr];
-      const hasHeadache = dayData && dayData.headaches.length > 0;
-      const hasMedication = dayData && dayData.medications.length > 0;
       const isToday = dateStr === new Date().toISOString().split('T')[0];
+      const dayColor = getDayColor(dateStr);
+      const hasMedication = dayData && dayData.medications.length > 0;
       
       days.push(
         <div
           key={day}
           style={{
-            padding: '0.5rem',
-            minHeight: '60px',
-            border: isToday ? '2px solid #4682B4' : '1px solid #E5E7EB',
-            borderRadius: '8px',
-            cursor: dayData ? 'pointer' : 'default',
+            padding: '0.25rem',
+            minHeight: '48px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             position: 'relative',
-            background: isToday ? 'rgba(70, 130, 180, 0.1)' : '#FFFFFF'
+            cursor: dayData ? 'pointer' : 'default'
           }}
-          title={dayData ? `${dayData.headaches.length} headache(s), ${dayData.medications.length} medication(s)` : ''}
+          title={dayData ? 
+            `${dayData.headaches.length} headache(s), ${dayData.medications.length} medication(s)` : 
+            'No headaches'}
         >
-          <div style={{ fontSize: '0.9rem', fontWeight: isToday ? 'bold' : 'normal' }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            backgroundColor: dayColor,
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontWeight: isToday ? 'bold' : '500',
+            fontSize: '0.9rem',
+            border: isToday ? '2px solid #1E3A8A' : 'none',
+            position: 'relative'
+          }}>
             {day}
+            {hasMedication && (
+              <div style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-2px',
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#2196F3',
+                borderRadius: '50%',
+                border: '1px solid white'
+              }} />
+            )}
           </div>
-          {hasHeadache && (
-            <div style={{
-              width: '8px',
-              height: '8px',
-              background: '#dc3545',
-              borderRadius: '50%',
-              position: 'absolute',
-              top: '8px',
-              right: '8px'
-            }} />
-          )}
-          {hasMedication && (
-            <div style={{
-              width: '8px',
-              height: '8px',
-              background: '#28a745',
-              borderRadius: '50%',
-              position: 'absolute',
-              bottom: '8px',
-              right: '8px'
-            }} />
-          )}
-          {dayData && (
-            <div style={{ fontSize: '0.7rem', color: '#9CA3AF', marginTop: '0.25rem' }}>
-              {dayData.headaches.length > 0 && `H:${dayData.headaches.length} `}
-              {dayData.medications.length > 0 && `M:${dayData.medications.length}`}
-            </div>
-          )}
         </div>
       );
     }
@@ -450,7 +449,7 @@ export default function EnhancedDashboard() {
           gap: '0.5rem',
           marginBottom: '1rem'
         }}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          {['M', 'T', 'O', 'T', 'F', 'L', 'S'].map((day, index) => (
             <div key={day} style={{
               padding: '0.5rem',
               textAlign: 'center',
@@ -471,30 +470,34 @@ export default function EnhancedDashboard() {
           {days}
         </div>
 
+        {/* Legend */}
         <div style={{
           display: 'flex',
           justifyContent: 'center',
-          gap: '2rem',
-          marginTop: '1rem',
-          fontSize: '0.85rem',
-          color: '#4B5563'
+          gap: '1.5rem',
+          marginTop: '1.5rem',
+          fontSize: '0.8rem',
+          color: '#4B5563',
+          flexWrap: 'wrap'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{
-              width: '8px',
-              height: '8px',
-              background: '#dc3545',
-              borderRadius: '50%'
-            }} />
-            Headache
+            <div style={{ width: '16px', height: '16px', backgroundColor: '#4CAF50', borderRadius: '4px' }} />
+            No headache
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{
-              width: '8px',
-              height: '8px',
-              background: '#28a745',
-              borderRadius: '50%'
-            }} />
+            <div style={{ width: '16px', height: '16px', backgroundColor: '#FFA726', borderRadius: '4px' }} />
+            Mild
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '16px', height: '16px', backgroundColor: '#FF7043', borderRadius: '4px' }} />
+            Moderate
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '16px', height: '16px', backgroundColor: '#F44336', borderRadius: '4px' }} />
+            Severe
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '8px', height: '8px', backgroundColor: '#2196F3', borderRadius: '50%' }} />
             Medication
           </div>
         </div>
@@ -528,7 +531,7 @@ export default function EnhancedDashboard() {
     }
   };
 
-  // Circular Progress Component - Bigger Size
+  // Circular Progress Component
   const CircularProgress = ({ percentage, size = 120, strokeWidth = 8, color = '#4682B4', label, value, unit = '', showPercentage = false }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
@@ -575,7 +578,7 @@ export default function EnhancedDashboard() {
     );
   };
 
-  // Action Button Component - Compact
+  // Action Button Component
   const ActionButton = ({ icon, label, primary = false, onClick, to }) => {
     const buttonStyle = {
       background: primary 
@@ -621,40 +624,70 @@ export default function EnhancedDashboard() {
     );
   };
 
-  // Stats Display Component - Wider Cards
-  const StatsDisplay = ({ title, icon, children, color = '#4682B4' }) => (
-    <div style={{
-      background: '#FFFFFF',
-      border: '1px solid #E5E7EB',
-      borderRadius: '16px',
-      padding: '2rem 1.5rem',
-      textAlign: 'center',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-      transition: 'all 0.2s ease',
-      minHeight: '200px'
-    }}>
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        gap: '0.5rem', 
-        marginBottom: '1.5rem'
-      }}>
-        <i className={icon} style={{ fontSize: '1.2rem', color: color }}></i>
-        <h3 style={{ 
-          margin: 0, 
-          fontSize: '1rem', 
-          fontWeight: '600', 
-          color: '#4B5563'
+  // Stats Display Component - Clickable Cards
+  const StatsDisplay = ({ title, icon, children, color = '#4682B4', onClick, navigateTo }) => {
+    const handleClick = () => {
+      if (navigateTo) {
+        navigate(navigateTo);
+      } else if (onClick) {
+        onClick();
+      }
+    };
+
+    return (
+      <div 
+        onClick={handleClick}
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #E5E7EB',
+          borderRadius: '16px',
+          padding: '2rem 1.5rem',
+          textAlign: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          transition: 'all 0.2s ease',
+          minHeight: '200px',
+          cursor: navigateTo || onClick ? 'pointer' : 'default',
+          transform: 'scale(1)'
+        }}
+        onMouseEnter={e => {
+          if (navigateTo || onClick) {
+            e.target.style.transform = 'scale(1.02)';
+            e.target.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
+          }
+        }}
+        onMouseLeave={e => {
+          if (navigateTo || onClick) {
+            e.target.style.transform = 'scale(1)';
+            e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
+          }
+        }}
+      >
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          gap: '0.5rem', 
+          marginBottom: '1.5rem'
         }}>
-          {title}
-        </h3>
+          <i className={icon} style={{ fontSize: '1.2rem', color: color }}></i>
+          <h3 style={{ 
+            margin: 0, 
+            fontSize: '1rem', 
+            fontWeight: '600', 
+            color: '#4B5563'
+          }}>
+            {title}
+          </h3>
+          {(navigateTo || onClick) && (
+            <i className="fas fa-arrow-right" style={{ fontSize: '0.8rem', color: '#9CA3AF', marginLeft: '0.5rem' }}></i>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+          {children}
+        </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-        {children}
-      </div>
-    </div>
-  );
+    );
+  };
 
   // Custom Tooltip for Chart
   const CustomTooltip = ({ active, payload, label }) => {
@@ -674,30 +707,6 @@ export default function EnhancedDashboard() {
           <p style={{ fontWeight: 'bold', marginBottom: '0.75rem', color: '#4682B4', fontSize: '0.9rem' }}>{label}</p>
           
           {payload.map((entry, index) => {
-            if (entry.dataKey === 'sleepQualityPercent') {
-              return (
-                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
-                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Sleep Quality: {entry.value}%</span>
-                </div>
-              );
-            }
-            if (entry.dataKey === 'stressPercent') {
-              return (
-                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
-                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Stress Level: {entry.value}%</span>
-                </div>
-              );
-            }
-            if (entry.dataKey === 'headaches') {
-              return (
-                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
-                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Headaches: {entry.value}</span>
-                </div>
-              );
-            }
             if (entry.dataKey === 'avgPainLevelPercent') {
               return (
                 <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -783,7 +792,6 @@ export default function EnhancedDashboard() {
   const { stats } = dashboardData;
   const avgSleepQualityPercent = currentDayMetrics.sleepQuality * 10;
   const stressLevelPercent = currentDayMetrics.stressLevel * 10;
-  const sleepHoursPercent = (currentDayMetrics.sleepHours / 8) * 100;
 
   return (
     <div style={{
@@ -1118,41 +1126,46 @@ export default function EnhancedDashboard() {
               onTouchEnd={onTouchEnd}
             >
               <StatsDisplay
-                title="Sleep Quality"
-                icon="fas fa-moon"
-                color="#20c997"
-              >
-                <CircularProgress
-                  percentage={avgSleepQualityPercent}
-                  color="#20c997"
-                  label="Quality Rating"
-                  value=""
-                  showPercentage={true}
-                  size={120}
-                  strokeWidth={8}
-                />
-              </StatsDisplay>
-
-              <StatsDisplay
-                title="Sleep Hours"
+                title="Sleep"
                 icon="fas fa-bed"
-                color="#28a745"
+                color="#20c997"
+                navigateTo="/record-sleep"
               >
-                <CircularProgress
-                  percentage={sleepHoursPercent}
-                  color="#28a745"
-                  label="Hours Slept"
-                  value={currentDayMetrics.sleepHours}
-                  unit="h"
-                  size={120}
-                  strokeWidth={8}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2rem' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '2.5rem',
+                      fontWeight: 'bold',
+                      color: '#20c997',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {currentDayMetrics.sleepHours}h
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#4B5563', fontWeight: '500' }}>
+                      Hours Slept
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '2.5rem',
+                      fontWeight: 'bold',
+                      color: '#28a745',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {Math.round(avgSleepQualityPercent)}%
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#4B5563', fontWeight: '500' }}>
+                      Quality
+                    </div>
+                  </div>
+                </div>
               </StatsDisplay>
 
               <StatsDisplay
                 title="Stress Level"
                 icon="fas fa-brain"
                 color="#dc3545"
+                navigateTo="/record-stress"
               >
                 <CircularProgress
                   percentage={stressLevelPercent}
@@ -1169,6 +1182,7 @@ export default function EnhancedDashboard() {
                 title="Headaches"
                 icon="fas fa-head-side-virus"
                 color="#4682B4"
+                navigateTo="/record-headache"
               >
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
@@ -1203,6 +1217,158 @@ export default function EnhancedDashboard() {
           {/* Monthly Calendar */}
           <CalendarView />
 
+          {/* Monthly Recap - Norwegian Style */}
+          <div style={{
+            background: '#FFFFFF',
+            border: '1px solid #E5E7EB',
+            borderRadius: '16px',
+            padding: '2rem',
+            marginBottom: '3rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+          }}>
+            <h3 style={{ 
+              margin: '0 0 1.5rem 0', 
+              fontSize: '1.3rem', 
+              fontWeight: '600',
+              color: '#1E3A8A',
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}>
+              <i className="fas fa-chart-pie"></i>
+              Monthly Overview
+            </h3>
+            
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1.5rem'
+            }}>
+              {/* Total Headaches */}
+              <div style={{
+                background: 'linear-gradient(135deg, #F44336 0%, #ff7043 100%)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                  {Object.values(dashboardData.calendarData).reduce((sum, day) => sum + day.headaches.length, 0)}
+                </div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>
+                  Total Headaches
+                </div>
+              </div>
+
+              {/* Headache-free Days */}
+              <div style={{
+                background: 'linear-gradient(135deg, #4CAF50 0%, #66bb6a 100%)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                  {(() => {
+                    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+                    const headacheDays = Object.values(dashboardData.calendarData).filter(day => day.headaches.length > 0).length;
+                    return totalDays - headacheDays;
+                  })()}
+                </div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>
+                  Headache-free Days
+                </div>
+              </div>
+
+              {/* Average Pain Level */}
+              <div style={{
+                background: 'linear-gradient(135deg, #FF9800 0%, #ffb74d 100%)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                  {(() => {
+                    const allHeadaches = Object.values(dashboardData.calendarData).flatMap(day => day.headaches);
+                    if (allHeadaches.length === 0) return '0';
+                    const avgPain = allHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / allHeadaches.length;
+                    return Math.round(avgPain * 10) / 10;
+                  })()}
+                </div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>
+                  Avg Pain Level
+                </div>
+              </div>
+
+              {/* Medications Taken */}
+              <div style={{
+                background: 'linear-gradient(135deg, #2196F3 0%, #64b5f6 100%)',
+                borderRadius: '12px',
+                padding: '1.5rem',
+                color: 'white',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                  {Object.values(dashboardData.calendarData).reduce((sum, day) => sum + day.medications.length, 0)}
+                </div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>
+                  Medications Taken
+                </div>
+              </div>
+            </div>
+
+            {/* Month Intensity Breakdown */}
+            <div style={{ marginTop: '2rem' }}>
+              <h4 style={{ 
+                fontSize: '1.1rem', 
+                fontWeight: '600', 
+                color: '#4B5563', 
+                marginBottom: '1rem',
+                textAlign: 'center'
+              }}>
+                Headache Intensity Breakdown
+              </h4>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-around',
+                flexWrap: 'wrap',
+                gap: '1rem'
+              }}>
+                {[
+                  { label: 'Mild (1-3)', color: '#FFA726', range: [1, 3] },
+                  { label: 'Moderate (4-6)', color: '#FF7043', range: [4, 6] },
+                  { label: 'Severe (7-10)', color: '#F44336', range: [7, 10] }
+                ].map(intensity => {
+                  const count = Object.values(dashboardData.calendarData)
+                    .flatMap(day => day.headaches)
+                    .filter(h => h.painLevel >= intensity.range[0] && h.painLevel <= intensity.range[1])
+                    .length;
+                  
+                  return (
+                    <div key={intensity.label} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.9rem',
+                      color: '#4B5563'
+                    }}>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        backgroundColor: intensity.color,
+                        borderRadius: '50%'
+                      }} />
+                      <span>{intensity.label}: <strong>{count}</strong></span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           {/* AI Insights */}
           <div style={{
             background: '#FFFFFF',
@@ -1220,7 +1386,7 @@ export default function EnhancedDashboard() {
               alignItems: 'center', 
               gap: '0.5rem',
               color: '#1E3A8A',
-              textAlign: 'center'
+              justifyContent: 'center'
             }}>
               <i className="fas fa-lightbulb"></i> AI Health Insights
             </h3>
@@ -1308,4 +1474,28 @@ export default function EnhancedDashboard() {
       </div>
     </div>
   );
-}
+}Key === 'sleepQualityPercent') {
+              return (
+                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
+                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Sleep Quality: {entry.value}%</span>
+                </div>
+              );
+            }
+            if (entry.dataKey === 'stressPercent') {
+              return (
+                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
+                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Stress Level: {entry.value}%</span>
+                </div>
+              );
+            }
+            if (entry.dataKey === 'headaches') {
+              return (
+                <div key={index} style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', backgroundColor: entry.color, borderRadius: '50%' }} />
+                  <span style={{ color: '#4B5563', fontSize: '0.85rem' }}>Headaches: {entry.value}</span>
+                </div>
+              );
+            }
+            if (entry.data
