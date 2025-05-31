@@ -444,7 +444,10 @@ export default function RecordHeadache() {
   // These would also use modular components as we create them
 
   return null;
-}8d7da',
+}
+        {error && (  
+         <div style={{
+              background: '#8d7da',
               border: '1px solid #dc3545',
               borderRadius: '8px',
               padding: '12px',
