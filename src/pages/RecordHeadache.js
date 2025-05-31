@@ -1,6 +1,6 @@
 // src/pages/RecordHeadache.js - ESLint Fixed Version
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -20,7 +20,6 @@ import sinusHeadacheImg from '../assets/headache-types/sinus-headache.png';
 
 export default function RecordHeadache() {
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
   
   // Dev toggle for testing freemium vs premium (remove in production)
   const [isPremiumMode, setIsPremiumMode] = useState(false);
