@@ -1309,5 +1309,3 @@ export default function EnhancedDashboard() {
     </div>
   );
 }
-
-export default EnhancedDashboard;
