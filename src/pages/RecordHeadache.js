@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-// src/pages/RecordHeadache.js - ESLint Safe Complete Version
+// src/pages/RecordHeadache.js - Complete Version with Premium Prodrome Tracking
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +8,7 @@ import { db } from '../firebase';
 
 // Import modular components
 import HeadacheTypeSelector from '../components/headache/HeadacheTypeSelector';
+import PremiumProdromeTracker from '../components/headache/PremiumProdromeTracker';
 
 // Import headache images - with fallback for missing images
 let migrainerHeadacheImg, tensionHeadacheImg, reboundHeadacheImg, exertionHeadacheImg;
@@ -63,6 +64,7 @@ export default function RecordHeadache() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Headache types data
   const headacheTypes = [
     {
       id: 'tension',
@@ -150,6 +152,32 @@ export default function RecordHeadache() {
     return 'Extreme';
   };
 
+  const formatDuration = (startTime) => {
+    const now = new Date();
+    const start = startTime.toDate();
+    const diffMs = now - start;
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  // Event handlers
+  const handleTypeSelect = (typeName) => {
+    setFormData(prev => ({ ...prev, location: typeName }));
+  };
+
+  const handlePainLevelChange = (level) => {
+    setFormData(prev => ({ ...prev, painLevel: level }));
+  };
+
+  const handleProdromeChange = (symptoms) => {
+    setFormData(prev => ({ ...prev, prodromeSymptoms: symptoms }));
+  };
+
   // Check for ongoing session
   const checkForOngoingSession = React.useCallback(async () => {
     if (!currentUser) return;
@@ -187,28 +215,6 @@ export default function RecordHeadache() {
     checkForOngoingSession();
   }, [checkForOngoingSession]);
 
-  const formatDuration = (startTime) => {
-    const now = new Date();
-    const start = startTime.toDate();
-    const diffMs = now - start;
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
-
-  // Event handlers
-  const handleTypeSelect = (typeName) => {
-    setFormData(prev => ({ ...prev, location: typeName }));
-  };
-
-  const handlePainLevelChange = (level) => {
-    setFormData(prev => ({ ...prev, painLevel: level }));
-  };
-
   // Database operations
   const startHeadacheSession = async () => {
     if (!currentUser) {
@@ -230,7 +236,11 @@ export default function RecordHeadache() {
         painLevel: parseInt(formData.painLevel),
         location: formData.location,
         ended: false,
-        createdAt: Timestamp.now()
+        createdAt: Timestamp.now(),
+        // Store prodrome symptoms in session
+        ...(isPremiumMode && {
+          prodromeSymptoms: formData.prodromeSymptoms
+        })
       };
 
       const sessionRef = await addDoc(collection(db, 'users', currentUser.uid, 'ongoingHeadaches'), sessionData);
@@ -269,6 +279,7 @@ export default function RecordHeadache() {
         date: ongoingSession.startTime.toDate().toISOString().split('T')[0],
         createdAt: Timestamp.now(),
         ...(isPremiumMode && {
+          prodromeSymptoms: ongoingSession.prodromeSymptoms || formData.prodromeSymptoms,
           currentSymptoms: formData.currentSymptoms,
           triggers: formData.triggers,
           notes: formData.notes
@@ -311,6 +322,7 @@ export default function RecordHeadache() {
         date: now.toISOString().split('T')[0],
         createdAt: Timestamp.now(),
         ...(isPremiumMode && {
+          prodromeSymptoms: formData.prodromeSymptoms,
           currentSymptoms: formData.currentSymptoms,
           triggers: formData.triggers,
           notes: formData.notes
@@ -535,7 +547,7 @@ export default function RecordHeadache() {
               </div>
               <h4 style={{ margin: '0 0 0.5rem 0' }}>Unlock Premium Features</h4>
               <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
-                Advanced analytics, triggers, AI insights & more
+                Prodrome tracking, advanced analytics, triggers, AI insights & more
               </p>
             </div>
           )}
@@ -622,7 +634,7 @@ export default function RecordHeadache() {
             />
           </div>
 
-          {/* MODULAR COMPONENT USAGE */}
+          {/* Headache Type Selector */}
           <HeadacheTypeSelector
             headacheTypes={headacheTypes}
             currentSlide={currentSlide}
@@ -630,6 +642,15 @@ export default function RecordHeadache() {
             selectedType={formData.location}
             onTypeSelect={handleTypeSelect}
           />
+
+          {/* Premium Prodrome Tracking */}
+          {isPremiumMode && (
+            <PremiumProdromeTracker
+              selectedProdromeSymptoms={formData.prodromeSymptoms}
+              onProdromeChange={handleProdromeChange}
+              timeframe="in the last 24 hours"
+            />
+          )}
 
           {error && (
             <div style={{
@@ -905,6 +926,28 @@ export default function RecordHeadache() {
             )}
           </div>
 
+          {/* Premium Prodrome Review */}
+          {isPremiumMode && ongoingSession?.prodromeSymptoms?.length > 0 && (
+            <div style={{
+              background: 'rgba(255, 215, 0, 0.1)',
+              border: '1px solid rgba(255, 215, 0, 0.3)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              marginBottom: '2rem'
+            }}>
+              <h4 style={{ color: '#B8860B', margin: '0 0 1rem 0' }}>
+                <i className="fas fa-crown" style={{ marginRight: '0.5rem' }}></i>
+                Prodrome Symptoms Tracked
+              </h4>
+              <p style={{ margin: '0 0 1rem 0', color: '#4B5563', fontSize: '0.9rem' }}>
+                You reported {ongoingSession.prodromeSymptoms.length} warning signs before this headache:
+              </p>
+              <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                This data helps identify your personal headache patterns for better prevention.
+              </div>
+            </div>
+          )}
+
           {/* Quick notes (optional) */}
           <div style={{ marginBottom: '2rem' }}>
             <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
@@ -1124,7 +1167,7 @@ export default function RecordHeadache() {
             />
           </div>
 
-          {/* MODULAR COMPONENT USAGE */}
+          {/* Headache Type Selector */}
           <HeadacheTypeSelector
             headacheTypes={headacheTypes}
             currentSlide={currentSlide}
@@ -1132,6 +1175,15 @@ export default function RecordHeadache() {
             selectedType={formData.location}
             onTypeSelect={handleTypeSelect}
           />
+
+          {/* Premium Prodrome Tracking for Manual Entry */}
+          {isPremiumMode && (
+            <PremiumProdromeTracker
+              selectedProdromeSymptoms={formData.prodromeSymptoms}
+              onProdromeChange={handleProdromeChange}
+              timeframe="before this headache"
+            />
+          )}
 
           {/* Notes */}
           <div style={{ marginBottom: '2rem' }}>
@@ -1170,9 +1222,9 @@ export default function RecordHeadache() {
               <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
                 <i className="fas fa-crown"></i>
               </div>
-              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Detailed Manual Entry</h4>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Advanced Headache Tracking</h4>
               <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
-                Track triggers, symptoms, and detailed headache information
+                Track prodrome symptoms, triggers, detailed analytics & more
               </p>
             </div>
           )}
