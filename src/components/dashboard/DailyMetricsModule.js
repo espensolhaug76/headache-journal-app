@@ -1,3 +1,4 @@
+// Updated DailyMetricsModule.js with Combined Sleep Metrics
 import React from 'react';
 
 const CircularProgress = ({ percentage, size = 120, strokeWidth = 8, color = '#4682B4', label, value, unit = '', showPercentage = false }) => {
@@ -41,6 +42,92 @@ const CircularProgress = ({ percentage, size = 120, strokeWidth = 8, color = '#4
           {showPercentage ? `${Math.round(percentage)}%` : `${value}${unit}`}
         </div>
         <div style={{ fontSize: '0.8rem', color: '#4B5563', marginTop: '4px', fontWeight: '500' }}>{label}</div>
+      </div>
+    </div>
+  );
+};
+
+// New Combined Sleep Component
+const CombinedSleepDisplay = ({ sleepHours, sleepQuality }) => {
+  const sleepQualityPercent = sleepQuality * 10;
+  const sleepHoursPercent = (sleepHours / 8) * 100;
+  
+  // Calculate overall sleep score (weighted: 60% quality, 40% duration)
+  const overallSleepScore = (sleepQualityPercent * 0.6) + (sleepHoursPercent * 0.4);
+  
+  const getSleepColor = (score) => {
+    if (score >= 80) return '#28a745'; // Green - Excellent
+    if (score >= 60) return '#20c997'; // Teal - Good  
+    if (score >= 40) return '#ffc107'; // Yellow - Fair
+    return '#dc3545'; // Red - Poor
+  };
+
+  const getSleepRating = (score) => {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Fair';
+    return 'Poor';
+  };
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      {/* Main Sleep Score Circle */}
+      <div style={{ marginBottom: '1rem' }}>
+        <CircularProgress
+          percentage={overallSleepScore}
+          color={getSleepColor(overallSleepScore)}
+          label="Sleep Score"
+          value=""
+          showPercentage={true}
+          size={120}
+          strokeWidth={8}
+        />
+      </div>
+      
+      {/* Sleep Rating */}
+      <div style={{
+        fontSize: '1.1rem',
+        fontWeight: '600',
+        color: getSleepColor(overallSleepScore),
+        marginBottom: '1rem'
+      }}>
+        {getSleepRating(overallSleepScore)}
+      </div>
+
+      {/* Detailed Breakdown */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '1rem',
+        fontSize: '0.85rem'
+      }}>
+        <div style={{
+          padding: '0.75rem',
+          background: 'rgba(32, 201, 151, 0.1)',
+          borderRadius: '8px',
+          border: '1px solid rgba(32, 201, 151, 0.2)'
+        }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#20c997', marginBottom: '0.25rem' }}>
+            {sleepHours}h
+          </div>
+          <div style={{ color: '#4B5563', fontSize: '0.8rem' }}>
+            Duration
+          </div>
+        </div>
+        
+        <div style={{
+          padding: '0.75rem',
+          background: 'rgba(32, 201, 151, 0.1)',
+          borderRadius: '8px',
+          border: '1px solid rgba(32, 201, 151, 0.2)'
+        }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#20c997', marginBottom: '0.25rem' }}>
+            {sleepQuality}/10
+          </div>
+          <div style={{ color: '#4B5563', fontSize: '0.8rem' }}>
+            Quality
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -121,9 +208,7 @@ export default function DailyMetricsModule({
     avgPainLevel: 0
   };
 
-  const avgSleepQualityPercent = currentDayMetrics.sleepQuality * 10;
   const stressLevelPercent = currentDayMetrics.stressLevel * 10;
-  const sleepHoursPercent = (currentDayMetrics.sleepHours / 8) * 100;
 
   return (
     <div style={{ marginBottom: '3rem' }}>
@@ -168,48 +253,30 @@ export default function DailyMetricsModule({
         </button>
       </div>
 
+      {/* Updated Grid - Now 3 columns instead of 4 */}
       <div 
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap: '1.5rem'
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
+        {/* Combined Sleep Metrics */}
         <StatsDisplay
-          title="Sleep Quality"
-          icon="fas fa-moon"
+          title="Sleep"
+          icon="fas fa-bed"
           color="#20c997"
         >
-          <CircularProgress
-            percentage={avgSleepQualityPercent}
-            color="#20c997"
-            label="Quality Rating"
-            value=""
-            showPercentage={true}
-            size={120}
-            strokeWidth={8}
+          <CombinedSleepDisplay
+            sleepHours={currentDayMetrics.sleepHours}
+            sleepQuality={currentDayMetrics.sleepQuality}
           />
         </StatsDisplay>
 
-        <StatsDisplay
-          title="Sleep Hours"
-          icon="fas fa-bed"
-          color="#28a745"
-        >
-          <CircularProgress
-            percentage={sleepHoursPercent}
-            color="#28a745"
-            label="Hours Slept"
-            value={currentDayMetrics.sleepHours}
-            unit="h"
-            size={120}
-            strokeWidth={8}
-          />
-        </StatsDisplay>
-
+        {/* Stress Level */}
         <StatsDisplay
           title="Stress Level"
           icon="fas fa-brain"
@@ -226,6 +293,7 @@ export default function DailyMetricsModule({
           />
         </StatsDisplay>
 
+        {/* Headaches */}
         <StatsDisplay
           title="Headaches"
           icon="fas fa-head-side-virus"
