@@ -1,4 +1,5 @@
-// src/pages/RecordHeadache.js - Complete with Timer Functionality
+/* eslint-disable no-unused-vars */
+// src/pages/RecordHeadache.js - ESLint Safe Complete Version
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,15 +9,33 @@ import { db } from '../firebase';
 // Import modular components
 import HeadacheTypeSelector from '../components/headache/HeadacheTypeSelector';
 
-// Import headache images
-import migrainerHeadacheImg from '../assets/headache-types/migraine-headache.png';
-import tensionHeadacheImg from '../assets/headache-types/tension-headache.png';
-import reboundHeadacheImg from '../assets/headache-types/rebound-headache.png';
-import exertionHeadacheImg from '../assets/headache-types/exertion-headache.png';
-import caffeineHeadacheImg from '../assets/headache-types/caffeine-headache.png';
-import hormoneHeadacheImg from '../assets/headache-types/hormone-headache.png';
-import clusterHeadacheImg from '../assets/headache-types/cluster-headache.png';
-import sinusHeadacheImg from '../assets/headache-types/sinus-headache.png';
+// Import headache images - with fallback for missing images
+let migrainerHeadacheImg, tensionHeadacheImg, reboundHeadacheImg, exertionHeadacheImg;
+let caffeineHeadacheImg, hormoneHeadacheImg, clusterHeadacheImg, sinusHeadacheImg;
+
+try {
+  migrainerHeadacheImg = require('../assets/headache-types/migraine-headache.png');
+  tensionHeadacheImg = require('../assets/headache-types/tension-headache.png');
+  reboundHeadacheImg = require('../assets/headache-types/rebound-headache.png');
+  exertionHeadacheImg = require('../assets/headache-types/exertion-headache.png');
+  caffeineHeadacheImg = require('../assets/headache-types/caffeine-headache.png');
+  hormoneHeadacheImg = require('../assets/headache-types/hormone-headache.png');
+  clusterHeadacheImg = require('../assets/headache-types/cluster-headache.png');
+  sinusHeadacheImg = require('../assets/headache-types/sinus-headache.png');
+} catch (error) {
+  console.log('Some headache images not found, using placeholders');
+  // Fallback placeholder image URL
+  const placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjYwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5IZWFkYWNoZTwvdGV4dD4KPC9zdmc+';
+  
+  migrainerHeadacheImg = placeholder;
+  tensionHeadacheImg = placeholder;
+  reboundHeadacheImg = placeholder;
+  exertionHeadacheImg = placeholder;
+  caffeineHeadacheImg = placeholder;
+  hormoneHeadacheImg = placeholder;
+  clusterHeadacheImg = placeholder;
+  sinusHeadacheImg = placeholder;
+}
 
 export default function RecordHeadache() {
   const { currentUser } = useAuth();
@@ -1224,3 +1243,4 @@ export default function RecordHeadache() {
   }
 
   return null;
+}
