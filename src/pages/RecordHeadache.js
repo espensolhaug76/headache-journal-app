@@ -1,4 +1,4 @@
-// src/pages/RecordHeadache.js - Updated with modular components
+// src/pages/RecordHeadache.js - Complete Fixed Version
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -297,7 +297,7 @@ export default function RecordHeadache() {
     setLoading(false);
   };
 
-  // MAIN SELECTION SCREEN (unchanged)
+  // MAIN SELECTION SCREEN
   if (mode === 'selection') {
     return (
       <div style={{
@@ -385,69 +385,6 @@ export default function RecordHeadache() {
           {error && (
             <div style={{
               background: '#f8d7da',
-              border: '1px solid #dc3545',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '1rem',
-              color: '#721c24',
-              textAlign: 'center'
-            }}>
-              {error}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <button
-              onClick={() => setMode('selection')}
-              style={{
-                background: 'transparent',
-                border: '1px solid #E5E7EB',
-                borderRadius: '8px',
-                color: '#4B5563',
-                padding: '12px 20px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
-              Back
-            </button>
-            
-            <button
-              onClick={startHeadacheSession}
-              disabled={loading || !formData.location}
-              style={{
-                background: (loading || !formData.location) ? '#E5E7EB' : '#EF4444',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                padding: '12px 24px',
-                cursor: (loading || !formData.location) ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                fontWeight: '600'
-              }}
-            >
-              {loading ? (
-                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Starting...</>
-              ) : (
-                <><i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>Start Tracking</>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Continue with other modes (auto-timer, manual-entry, etc.)
-  // These would also use modular components as we create them
-
-  return null;
-}
-        {error && (  
-         <div style={{
-              background: '#8d7da',
               border: '1px solid #dc3545',
               borderRadius: '8px',
               padding: '12px',
@@ -711,9 +648,15 @@ export default function RecordHeadache() {
               }}
             >
               {loading ? (
-                <><i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>Starting...</>
+                <>
+                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                  Starting...
+                </>
               ) : (
-                <><i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>Start Tracking</>
+                <>
+                  <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
+                  Start Tracking
+                </>
               )}
             </button>
           </div>
@@ -722,6 +665,8 @@ export default function RecordHeadache() {
     );
   }
 
-  // Continue with other modes or return null
+  // Continue with other modes (auto-timer, manual-entry, etc.)
+  // These would also use modular components as we create them
+
   return null;
 }
