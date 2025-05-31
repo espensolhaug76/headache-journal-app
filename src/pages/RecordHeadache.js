@@ -1,4 +1,4 @@
-// src/pages/RecordHeadache.js - Complete Fixed Version
+// src/pages/RecordHeadache.js - ESLint Fixed Version
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -103,18 +103,6 @@ export default function RecordHeadache() {
     }
   ];
 
-  // Premium features data
-  const currentSymptoms = [
-    'Nausea', 'Vomiting', 'Light sensitivity', 'Sound sensitivity', 
-    'Dizziness', 'Blurred vision', 'Neck pain', 'Jaw tension'
-  ];
-
-  const commonTriggers = [
-    'Stress', 'Lack of sleep', 'Weather changes', 'Bright lights',
-    'Loud noises', 'Strong smells', 'Certain foods', 'Alcohol',
-    'Hormonal changes', 'Skipped meals', 'Dehydration', 'Screen time'
-  ];
-
   // Helper functions
   const getPainLevelColor = (level) => {
     if (level <= 3) return '#28a745';
@@ -188,7 +176,7 @@ export default function RecordHeadache() {
     setFormData(prev => ({ ...prev, painLevel: level }));
   };
 
-  // Database operations (existing functions)
+  // Database operations
   const startHeadacheSession = async () => {
     if (!currentUser) {
       setError('You must be logged in to track headaches');
@@ -215,83 +203,6 @@ export default function RecordHeadache() {
     } catch (error) {
       console.error('Error starting headache session:', error);
       setError('Failed to start tracking. Please try again.');
-    }
-
-    setLoading(false);
-  };
-
-  const endHeadacheSession = async () => {
-    if (!ongoingSession) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const endTime = Timestamp.now();
-      const duration = Math.round((endTime.toDate() - ongoingSession.startTime.toDate()) / (1000 * 60));
-
-      const headacheData = {
-        userId: currentUser.uid,
-        painLevel: ongoingSession.painLevel,
-        location: ongoingSession.location,
-        startTime: ongoingSession.startTime,
-        endTime: endTime,
-        duration: duration,
-        date: ongoingSession.startTime.toDate().toISOString().split('T')[0],
-        createdAt: Timestamp.now(),
-        ...(isPremiumMode && {
-          currentSymptoms: formData.currentSymptoms,
-          triggers: formData.triggers,
-          notes: formData.notes
-        })
-      };
-
-      await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
-      await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingHeadaches', ongoingSession.id));
-      
-      navigate('/dashboard');
-
-    } catch (error) {
-      console.error('Error ending headache session:', error);
-      setError('Failed to end tracking. Please try again.');
-    }
-
-    setLoading(false);
-  };
-
-  const submitManualEntry = async () => {
-    if (!currentUser || !formData.location) {
-      setError('Please select a headache type');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const now = new Date();
-      const headacheData = {
-        userId: currentUser.uid,
-        painLevel: parseInt(formData.painLevel),
-        location: formData.location,
-        startTime: Timestamp.fromDate(now),
-        endTime: Timestamp.fromDate(now),
-        duration: 0,
-        date: now.toISOString().split('T')[0],
-        createdAt: Timestamp.now(),
-        ...(isPremiumMode && {
-          currentSymptoms: formData.currentSymptoms,
-          triggers: formData.triggers,
-          notes: formData.notes
-        })
-      };
-
-      await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
-      navigate('/dashboard');
-
-    } catch (error) {
-      console.error('Error recording headache:', error);
-      setError('Failed to record headache. Please try again.');
     }
 
     setLoading(false);
@@ -434,7 +345,7 @@ export default function RecordHeadache() {
             </button>
 
             <button
-              onClick={() => setMode('end-headache')}
+              onClick={() => alert('End headache functionality coming soon!')}
               disabled={loading || !ongoingSession}
               style={{
                 padding: '2rem 1rem',
@@ -463,7 +374,7 @@ export default function RecordHeadache() {
             </button>
 
             <button
-              onClick={() => setMode('manual-entry')}
+              onClick={() => alert('Manual entry functionality coming soon!')}
               disabled={loading}
               style={{
                 padding: '2rem 1rem',
