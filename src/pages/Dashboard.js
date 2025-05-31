@@ -757,6 +757,7 @@ const AIHealthInsights = ({ stats }) => {
     </div>
   );
 };
+export default EnhancedDashboard;
 // ==================== END MODULE 4 ====================
 
 // ==================== USAGE INSTRUCTIONS ====================
