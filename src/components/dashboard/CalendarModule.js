@@ -5,7 +5,8 @@ export default function CalendarModule({
   currentMonth,
   currentYear,
   setCurrentMonth,
-  setCurrentYear
+  setCurrentYear,
+  onDateClick // New prop for handling date clicks
 }) {
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();
@@ -96,23 +97,36 @@ export default function CalendarModule({
     days.push(
       <div
         key={day}
+        onClick={() => onDateClick && onDateClick(dateStr, dayData)}
         style={{
           padding: '0.25rem',
           minHeight: '70px',
           border: isToday ? '3px solid #4682B4' : `2px solid ${getDayBorderColor(dayData, severity)}`,
           borderRadius: '12px',
-          cursor: dayData ? 'pointer' : 'default',
+          cursor: 'pointer', // Always clickable now
           position: 'relative',
           background: isToday ? 'rgba(70, 130, 180, 0.1)' : getDayBackgroundColor(severity),
           transition: 'all 0.2s ease',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          ':hover': {
+            transform: 'scale(1.02)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.transform = 'scale(1.02)';
+          e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.transform = 'scale(1)';
+          e.target.style.boxShadow = 'none';
         }}
         title={dayData ? 
-          `${day}/${currentMonth + 1}: ${dayData.headaches.length} headache(s)${totalDuration > 0 ? `, ${Math.round(totalDuration / 60)}h duration` : ''}, ${dayData.medications.length} medication(s)` : 
-          `${day}/${currentMonth + 1}`
+          `${day}/${currentMonth + 1}: ${dayData.headaches.length} headache(s)${totalDuration > 0 ? `, ${Math.round(totalDuration / 60)}h duration` : ''}, ${dayData.medications.length} medication(s). Click to add/edit.` : 
+          `${day}/${currentMonth + 1} - Click to log headache for this date`
         }
       >
         {/* Day Number */}
@@ -217,6 +231,50 @@ export default function CalendarModule({
             borderRadius: '2px'
           }}>
             {dayData.headaches.length}×
+          </div>
+        )}
+
+        {/* Quick Action Indicator */}
+        {!dayData && (
+          <div style={{
+            position: 'absolute',
+            bottom: '4px',
+            right: '4px',
+            width: '12px',
+            height: '12px',
+            background: 'rgba(70, 130, 180, 0.7)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.6
+          }}>
+            <i className="fas fa-plus" style={{ 
+              fontSize: '0.5rem', 
+              color: 'white' 
+            }}></i>
+          </div>
+        )}
+
+        {/* Edit Indicator for existing data */}
+        {dayData && (
+          <div style={{
+            position: 'absolute',
+            bottom: '4px',
+            left: '4px',
+            width: '10px',
+            height: '10px',
+            background: 'rgba(70, 130, 180, 0.7)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.6
+          }}>
+            <i className="fas fa-edit" style={{ 
+              fontSize: '0.4rem', 
+              color: 'white' 
+            }}></i>
           </div>
         )}
       </div>
@@ -477,6 +535,42 @@ export default function CalendarModule({
               2×
             </div>
             <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Multiple headaches</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              background: 'rgba(70, 130, 180, 0.7)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <i className="fas fa-plus" style={{ 
+                fontSize: '0.5rem', 
+                color: 'white' 
+              }}></i>
+            </div>
+            <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Click empty day to add</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{
+              width: '10px',
+              height: '10px',
+              background: 'rgba(70, 130, 180, 0.7)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <i className="fas fa-edit" style={{ 
+                fontSize: '0.4rem', 
+                color: 'white' 
+              }}></i>
+            </div>
+            <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Click day with data to edit</span>
           </div>
         </div>
       </div>
