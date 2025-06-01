@@ -89,23 +89,30 @@ export default function Dashboard() {
         const monthStart = new Date(currentYear, currentMonth, 1);
         const monthEnd = new Date(currentYear, currentMonth + 1, 0);
         
-        const monthlyHeadacheQuery = query(
-          collection(db, 'users', currentUser.uid, 'headaches'),
-          where('createdAt', '>=', Timestamp.fromDate(monthStart)),
-          where('createdAt', '<=', Timestamp.fromDate(monthEnd)),
-          orderBy('createdAt', 'desc')
-        );
+       const monthlyHeadacheQuery = query(
+  collection(db, 'users', currentUser.uid, 'headaches'),
+  orderBy('createdAt', 'desc')
+);
         const monthlyHeadacheSnapshot = await getDocs(monthlyHeadacheQuery);
         const monthlyHeadaches = monthlyHeadacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        const monthlyMedicationQuery = query(
-          collection(db, 'users', currentUser.uid, 'medications'),
-          where('createdAt', '>=', Timestamp.fromDate(monthStart)),
-          where('createdAt', '<=', Timestamp.fromDate(monthEnd)),
-          orderBy('createdAt', 'desc')
-        );
+       const monthlyMedicationQuery = query(
+  collection(db, 'users', currentUser.uid, 'medications'),
+  orderBy('createdAt', 'desc')
+);
         const monthlyMedicationSnapshot = await getDocs(monthlyMedicationQuery);
-        const monthlyMedications = monthlyMedicationSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+const allMedications = monthlyMedicationSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+// Filter by date field instead of createdAt
+const monthlyMedications = allMedications.filter(medication => {
+  if (medication.date) {
+    const medicationDate = new Date(medication.date);
+    const medicationMonth = medicationDate.getMonth();
+    const medicationYear = medicationDate.getFullYear();
+    return medicationMonth === currentMonth && medicationYear === currentYear;
+  }
+  return false;
+});
 
         // Process data
         const processedData = processLast7Days(sleepData, stressData, headacheData);
