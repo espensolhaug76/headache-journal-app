@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 // src/pages/RecordStress.js - Complete Modularized Version with Premium Features
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
