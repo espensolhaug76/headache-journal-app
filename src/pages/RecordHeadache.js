@@ -344,6 +344,9 @@ useEffect(() => {
           notes: formData.notes
         })
       };
+console.log('=== HEADACHE DEBUG ===');
+console.log('Date being saved:', formData.date);
+console.log('Full headache data:', headacheData);
 
       await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
       navigate('/dashboard');
