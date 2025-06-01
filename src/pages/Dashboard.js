@@ -87,7 +87,7 @@ export default function Dashboard() {
 
 console.log('=== DASHBOARD DEBUG ===');
 console.log('Current calendar month/year:', currentMonth, currentYear);
-console.log('All headaches from database:', allHeadaches);
+console.log('All headaches from database:', monthlyHeadaches);
 console.log('Filtered monthly headaches:', monthlyHeadaches);
 
         // Fetch monthly calendar data
@@ -96,8 +96,19 @@ console.log('Filtered monthly headaches:', monthlyHeadaches);
   collection(db, 'users', currentUser.uid, 'headaches'),
   orderBy('createdAt', 'desc')
 );
-        const monthlyHeadacheSnapshot = await getDocs(monthlyHeadacheQuery);
-        const monthlyHeadaches = monthlyHeadacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+const monthlyHeadacheSnapshot = await getDocs(monthlyHeadacheQuery);
+const allHeadaches = monthlyHeadacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+// Filter by date field instead of createdAt
+const monthlyHeadaches = allHeadaches.filter(headache => {
+  if (headache.date) {
+    const headacheDate = new Date(headache.date);
+    const headacheMonth = headacheDate.getMonth();
+    const headacheYear = headacheDate.getFullYear();
+    return headacheMonth === currentMonth && headacheYear === currentYear;
+  }
+  return false;
+});
 
        const monthlyMedicationQuery = query(
   collection(db, 'users', currentUser.uid, 'medications'),
