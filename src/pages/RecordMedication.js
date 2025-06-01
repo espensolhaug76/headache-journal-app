@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -8,8 +8,13 @@ export default function RecordMedication() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+
+const location = useLocation();
+const urlParams = new URLSearchParams(location.search);
+const prefilledDate = urlParams.get('date');
+  
+const [formData, setFormData] = useState({
+    date: prefilledDate || new Date().toISOString().split('T')[0],
     medicationType: '',
     medicationName: '',
     dosage: '',
@@ -124,7 +129,12 @@ export default function RecordMedication() {
   const dosageUnits = ['mg', 'g', 'mL', 'units', 'tablets', 'capsules', 'sprays', 'patches'];
 
   // Wrap checkMedicationWarnings with useCallback
-  const checkMedicationWarnings = useCallback(() => {
+useEffect(() => {
+  if (prefilledDate) {
+    setFormData(prev => ({ ...prev, date: prefilledDate }));
+  }
+}, [prefilledDate]); 
+ const checkMedicationWarnings = useCallback(() => {
     const newWarnings = [];
     
     // NSAID overuse warning
@@ -315,6 +325,40 @@ export default function RecordMedication() {
       case 'medication-type':
         return (
           <div>
+{/* Date Selector */}
+<div style={{ marginBottom: '2rem' }}>
+  <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+    <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
+    Medication Date
+  </h4>
+  <input
+    type="date"
+    value={formData.date}
+    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+    max={new Date().toISOString().split('T')[0]}
+    style={{
+      width: '100%',
+      maxWidth: '200px',
+      padding: '12px',
+      borderRadius: '8px',
+      border: '1px solid #E5E7EB',
+      background: '#FFFFFF',
+      color: '#000000',
+      fontSize: '1rem'
+    }}
+  />
+  {prefilledDate && (
+    <p style={{ 
+      margin: '0.5rem 0 0 0', 
+      fontSize: '0.85rem', 
+      color: '#6B7280',
+      fontStyle: 'italic'
+    }}>
+      <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+      Date selected from calendar
+    </p>
+  )}
+</div>
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
@@ -1074,7 +1118,7 @@ export default function RecordMedication() {
                 <i className="fas fa-user-md" style={{ marginRight: '0.5rem' }}></i>
                 Medication Management Best Practices
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+              <div style={{ display: 'grid',  gap: '1rem' }}>
                 <div>
                   <h5 style={{ color: '#20c997', margin: '0 0 0.5rem 0', fontSize: '1rem' }}>Safety:</h5>
                   <ul style={{ margin: 0, paddingLeft: '1rem', color: '#4B5563', fontSize: '0.85rem' }}>
