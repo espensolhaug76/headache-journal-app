@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 // src/pages/RecordStress.js - Complete Modularized Version with Premium Features
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -21,10 +21,16 @@ export default function RecordStress() {
   const [currentSlide, setCurrentSlide] = useState(0);
   
   // Form data - updated with premium fields
-  const [formData, setFormData] = useState({
-    stressLevel: 5,
-    mood: '',
-    context: '', // where/when stress occurred
+  const location = useLocation();
+const urlParams = new URLSearchParams(location.search);
+const prefilledDate = urlParams.get('date');
+const prefilledMode = urlParams.get('mode');
+
+const [formData, setFormData] = useState({
+  date: prefilledDate || new Date().toISOString().split('T')[0],
+  stressLevel: 5,
+  mood: '',
+  context: '', // where/when stress occurred
     // Premium fields
     triggers: [], // Updated - now uses the detailed trigger system
     physicalSymptoms: [],
@@ -34,6 +40,14 @@ export default function RecordStress() {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+useEffect(() => {
+  if (prefilledDate) {
+    setFormData(prev => ({ ...prev, date: prefilledDate }));
+  }
+  if (prefilledMode) {
+    setMode(prefilledMode);
+  }
+}, [prefilledDate, prefilledMode]);
 
   // Mood options with emojis and descriptions
   const moodOptions = [
@@ -172,7 +186,7 @@ export default function RecordStress() {
         mood: formData.mood,
         context: getCurrentTimeContext(),
         timestamp: Timestamp.now(),
-        date: now.toISOString().split('T')[0],
+        date: formData.date,
         time: now.toTimeString().slice(0, 5),
         type: 'quick-stress',
         createdAt: Timestamp.now(),
@@ -213,7 +227,7 @@ export default function RecordStress() {
         mood: formData.mood,
         context: 'Daily summary',
         timestamp: Timestamp.now(),
-        date: now.toISOString().split('T')[0],
+        date: formData.date,
         time: now.toTimeString().slice(0, 5),
         type: 'evening-summary',
         createdAt: Timestamp.now(),
@@ -254,7 +268,7 @@ export default function RecordStress() {
         mood: formData.mood,
         context: formData.context || 'Manual entry',
         timestamp: Timestamp.now(),
-        date: now.toISOString().split('T')[0],
+        date: formData.date,
         time: now.toTimeString().slice(0, 5),
         type: 'manual-entry',
         createdAt: Timestamp.now(),
