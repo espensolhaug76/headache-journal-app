@@ -134,38 +134,3 @@ const handleTriggersChange = (triggers) => {
     </p>
   </div>
 )}
-
-// Create the component directory structure:
-// 1. Create folder: src/components/stress/
-// 2. Create file: src/components/stress/PremiumStressTriggerTracker.js
-
-// File structure should look like:
-// src/
-// ├── components/
-// │   ├── dashboard/          ✅ (existing)
-// │   ├── headache/          ✅ (existing)
-// │   │   ├── HeadacheTypeSelector.js
-// │   │   └── PremiumProdromeTracker.js
-// │   └── stress/            🆕 (create this)
-// │       └── PremiumStressTriggerTracker.js  🆕 (create this)
-// └── pages/
-//     ├── RecordHeadache.js  ✅ (updated)
-//     └── RecordStress.js    🆕 (update this)
-
-// Summary of Changes to RecordStress.js:
-// 1. Add import for PremiumStressTriggerTracker
-// 2. Add handleTriggersChange function
-// 3. Add component to all three modes (quick-stress, evening-summary, manual-entry)
-// 4. Remove old basic triggers section
-// 5. Update premium teasers to mention detailed trigger tracking
-// 6. Add optional trigger summary in evening mode
-
-// Benefits of this Premium Component:
-// ✨ 6 categories of stress triggers (40+ specific triggers)
-// ✨ Severity-based color coding (high/medium/low impact)
-// ✨ Personalized insights based on stress level and triggers
-// ✨ Smart stress management tips
-// ✨ Educational content about trigger tracking
-// ✨ Visual feedback with icons and color-coded severity
-// ✨ Real-time analysis of stress patterns
-// ✨ Clear connection to headache trigger correlation
