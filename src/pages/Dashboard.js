@@ -85,10 +85,6 @@ export default function Dashboard() {
         const headacheSnapshot = await getDocs(headacheQuery);
         const headacheData = headacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-console.log('=== DASHBOARD DEBUG ===');
-console.log('Current calendar month/year:', currentMonth, currentYear);
-console.log('All headaches from database:', monthlyHeadaches);
-console.log('Filtered monthly headaches:', monthlyHeadaches);
 
         // Fetch monthly calendar data
                
@@ -109,6 +105,10 @@ const monthlyHeadaches = allHeadaches.filter(headache => {
   }
   return false;
 });
+        console.log('=== DASHBOARD DEBUG ===');
+console.log('Current calendar month/year:', currentMonth, currentYear);
+console.log('All headaches from database:', monthlyHeadaches);
+console.log('Filtered monthly headaches:', monthlyHeadaches);
 
        const monthlyMedicationQuery = query(
   collection(db, 'users', currentUser.uid, 'medications'),
