@@ -1,4 +1,4 @@
-// src/pages/Dashboard.js - Fixed Version
+// src/pages/Dashboard.js - Updated with Calendar Date Shortcuts
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,12 @@ export default function Dashboard() {
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  
+  // NEW: Calendar date modal state
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDateData, setSelectedDateData] = useState(null);
+  
   const [dashboardData, setDashboardData] = useState({
     sleepStressData: [],
     dailyMetrics: [],
@@ -143,7 +149,8 @@ export default function Dashboard() {
       }
       calendarData[date].headaches.push({
         painLevel: headache.painLevel,
-        location: headache.location
+        location: headache.location,
+        duration: headache.duration || 0
       });
     });
 
@@ -266,6 +273,47 @@ export default function Dashboard() {
     };
   };
 
+  // NEW: Calendar date click handlers
+  const handleCalendarDateClick = (dateStr, dayData) => {
+    setSelectedDate(dateStr);
+    setSelectedDateData(dayData);
+    setShowDateModal(true);
+  };
+
+  // NEW: Quick entry handlers
+  const handleQuickHeadacheEntry = () => {
+    navigate(`/record-headache?date=${selectedDate}&mode=manual-entry`);
+  };
+
+  const handleQuickMedicationEntry = () => {
+    navigate(`/record-medication?date=${selectedDate}`);
+  };
+
+  const handleQuickSleepEntry = () => {
+    navigate(`/record-sleep?date=${selectedDate}&mode=manual-entry`);
+  };
+
+  const handleQuickStressEntry = () => {
+    navigate(`/record-stress?date=${selectedDate}&mode=manual-entry`);
+  };
+
+  const closeModal = () => {
+    setShowDateModal(false);
+    setSelectedDate(null);
+    setSelectedDateData(null);
+  };
+
+  // NEW: Format date for display
+  const formatSelectedDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
   // Event handlers
   const handleLogout = async () => {
     try {
@@ -349,12 +397,14 @@ export default function Dashboard() {
             setCurrentMetricDay={setCurrentMetricDay}
           />
 
+          {/* UPDATED: Calendar with date click handler */}
           <CalendarModule
             calendarData={dashboardData.calendarData}
             currentMonth={currentMonth}
             currentYear={currentYear}
             setCurrentMonth={setCurrentMonth}
             setCurrentYear={setCurrentYear}
+            onDateClick={handleCalendarDateClick}
           />
 
           <AIInsightsModule 
@@ -362,6 +412,261 @@ export default function Dashboard() {
           />
 
           <LogoutButton onLogout={handleLogout} />
+
+          {/* NEW: Date Selection Modal */}
+          {showDateModal && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: '20px'
+            }}>
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                padding: '2rem',
+                maxWidth: '500px',
+                width: '100%',
+                maxHeight: '80vh',
+                overflowY: 'auto',
+                position: 'relative',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+              }}>
+                {/* Close Button */}
+                <button
+                  onClick={closeModal}
+                  style={{
+                    position: 'absolute',
+                    top: '1rem',
+                    right: '1rem',
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '1.5rem',
+                    color: '#9CA3AF',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+
+                {/* Modal Header */}
+                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                  <h3 style={{ 
+                    margin: '0 0 0.5rem 0', 
+                    fontSize: '1.5rem', 
+                    fontWeight: '600',
+                    color: '#1E3A8A'
+                  }}>
+                    {selectedDateData ? 'Edit Day' : 'Add Data'}
+                  </h3>
+                  <p style={{ 
+                    margin: 0, 
+                    color: '#6B7280', 
+                    fontSize: '1rem' 
+                  }}>
+                    {selectedDate && formatSelectedDate(selectedDate)}
+                  </p>
+                </div>
+
+                {/* Existing Data Summary */}
+                {selectedDateData && (
+                  <div style={{
+                    background: '#F9FAFB',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '12px',
+                    padding: '1rem',
+                    marginBottom: '2rem'
+                  }}>
+                    <h4 style={{ 
+                      margin: '0 0 1rem 0', 
+                      fontSize: '1rem', 
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      Current Data for This Day:
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                      <div>
+                        <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '0.25rem' }}>
+                          Headaches
+                        </div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '600', color: '#DC2626' }}>
+                          {selectedDateData.headaches.length}
+                          {selectedDateData.headaches.length > 0 && (
+                            <span style={{ fontSize: '0.8rem', color: '#6B7280', marginLeft: '0.5rem' }}>
+                              avg: {Math.round(selectedDateData.headaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / selectedDateData.headaches.length)}/10
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '0.25rem' }}>
+                          Medications
+                        </div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '600', color: '#059669' }}>
+                          {selectedDateData.medications.length}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Action Buttons */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h4 style={{ 
+                    margin: '0 0 1rem 0', 
+                    fontSize: '1rem', 
+                    fontWeight: '600',
+                    color: '#374151'
+                  }}>
+                    {selectedDateData ? 'Add More Data:' : 'What would you like to track?'}
+                  </h4>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '0.75rem'
+                  }}>
+                    <button
+                      onClick={handleQuickHeadacheEntry}
+                      style={{
+                        padding: '1rem',
+                        background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        fontSize: '0.9rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      <i className="fas fa-head-side-virus" style={{ marginRight: '0.5rem' }}></i>
+                      Log Headache
+                    </button>
+
+                    <button
+                      onClick={handleQuickMedicationEntry}
+                      style={{
+                        padding: '1rem',
+                        background: 'linear-gradient(135deg, #059669, #047857)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        fontSize: '0.9rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      <i className="fas fa-pills" style={{ marginRight: '0.5rem' }}></i>
+                      Log Medication
+                    </button>
+
+                    <button
+                      onClick={handleQuickSleepEntry}
+                      style={{
+                        padding: '1rem',
+                        background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        fontSize: '0.9rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      <i className="fas fa-bed" style={{ marginRight: '0.5rem' }}></i>
+                      Log Sleep
+                    </button>
+
+                    <button
+                      onClick={handleQuickStressEntry}
+                      style={{
+                        padding: '1rem',
+                        background: 'linear-gradient(135deg, #F59E0B, #D97706)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        fontSize: '0.9rem',
+                        fontWeight: '600'
+                      }}
+                    >
+                      <i className="fas fa-brain" style={{ marginRight: '0.5rem' }}></i>
+                      Log Stress
+                    </button>
+                  </div>
+                </div>
+
+                {/* Additional Quick Actions */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '0.75rem',
+                  marginBottom: '1.5rem'
+                }}>
+                  <button
+                    onClick={() => navigate(`/record-exercise?date=${selectedDate}&mode=manual-entry`)}
+                    style={{
+                      padding: '0.75rem',
+                      background: '#FFFFFF',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      color: '#374151',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <i className="fas fa-dumbbell" style={{ marginRight: '0.5rem' }}></i>
+                    Exercise
+                  </button>
+
+                  <button
+                    onClick={() => navigate(`/record-nutrition?date=${selectedDate}&mode=manual-entry`)}
+                    style={{
+                      padding: '0.75rem',
+                      background: '#FFFFFF',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      color: '#374151',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <i className="fas fa-apple-alt" style={{ marginRight: '0.5rem' }}></i>
+                    Nutrition
+                  </button>
+                </div>
+
+                {/* Close Button */}
+                <div style={{ textAlign: 'center' }}>
+                  <button
+                    onClick={closeModal}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      color: '#6B7280',
+                      padding: '0.75rem 1.5rem',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
