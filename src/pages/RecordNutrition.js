@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -14,21 +14,35 @@ export default function RecordNutrition() {
   // App state management
   const [mode, setMode] = useState('selection'); // 'selection', 'headache-nutrition', 'prevention-check', 'manual-entry'
   
-  // Form data - simplified for headache focus
-  const [formData, setFormData] = useState({
-    hydrationLevel: 7, // 1-10 scale
-    skippedMeals: false,
-    highSugar: false,
-    ultraProcessed: false,
-    caffeineChange: 'same', // 'more', 'less', 'same'
-    // Premium fields
-    specificTriggers: [],
-    inflammationScore: 0,
-    detailedNotes: ''
-  });
+const location = useLocation();
+const urlParams = new URLSearchParams(location.search);
+const prefilledDate = urlParams.get('date');
+const prefilledMode = urlParams.get('mode');
+  
+// Form data - simplified for headache focus
+ const [formData, setFormData] = useState({
+  date: prefilledDate || new Date().toISOString().split('T')[0],
+  hydrationLevel: 7,
+  skippedMeals: false,
+  highSugar: false,
+  ultraProcessed: false,
+  caffeineChange: 'same',
+  // Premium fields
+  specificTriggers: [],
+  inflammationScore: 0,
+  detailedNotes: ''
+});
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+useEffect(() => {
+  if (prefilledDate) {
+    setFormData(prev => ({ ...prev, date: prefilledDate }));
+  }
+  if (prefilledMode === 'manual-entry') {
+    setMode('manual-entry');
+  }
+}, [prefilledDate, prefilledMode]);
 
   // Specific trigger foods for premium (inflammation-focused)
   const inflammatoryTriggers = [
@@ -108,7 +122,7 @@ export default function RecordNutrition() {
         inflammationScore: inflammationScore,
         context: getCurrentTimeContext(),
         timestamp: Timestamp.now(),
-        date: now.toISOString().split('T')[0],
+        date: formData.date,
         time: now.toTimeString().slice(0, 5),
         type: 'headache-nutrition', // vs 'prevention-check' or 'manual'
         createdAt: Timestamp.now(),
@@ -153,7 +167,7 @@ export default function RecordNutrition() {
         inflammationScore: inflammationScore,
         context: 'Daily prevention summary',
         timestamp: Timestamp.now(),
-        date: now.toISOString().split('T')[0],
+        date: formData.date,
         time: now.toTimeString().slice(0, 5),
         type: 'prevention-check',
         createdAt: Timestamp.now(),
@@ -198,7 +212,7 @@ export default function RecordNutrition() {
         inflammationScore: inflammationScore,
         context: 'Manual entry',
         timestamp: Timestamp.now(),
-        date: now.toISOString().split('T')[0],
+        date: formData.date,
         time: now.toTimeString().slice(0, 5),
         type: 'manual',
         createdAt: Timestamp.now(),
@@ -460,6 +474,40 @@ export default function RecordNutrition() {
             {subtitle}
           </p>
         </div>
+{/* Date Selector */}
+<div style={{ marginBottom: '2rem' }}>
+  <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+    <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
+    Nutrition Date
+  </h4>
+  <input
+    type="date"
+    value={formData.date}
+    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+    max={new Date().toISOString().split('T')[0]}
+    style={{
+      width: '100%',
+      maxWidth: '200px',
+      padding: '12px',
+      borderRadius: '8px',
+      border: '1px solid #E5E7EB',
+      background: '#FFFFFF',
+      color: '#000000',
+      fontSize: '1rem'
+    }}
+  />
+  {prefilledDate && (
+    <p style={{ 
+      margin: '0.5rem 0 0 0', 
+      fontSize: '0.85rem', 
+      color: '#6B7280',
+      fontStyle: 'italic'
+    }}>
+      <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+      Date selected from calendar
+    </p>
+  )}
+</div>
 
         {/* 1. Hydration Level */}
         <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
