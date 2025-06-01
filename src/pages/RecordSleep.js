@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp, doc, updateDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -13,8 +13,13 @@ export default function RecordSleep() {
   const [sleepMode, setSleepMode] = useState(''); // 'going-to-bed', 'woke-up', 'manual-entry'
   const [showQualityRating, setShowQualityRating] = useState(false);
   
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+const location = useLocation();
+const urlParams = new URLSearchParams(location.search);
+const prefilledDate = urlParams.get('date');
+const prefilledMode = urlParams.get('mode');
+  
+const [formData, setFormData] = useState({
+    date: prefilledDate || new Date().toISOString().split('T')[0],
     bedTime: '',
     wakeTime: '',
     intendedWakeTime: '',
@@ -68,6 +73,14 @@ export default function RecordSleep() {
   React.useEffect(() => {
     checkForPendingSleepSession();
   }, [checkForPendingSleepSession]);
+useEffect(() => {
+  if (prefilledDate) {
+    setFormData(prev => ({ ...prev, date: prefilledDate }));
+  }
+  if (prefilledMode === 'manual-entry') {
+    setSleepMode('manual-entry');
+  }
+}, [prefilledDate, prefilledMode]);
 
   // Function to automatically capture current time for bedtime
   const handleGoingToBed = async () => {
@@ -85,7 +98,7 @@ export default function RecordSleep() {
     try {
       const pendingData = {
         bedTime: currentTime,
-        date: now.toISOString().split('T')[0],
+        date: formData.date,
         createdAt: Timestamp.now()
       };
       
@@ -423,7 +436,40 @@ export default function RecordSleep() {
               Cancel
             </Link>
           </div>
-
+{/* Date Selector */}
+<div style={{ marginBottom: '2rem' }}>
+  <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+    <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
+    Sleep Date
+  </h4>
+  <input
+    type="date"
+    value={formData.date}
+    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+    max={new Date().toISOString().split('T')[0]}
+    style={{
+      width: '100%',
+      maxWidth: '200px',
+      padding: '12px',
+      borderRadius: '8px',
+      border: '1px solid #E5E7EB',
+      background: '#FFFFFF',
+      color: '#000000',
+      fontSize: '1rem'
+    }}
+  />
+  {prefilledDate && (
+    <p style={{ 
+      margin: '0.5rem 0 0 0', 
+      fontSize: '0.85rem', 
+      color: '#6B7280',
+      fontStyle: 'italic'
+    }}>
+      <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+      Date selected from calendar
+    </p>
+  )}
+</div>
           {/* Sleep times */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
             <div>
