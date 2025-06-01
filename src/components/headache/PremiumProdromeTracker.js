@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // src/components/headache/PremiumProdromeTracker.js
 import React from 'react';
 
@@ -74,10 +75,6 @@ export default function PremiumProdromeTracker({
   };
 
   const getSelectedCount = () => selectedProdromeSymptoms.length;
-
-  const getSymptomsByCategory = (category) => {
-    return prodromeSymptoms.find(cat => cat.category === category)?.symptoms || [];
-  };
 
   return (
     <div style={{
