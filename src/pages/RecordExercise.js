@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -16,17 +16,23 @@ export default function RecordExercise() {
   const [ongoingSession, setOngoingSession] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   
+const location = useLocation();
+const urlParams = new URLSearchParams(location.search);
+const prefilledDate = urlParams.get('date');
+const prefilledMode = urlParams.get('mode');
+
   // Form data
   const [formData, setFormData] = useState({
-    exerciseType: '',
-    duration: 30, // minutes
-    intensity: 'moderate',
-    // Premium fields
-    heartRate: '',
-    environment: '',
-    postWorkoutFeeling: '',
-    notes: ''
-  });
+  date: prefilledDate || new Date().toISOString().split('T')[0],
+  exerciseType: '',
+  duration: 30,
+  intensity: 'moderate',
+  // Premium fields
+  heartRate: '',
+  environment: '',
+  postWorkoutFeeling: '',
+  notes: ''
+});
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -156,6 +162,15 @@ export default function RecordExercise() {
     checkForOngoingSession();
   }, [checkForOngoingSession]);
 
+useEffect(() => {
+  if (prefilledDate) {
+    setFormData(prev => ({ ...prev, date: prefilledDate }));
+  }
+  if (prefilledMode === 'manual-entry') {
+    setMode('manual-entry');
+  }
+}, [prefilledDate, prefilledMode]);
+
   const formatDuration = (startTime) => {
     const now = new Date();
     const start = startTime.toDate();
@@ -216,7 +231,7 @@ export default function RecordExercise() {
         endTime: endTime,
         duration: duration,
         intensity: formData.intensity,
-        date: ongoingSession.startTime.toDate().toISOString().split('T')[0],
+        date: formData.date,
         createdAt: Timestamp.now(),
         // Premium fields
         ...(isPremiumMode && {
@@ -252,16 +267,17 @@ export default function RecordExercise() {
     setError('');
 
     try {
-      const now = new Date();
-      const exerciseData = {
-        userId: currentUser.uid,
-        exerciseType: formData.exerciseType,
-        duration: parseInt(formData.duration),
-        intensity: formData.intensity,
-        startTime: Timestamp.fromDate(now),
-        endTime: Timestamp.fromDate(now),
-        date: now.toISOString().split('T')[0],
+      const entryDate = new Date(formData.date + 'T' + new Date().toTimeString().slice(0, 8));
+const exerciseData = {
+  userId: currentUser.uid,
+  exerciseType: formData.exerciseType,
+  duration: parseInt(formData.duration),
+  intensity: formData.intensity,
+  startTime: Timestamp.fromDate(entryDate),
+  endTime: Timestamp.fromDate(entryDate),
+  date: formData.date,
         createdAt: Timestamp.now(),
+
         // Premium fields
         ...(isPremiumMode && {
           heartRate: formData.heartRate,
@@ -1209,6 +1225,40 @@ export default function RecordExercise() {
               Log a past workout
             </p>
           </div>
+{/* Date Selector */}
+<div style={{ marginBottom: '2rem' }}>
+  <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+    <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
+    Exercise Date
+  </h4>
+  <input
+    type="date"
+    value={formData.date}
+    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+    max={new Date().toISOString().split('T')[0]}
+    style={{
+      width: '100%',
+      maxWidth: '200px',
+      padding: '12px',
+      borderRadius: '8px',
+      border: '1px solid #E5E7EB',
+      background: '#FFFFFF',
+      color: '#000000',
+      fontSize: '1rem'
+    }}
+  />
+  {prefilledDate && (
+    <p style={{ 
+      margin: '0.5rem 0 0 0', 
+      fontSize: '0.85rem', 
+      color: '#6B7280',
+      fontStyle: 'italic'
+    }}>
+      <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+      Date selected from calendar
+    </p>
+  )}
+</div>
 
           {/* Exercise Type Selector - Same as start-exercise */}
           <div style={{ marginBottom: '2rem' }}>
