@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
 // src/pages/RecordHeadache.js - Complete Version with Premium Prodrome Tracking
+
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -51,14 +52,20 @@ export default function RecordHeadache() {
   const [currentSlide, setCurrentSlide] = useState(0);
   
   // Form data
-  const [formData, setFormData] = useState({
-    painLevel: 5,
-    location: '',
-    // Premium fields
-    prodromeSymptoms: [],
-    currentSymptoms: [],
-    triggers: [],
-    notes: ''
+ const location = useLocation();
+const urlParams = new URLSearchParams(location.search);
+const prefilledDate = urlParams.get('date');
+const prefilledMode = urlParams.get('mode');
+
+const [formData, setFormData] = useState({
+  date: prefilledDate || new Date().toISOString().split('T')[0],
+  painLevel: 5,
+  location: '',
+  // Premium fields
+  prodromeSymptoms: [],
+  currentSymptoms: [],
+  triggers: [],
+  notes: ''
   });
   
   const [loading, setLoading] = useState(false);
@@ -215,6 +222,15 @@ export default function RecordHeadache() {
     checkForOngoingSession();
   }, [checkForOngoingSession]);
 
+useEffect(() => {
+  if (prefilledDate) {
+    setFormData(prev => ({ ...prev, date: prefilledDate }));
+  }
+  if (prefilledMode) {
+    setMode(prefilledMode);
+  }
+}, [prefilledDate, prefilledMode]);
+
   // Database operations
   const startHeadacheSession = async () => {
     if (!currentUser) {
@@ -276,7 +292,7 @@ export default function RecordHeadache() {
         startTime: ongoingSession.startTime,
         endTime: endTime,
         duration: duration,
-        date: ongoingSession.startTime.toDate().toISOString().split('T')[0],
+        date: formData.date,
         createdAt: Timestamp.now(),
         ...(isPremiumMode && {
           prodromeSymptoms: ongoingSession.prodromeSymptoms || formData.prodromeSymptoms,
@@ -311,15 +327,15 @@ export default function RecordHeadache() {
     setError('');
 
     try {
-      const now = new Date();
-      const headacheData = {
-        userId: currentUser.uid,
-        painLevel: parseInt(formData.painLevel),
-        location: formData.location,
-        startTime: Timestamp.fromDate(now),
-        endTime: Timestamp.fromDate(now),
-        duration: 0,
-        date: now.toISOString().split('T')[0],
+  const entryDate = new Date(formData.date + 'T' + new Date().toTimeString().slice(0, 8));
+  const headacheData = {
+    userId: currentUser.uid,
+    painLevel: parseInt(formData.painLevel),
+    location: formData.location,
+    startTime: Timestamp.fromDate(entryDate),
+    endTime: Timestamp.fromDate(entryDate),
+    duration: 0,
+    date: formData.date,
         createdAt: Timestamp.now(),
         ...(isPremiumMode && {
           prodromeSymptoms: formData.prodromeSymptoms,
@@ -1130,6 +1146,40 @@ export default function RecordHeadache() {
               Log a past headache
             </p>
           </div>
+{/* Date Selector */}
+<div style={{ marginBottom: '2rem' }}>
+  <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+    <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
+    Date of Headache
+  </h4>
+  <input
+    type="date"
+    value={formData.date}
+    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+    max={new Date().toISOString().split('T')[0]}
+    style={{
+      width: '100%',
+      maxWidth: '200px',
+      padding: '12px',
+      borderRadius: '8px',
+      border: '1px solid #E5E7EB',
+      background: '#FFFFFF',
+      color: '#000000',
+      fontSize: '1rem'
+    }}
+  />
+  {prefilledDate && (
+    <p style={{ 
+      margin: '0.5rem 0 0 0', 
+      fontSize: '0.85rem', 
+      color: '#6B7280',
+      fontStyle: 'italic'
+    }}>
+      <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+      Date selected from calendar
+    </p>
+  )}
+</div>
 
           {/* Pain Level Slider */}
           <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
