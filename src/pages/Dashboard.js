@@ -86,9 +86,7 @@ export default function Dashboard() {
         const headacheData = headacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Fetch monthly calendar data
-        const monthStart = new Date(currentYear, currentMonth, 1);
-        const monthEnd = new Date(currentYear, currentMonth + 1, 0);
-        
+               
        const monthlyHeadacheQuery = query(
   collection(db, 'users', currentUser.uid, 'headaches'),
   orderBy('createdAt', 'desc')
