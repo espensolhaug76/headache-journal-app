@@ -1,3 +1,4 @@
+// Updated App.js with Data Manager Route
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -11,6 +12,7 @@ import RecordNutrition from './pages/RecordNutrition';
 import RecordExercise from './pages/RecordExercise';
 import RecordBodyPain from './pages/RecordBodyPain';
 import RecordMedication from './pages/RecordMedication';
+import DataManager from './pages/DataManager'; // NEW: Data Manager page
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
 
@@ -28,6 +30,13 @@ function App() {
             <Route path="/dashboard" element={
               <PrivateRoute>
                 <Dashboard />
+              </PrivateRoute>
+            } />
+            
+            {/* NEW: Data Manager route */}
+            <Route path="/data-manager" element={
+              <PrivateRoute>
+                <DataManager />
               </PrivateRoute>
             } />
             
