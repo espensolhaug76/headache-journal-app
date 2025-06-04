@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useEditMode } from '../hooks/useEditMode';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -51,25 +52,39 @@ export default function RecordHeadache() {
   const [ongoingSession, setOngoingSession] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   
+  // Edit mode functionality
+  const { 
+    isEditMode, 
+    editDocId, 
+    loading: editLoading, 
+    error: editError, 
+    statusMessage: editStatusMessage,
+    loadExistingData, 
+    updateRecord, 
+    deleteRecord,
+    clearMessages 
+  } = useEditMode('headaches');
+  
   // Form data
- const location = useLocation();
-const urlParams = new URLSearchParams(location.search);
-const prefilledDate = urlParams.get('date');
-const prefilledMode = urlParams.get('mode');
+  const location = useLocation();
+  const urlParams = new URLSearchParams(location.search);
+  const prefilledDate = urlParams.get('date');
+  const prefilledMode = urlParams.get('mode');
 
-const [formData, setFormData] = useState({
-  date: prefilledDate || new Date().toISOString().split('T')[0],
-  painLevel: 5,
-  location: '',
-  // Premium fields
-  prodromeSymptoms: [],
-  currentSymptoms: [],
-  triggers: [],
-  notes: ''
+  const [formData, setFormData] = useState({
+    date: prefilledDate || new Date().toISOString().split('T')[0],
+    painLevel: 5,
+    location: '',
+    // Premium fields
+    prodromeSymptoms: [],
+    currentSymptoms: [],
+    triggers: [],
+    notes: ''
   });
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
   // Headache types data
   const headacheTypes = [
@@ -222,14 +237,38 @@ const [formData, setFormData] = useState({
     checkForOngoingSession();
   }, [checkForOngoingSession]);
 
-useEffect(() => {
-  if (prefilledDate) {
-    setFormData(prev => ({ ...prev, date: prefilledDate }));
-  }
-  if (prefilledMode) {
-    setMode(prefilledMode);
-  }
-}, [prefilledDate, prefilledMode]);
+  useEffect(() => {
+    if (prefilledDate) {
+      setFormData(prev => ({ ...prev, date: prefilledDate }));
+    }
+    if (prefilledMode) {
+      setMode(prefilledMode);
+    }
+  }, [prefilledDate, prefilledMode]);
+
+  // Load existing data for editing
+  useEffect(() => {
+    const loadData = async () => {
+      if (isEditMode && editDocId) {
+        setIsLoadingData(true);
+        const existingData = await loadExistingData();
+        if (existingData) {
+          setFormData(prev => ({
+            ...prev,
+            date: existingData.date || prev.date,
+            painLevel: existingData.painLevel || prev.painLevel,
+            location: existingData.location || prev.location,
+            prodromeSymptoms: existingData.prodromeSymptoms || [],
+            currentSymptoms: existingData.currentSymptoms || [],
+            triggers: existingData.triggers || [],
+            notes: existingData.notes || ''
+          }));
+        }
+        setIsLoadingData(false);
+      }
+    };
+    loadData();
+  }, [isEditMode, editDocId, loadExistingData]);
 
   // Database operations
   const startHeadacheSession = async () => {
@@ -327,36 +366,65 @@ useEffect(() => {
     setError('');
 
     try {
-  const entryDate = new Date(formData.date + 'T' + new Date().toTimeString().slice(0, 8));
-  const headacheData = {
-    userId: currentUser.uid,
-    painLevel: parseInt(formData.painLevel),
-    location: formData.location,
-    startTime: Timestamp.fromDate(entryDate),
-    endTime: Timestamp.fromDate(entryDate),
-    duration: 0,
-    date: formData.date,
-        createdAt: Timestamp.now(),
-        ...(isPremiumMode && {
-          prodromeSymptoms: formData.prodromeSymptoms,
-          currentSymptoms: formData.currentSymptoms,
-          triggers: formData.triggers,
-          notes: formData.notes
-        })
-      };
-console.log('=== HEADACHE DEBUG ===');
-console.log('Date being saved:', formData.date);
-console.log('Full headache data:', headacheData);
+      if (isEditMode && editDocId) {
+        // Update existing record
+        const success = await updateRecord({
+          painLevel: parseInt(formData.painLevel),
+          location: formData.location,
+          date: formData.date,
+          ...(isPremiumMode && {
+            prodromeSymptoms: formData.prodromeSymptoms,
+            currentSymptoms: formData.currentSymptoms,
+            triggers: formData.triggers,
+            notes: formData.notes
+          })
+        });
+        
+        if (success) {
+          navigate('/dashboard');
+        }
+      } else {
+        // Create new record (existing code)
+        const entryDate = new Date(formData.date + 'T' + new Date().toTimeString().slice(0, 8));
+        const headacheData = {
+          userId: currentUser.uid,
+          painLevel: parseInt(formData.painLevel),
+          location: formData.location,
+          startTime: Timestamp.fromDate(entryDate),
+          endTime: Timestamp.fromDate(entryDate),
+          duration: 0,
+          date: formData.date,
+          createdAt: Timestamp.now(),
+          ...(isPremiumMode && {
+            prodromeSymptoms: formData.prodromeSymptoms,
+            currentSymptoms: formData.currentSymptoms,
+            triggers: formData.triggers,
+            notes: formData.notes
+          })
+        };
+        console.log('=== HEADACHE DEBUG ===');
+        console.log('Date being saved:', formData.date);
+        console.log('Full headache data:', headacheData);
 
-      await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
-      navigate('/dashboard');
-
+        await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Error recording headache:', error);
       setError('Failed to record headache. Please try again.');
     }
 
     setLoading(false);
+  };
+
+  // Add delete functionality
+  const handleDelete = async () => {
+    if (isEditMode && editDocId) {
+      const success = await deleteRecord();
+      if (success) {
+        // Will navigate automatically via the hook
+      }
+    }
   };
 
   // MAIN SELECTION SCREEN
@@ -1143,46 +1211,47 @@ console.log('Full headache data:', headacheData);
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <h2 style={{ color: '#ffc107', marginBottom: '1rem' }}>
               <i className="fas fa-edit" style={{ marginRight: '0.5rem' }}></i>
-              Manual Headache Entry
+              {isEditMode ? 'Edit Headache' : 'Manual Headache Entry'}
             </h2>
             <p style={{ color: '#9CA3AF', fontSize: '1rem', margin: 0 }}>
-              Log a past headache
+              {isEditMode ? 'Modify existing headache data' : 'Log past headache'}
             </p>
           </div>
-{/* Date Selector */}
-<div style={{ marginBottom: '2rem' }}>
-  <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-    <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
-    Date of Headache
-  </h4>
-  <input
-    type="date"
-    value={formData.date}
-    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-    max={new Date().toISOString().split('T')[0]}
-    style={{
-      width: '100%',
-      maxWidth: '200px',
-      padding: '12px',
-      borderRadius: '8px',
-      border: '1px solid #E5E7EB',
-      background: '#FFFFFF',
-      color: '#000000',
-      fontSize: '1rem'
-    }}
-  />
-  {prefilledDate && (
-    <p style={{ 
-      margin: '0.5rem 0 0 0', 
-      fontSize: '0.85rem', 
-      color: '#6B7280',
-      fontStyle: 'italic'
-    }}>
-      <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
-      Date selected from calendar
-    </p>
-  )}
-</div>
+
+          {/* Date Selector */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+              <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
+              Date of Headache
+            </h4>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              max={new Date().toISOString().split('T')[0]}
+              style={{
+                width: '100%',
+                maxWidth: '200px',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
+                fontSize: '1rem'
+              }}
+            />
+            {prefilledDate && (
+              <p style={{ 
+                margin: '0.5rem 0 0 0', 
+                fontSize: '0.85rem', 
+                color: '#6B7280',
+                fontStyle: 'italic'
+              }}>
+                <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+                Date selected from calendar
+              </p>
+            )}
+          </div>
 
           {/* Pain Level Slider */}
           <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
@@ -1282,18 +1351,38 @@ console.log('Full headache data:', headacheData);
             </div>
           )}
 
-          {error && (
-            <div style={{
-              background: '#f8d7da',
-              border: '1px solid #dc3545',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '1rem',
-              color: '#721c24',
-              textAlign: 'center'
-            }}>
-              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-              {error}
+          {/* Status Messages */}
+          {(error || editError || editStatusMessage) && (
+            <div style={{ marginBottom: '2rem' }}>
+              {(error || editError) && (
+                <div style={{
+                  background: '#f8d7da',
+                  border: '1px solid #dc3545',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '1rem',
+                  color: '#721c24',
+                  textAlign: 'center'
+                }}>
+                  <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                  {error || editError}
+                </div>
+              )}
+
+              {editStatusMessage && (
+                <div style={{
+                  background: '#d4edda',
+                  border: '1px solid #28a745',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '1rem',
+                  color: '#155724',
+                  textAlign: 'center'
+                }}>
+                  <i className="fas fa-check-circle" style={{ marginRight: '0.5rem' }}></i>
+                  {editStatusMessage}
+                </div>
+              )}
             </div>
           )}
 
@@ -1317,19 +1406,19 @@ console.log('Full headache data:', headacheData);
             
             <button
               onClick={submitManualEntry}
-              disabled={loading || !formData.location}
+              disabled={loading || editLoading || !formData.location}
               style={{
-                background: (loading || !formData.location) ? '#E5E7EB' : '#ffc107',
+                background: (loading || editLoading || !formData.location) ? '#E5E7EB' : '#ffc107',
                 border: 'none',
                 borderRadius: '8px',
                 color: 'white',
                 padding: '12px 24px',
-                cursor: (loading || !formData.location) ? 'not-allowed' : 'pointer',
+                cursor: (loading || editLoading || !formData.location) ? 'not-allowed' : 'pointer',
                 fontSize: '1rem',
                 fontWeight: '600'
               }}
             >
-              {loading ? (
+              {(loading || editLoading) ? (
                 <>
                   <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
                   Saving...
@@ -1337,10 +1426,40 @@ console.log('Full headache data:', headacheData);
               ) : (
                 <>
                   <i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>
-                  Save Headache
+                  {isEditMode ? 'Update Headache' : 'Save Headache'}
                 </>
               )}
             </button>
+
+            {/* Delete button for edit mode */}
+            {isEditMode && (
+              <button
+                onClick={handleDelete}
+                disabled={loading || editLoading}
+                style={{
+                  background: (loading || editLoading) ? '#F87171' : '#DC2626',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: 'white',
+                  padding: '12px 24px',
+                  cursor: (loading || editLoading) ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '600'
+                }}
+              >
+                {(loading || editLoading) ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
+                    Delete
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
