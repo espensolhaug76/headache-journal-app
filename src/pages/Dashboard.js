@@ -738,7 +738,7 @@ export default function Dashboard() {
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Link
-                                  to={`/record-headache?mode=edit&id=${headache.id}`}
+                                  to={`/record-headache?mode=manual-entry&editId=${headache.id}`}
                                   style={{
                                     background: '#3B82F6',
                                     border: 'none',
