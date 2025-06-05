@@ -248,6 +248,78 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Enhanced: Load detailed records for specific date - Moved above handleMetricsDayClick
+  const loadDetailedDateRecords = React.useCallback(async (dateStr) => {
+    if (!currentUser) return;
+
+    setLoadingDateRecords(true);
+
+    try {
+      // Fetch all records and filter by date (matching calendar logic)
+      const [headaches, medications, sleep, stress] = await Promise.all([
+        getDocs(query(
+          collection(db, 'users', currentUser.uid, 'headaches'),
+          orderBy('createdAt', 'desc')
+        )),
+        getDocs(query(
+          collection(db, 'users', currentUser.uid, 'medications'),
+          orderBy('createdAt', 'desc')
+        )),
+        getDocs(query(
+          collection(db, 'users', currentUser.uid, 'sleep'),
+          orderBy('createdAt', 'desc')
+        )),
+        getDocs(query(
+          collection(db, 'users', currentUser.uid, 'stress'),
+          orderBy('createdAt', 'desc')
+        ))
+      ]);
+
+      // Filter by date using consistent date resolution
+      const filteredHeadaches = headaches.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(headache => getRecordDate(headache) === dateStr);
+
+      const filteredMedications = medications.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(medication => getRecordDate(medication) === dateStr);
+
+      const filteredSleep = sleep.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(sleepRecord => getRecordDate(sleepRecord) === dateStr);
+
+      const filteredStress = stress.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(stressRecord => getRecordDate(stressRecord) === dateStr);
+
+      console.log('=== DETAIL MODAL DEBUG ===');
+      console.log('Selected date:', dateStr);
+      console.log('Filtered headaches:', filteredHeadaches);
+      console.log('Filtered medications:', filteredMedications);
+
+      setDetailedDateRecords({
+        headaches: filteredHeadaches,
+        medications: filteredMedications,
+        sleep: filteredSleep,
+        stress: filteredStress
+      });
+
+    } catch (error) {
+      console.error('Error loading detailed date records:', error);
+    }
+
+    setLoadingDateRecords(false);
+  }, [currentUser, getRecordDate]);
+
+  // Enhanced: Calendar date click handler - Moved above handleMetricsDayClick
+  const handleCalendarDateClick = React.useCallback(async (dateStr, dayData) => {
+    setSelectedDate(dateStr);
+    setShowDateModal(true);
+    
+    // Load detailed records for this date
+    await loadDetailedDateRecords(dateStr);
+  }, [loadDetailedDateRecords]);
+
   // Handle metrics day click - navigate to date overview
   const handleMetricsDayClick = React.useCallback(async (dayIndex) => {
     const date = new Date();
@@ -365,78 +437,6 @@ export default function Dashboard() {
 
     fetchDashboardData();
   }, [currentUser, currentMonth, currentYear, processLast7Days, processDailyMetrics, processCalendarData, calculateStats, calculateMonthlyStats]);
-
-  // Enhanced: Load detailed records for specific date
-  const loadDetailedDateRecords = React.useCallback(async (dateStr) => {
-    if (!currentUser) return;
-
-    setLoadingDateRecords(true);
-
-    try {
-      // Fetch all records and filter by date (matching calendar logic)
-      const [headaches, medications, sleep, stress] = await Promise.all([
-        getDocs(query(
-          collection(db, 'users', currentUser.uid, 'headaches'),
-          orderBy('createdAt', 'desc')
-        )),
-        getDocs(query(
-          collection(db, 'users', currentUser.uid, 'medications'),
-          orderBy('createdAt', 'desc')
-        )),
-        getDocs(query(
-          collection(db, 'users', currentUser.uid, 'sleep'),
-          orderBy('createdAt', 'desc')
-        )),
-        getDocs(query(
-          collection(db, 'users', currentUser.uid, 'stress'),
-          orderBy('createdAt', 'desc')
-        ))
-      ]);
-
-      // Filter by date using consistent date resolution
-      const filteredHeadaches = headaches.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(headache => getRecordDate(headache) === dateStr);
-
-      const filteredMedications = medications.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(medication => getRecordDate(medication) === dateStr);
-
-      const filteredSleep = sleep.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(sleepRecord => getRecordDate(sleepRecord) === dateStr);
-
-      const filteredStress = stress.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(stressRecord => getRecordDate(stressRecord) === dateStr);
-
-      console.log('=== DETAIL MODAL DEBUG ===');
-      console.log('Selected date:', dateStr);
-      console.log('Filtered headaches:', filteredHeadaches);
-      console.log('Filtered medications:', filteredMedications);
-
-      setDetailedDateRecords({
-        headaches: filteredHeadaches,
-        medications: filteredMedications,
-        sleep: filteredSleep,
-        stress: filteredStress
-      });
-
-    } catch (error) {
-      console.error('Error loading detailed date records:', error);
-    }
-
-    setLoadingDateRecords(false);
-  }, [currentUser, getRecordDate]);
-
-  // Enhanced: Calendar date click handler
-  const handleCalendarDateClick = React.useCallback(async (dateStr, dayData) => {
-    setSelectedDate(dateStr);
-    setShowDateModal(true);
-    
-    // Load detailed records for this date
-    await loadDetailedDateRecords(dateStr);
-  }, [loadDetailedDateRecords]);
 
   // Delete record functionality
   const handleDeleteRecord = React.useCallback(async (recordType, recordId) => {
