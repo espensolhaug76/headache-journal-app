@@ -17,16 +17,16 @@ export function useEditMode(collectionName) {
   const [statusMessage, setStatusMessage] = useState('');
 
   // Parse URL parameters on mount
-  useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const mode = urlParams.get('mode');
-    const id = urlParams.get('id');
-    
-    if (mode === 'edit' && id) {
-      setIsEditMode(true);
-      setEditDocId(id);
-    }
-  }, [location.search]);
+ useEffect(() => {
+  const urlParams = new URLSearchParams(location.search);
+  const mode = urlParams.get('mode');
+  const id = urlParams.get('id') || urlParams.get('editId'); // Check both formats
+  
+  if ((mode === 'edit' || mode === 'manual-entry') && id) {
+    setIsEditMode(true);
+    setEditDocId(id);
+  }
+}, [location.search]);
 
   // Load existing document data for editing
   const loadExistingData = useCallback(async () => {
