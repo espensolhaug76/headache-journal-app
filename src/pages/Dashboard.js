@@ -310,39 +310,84 @@ export default function Dashboard() {
     setLoadingDateRecords(true);
 
     try {
-      // Fetch all records for the specific date
+      // Fetch all records and filter by date (matching calendar logic)
       const [headaches, medications, sleep, stress] = await Promise.all([
-        // Headaches
+        // Headaches - get all and filter by date
         getDocs(query(
           collection(db, 'users', currentUser.uid, 'headaches'),
-          where('date', '==', dateStr),
           orderBy('createdAt', 'desc')
         )),
-        // Medications  
+        // Medications - get all and filter by date
         getDocs(query(
           collection(db, 'users', currentUser.uid, 'medications'),
-          where('date', '==', dateStr),
           orderBy('createdAt', 'desc')
         )),
-        // Sleep
+        // Sleep - get all and filter by date
         getDocs(query(
           collection(db, 'users', currentUser.uid, 'sleep'),
-          where('date', '==', dateStr),
           orderBy('createdAt', 'desc')
         )),
-        // Stress
+        // Stress - get all and filter by date
         getDocs(query(
           collection(db, 'users', currentUser.uid, 'stress'),
-          where('date', '==', dateStr),
           orderBy('createdAt', 'desc')
         ))
       ]);
 
+      // Filter headaches by date (matching calendar logic)
+      const filteredHeadaches = headaches.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(headache => {
+          const recordDate = headache.date || 
+            (headache.createdAt?.toDate ? 
+              headache.createdAt.toDate().toISOString().split('T')[0] : 
+              new Date().toISOString().split('T')[0]);
+          return recordDate === dateStr;
+        });
+
+      // Filter medications by date (matching calendar logic)
+      const filteredMedications = medications.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(medication => {
+          const recordDate = medication.date || 
+            (medication.createdAt?.toDate ? 
+              medication.createdAt.toDate().toISOString().split('T')[0] : 
+              new Date().toISOString().split('T')[0]);
+          return recordDate === dateStr;
+        });
+
+      // Filter sleep by date
+      const filteredSleep = sleep.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(sleepRecord => {
+          const recordDate = sleepRecord.date || 
+            (sleepRecord.createdAt?.toDate ? 
+              sleepRecord.createdAt.toDate().toISOString().split('T')[0] : 
+              new Date().toISOString().split('T')[0]);
+          return recordDate === dateStr;
+        });
+
+      // Filter stress by date
+      const filteredStress = stress.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(stressRecord => {
+          const recordDate = stressRecord.date || 
+            (stressRecord.createdAt?.toDate ? 
+              stressRecord.createdAt.toDate().toISOString().split('T')[0] : 
+              new Date().toISOString().split('T')[0]);
+          return recordDate === dateStr;
+        });
+
+      console.log('=== DETAIL MODAL DEBUG ===');
+      console.log('Selected date:', dateStr);
+      console.log('Filtered headaches:', filteredHeadaches);
+      console.log('Filtered medications:', filteredMedications);
+
       setDetailedDateRecords({
-        headaches: headaches.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        medications: medications.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        sleep: sleep.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        stress: stress.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        headaches: filteredHeadaches,
+        medications: filteredMedications,
+        sleep: filteredSleep,
+        stress: filteredStress
       });
 
     } catch (error) {
