@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [weekStartsOnMonday, setWeekStartsOnMonday] = useState(true); // European default
   
   // Enhanced calendar date modal state
   const [showDateModal, setShowDateModal] = useState(false);
@@ -57,6 +58,12 @@ export default function Dashboard() {
       avgSleepQuality: 0,
       avgStressLevel: 0,
       personalWorstDay: 0
+    },
+    monthlyStats: {
+      daysWithHeadaches: 0,
+      totalAttacks: 0,
+      daysWithOTC: 0,
+      daysWithMigraineMeds: 0
     }
   });
 
@@ -184,7 +191,41 @@ export default function Dashboard() {
     return calendarData;
   }, [getRecordDate]);
 
-  const calculateStats = React.useCallback((sleepData, stressData, headacheData) => {
+  // Calculate monthly calendar statistics
+  const calculateMonthlyStats = React.useCallback((headaches, medications) => {
+    const daysWithHeadaches = new Set();
+    const totalAttacks = headaches.length;
+    const daysWithOTC = new Set();
+    const daysWithMigraineMeds = new Set();
+
+    headaches.forEach(headache => {
+      const date = getRecordDate(headache);
+      daysWithHeadaches.add(date);
+    });
+
+    medications.forEach(medication => {
+      const date = getRecordDate(medication);
+      const medType = (medication.medicationType || medication.type || '').toLowerCase();
+      
+      if (medType.includes('otc') || medType.includes('over') || 
+          medType.includes('ibuprofen') || medType.includes('paracetamol') || 
+          medType.includes('aspirin') || medType.includes('acetaminophen')) {
+        daysWithOTC.add(date);
+      }
+      
+      if (medType.includes('migraine') || medType.includes('triptan') || 
+          medType.includes('sumatriptan') || medType.includes('rizatriptan')) {
+        daysWithMigraineMeds.add(date);
+      }
+    });
+
+    return {
+      daysWithHeadaches: daysWithHeadaches.size,
+      totalAttacks,
+      daysWithOTC: daysWithOTC.size,
+      daysWithMigraineMeds: daysWithMigraineMeds.size
+    };
+  }, [getRecordDate]);
     const totalHeadaches = headacheData.length;
     const avgSleepHours = sleepData.length > 0 ? 
       sleepData.reduce((sum, entry) => sum + (entry.hoursSlept || 0), 0) / sleepData.length : 0;
@@ -287,6 +328,7 @@ export default function Dashboard() {
         const dailyMetrics = processDailyMetrics(sleepData, stressData, headacheData);
         const calendarData = processCalendarData(monthlyHeadaches, monthlyMedications);
         const stats = calculateStats(sleepData, stressData, headacheData);
+        const monthlyStats = calculateMonthlyStats(monthlyHeadaches, monthlyMedications);
 
         setDashboardData({
           sleepStressData: processedData,
@@ -294,7 +336,8 @@ export default function Dashboard() {
           calendarData: calendarData,
           loading: false,
           error: null,
-          stats
+          stats,
+          monthlyStats
         });
 
       } catch (error) {
@@ -308,7 +351,7 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
-  }, [currentUser, currentMonth, currentYear, processLast7Days, processDailyMetrics, processCalendarData, calculateStats]);
+  }, [currentUser, currentMonth, currentYear, processLast7Days, processDailyMetrics, processCalendarData, calculateStats, calculateMonthlyStats]);
 
   // Enhanced: Load detailed records for specific date
   const loadDetailedDateRecords = React.useCallback(async (dateStr) => {
@@ -545,6 +588,7 @@ export default function Dashboard() {
             dailyMetrics={dashboardData.dailyMetrics}
             currentMetricDay={currentMetricDay}
             setCurrentMetricDay={setCurrentMetricDay}
+            onMetricsDayClick={handleMetricsDayClick}
           />
 
           <CalendarModule
@@ -554,6 +598,9 @@ export default function Dashboard() {
             setCurrentMonth={setCurrentMonth}
             setCurrentYear={setCurrentYear}
             onDateClick={handleCalendarDateClick}
+            weekStartsOnMonday={weekStartsOnMonday}
+            setWeekStartsOnMonday={setWeekStartsOnMonday}
+            monthlyStats={dashboardData.monthlyStats}
           />
 
           <AIInsightsModule 
