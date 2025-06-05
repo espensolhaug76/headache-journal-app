@@ -738,7 +738,7 @@ export default function Dashboard() {
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Link
-                                  to={`/record-headache?mode=manual-entry&editId=${headache.id}`}
+                                  to={`/record-headache?mode=edit&id=${headache.id}`}
                                   style={{
                                     background: '#3B82F6',
                                     border: 'none',
@@ -839,7 +839,7 @@ export default function Dashboard() {
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Link
-                                  to={`/record-medication?editId=${medication.id}`}
+                                  to={`/record-medication?mode=edit&id=${medication.id}`}
                                   style={{
                                     background: '#3B82F6',
                                     border: 'none',
@@ -939,7 +939,7 @@ export default function Dashboard() {
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Link
-                                  to={`/record-sleep?editId=${sleep.id}`}
+                                  to={`/record-sleep?mode=edit&id=${sleep.id}`}
                                   style={{
                                     background: '#3B82F6',
                                     border: 'none',
@@ -1042,7 +1042,7 @@ export default function Dashboard() {
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Link
-                                  to={`/record-stress?editId=${stress.id}`}
+                                  to={`/record-stress?mode=edit&id=${stress.id}`}
                                   style={{
                                     background: '#3B82F6',
                                     border: 'none',
