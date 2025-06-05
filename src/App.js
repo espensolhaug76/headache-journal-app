@@ -14,6 +14,7 @@ import RecordBodyPain from './pages/RecordBodyPain';
 import RecordMedication from './pages/RecordMedication';
 import DataManager from './pages/DataManager'; // NEW: Data Manager page
 import PrivateRoute from './components/PrivateRoute';
+import HeadacheList from './pages/HeadacheList';
 import './App.css';
 
 function App() {
