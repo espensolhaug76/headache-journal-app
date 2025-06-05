@@ -82,6 +82,8 @@ function App() {
                 <RecordMedication />
               </PrivateRoute>
             } />
+
+<Route path="/headaches" element={<HeadacheList />} />
             
             {/* Redirect root to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
