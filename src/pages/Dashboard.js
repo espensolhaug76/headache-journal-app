@@ -245,6 +245,16 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Handle metrics day click - navigate to date overview
+  const handleMetricsDayClick = React.useCallback(async (dayIndex) => {
+    const date = new Date();
+    date.setDate(date.getDate() - dayIndex);
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Open the date modal for this day
+    await handleCalendarDateClick(dateStr, null);
+  }, [handleCalendarDateClick]);
+
   // Data fetching logic
   useEffect(() => {
     if (!currentUser) return;
