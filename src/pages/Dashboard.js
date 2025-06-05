@@ -171,10 +171,8 @@ export default function Dashboard() {
     const calendarData = {};
     
     headaches.forEach(headache => {
-      const date = headache.date || 
-        (headache.createdAt?.toDate ? 
-          headache.createdAt.toDate().toISOString().split('T')[0] : 
-          new Date().toISOString().split('T')[0]);
+      // Use consistent date resolution
+      const date = getRecordDate(headache);
 
       if (!calendarData[date]) {
         calendarData[date] = { headaches: [], medications: [] };
@@ -191,9 +189,8 @@ export default function Dashboard() {
     });
 
     medications.forEach(medication => {
-      const date = medication.createdAt?.toDate ? 
-        medication.createdAt.toDate().toISOString().split('T')[0] : 
-        medication.date;
+      // Use consistent date resolution
+      const date = getRecordDate(medication);
       
       if (!calendarData[date]) {
         calendarData[date] = { headaches: [], medications: [] };
@@ -220,14 +217,11 @@ export default function Dashboard() {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
       
-      const sleepEntry = sleepData.find(entry => entry.date === dateStr);
-      const stressEntry = stressData.find(entry => entry.date === dateStr);
-      const dayHeadaches = headacheData.filter(entry => {
-        const entryDate = entry.createdAt?.toDate ? 
-          entry.createdAt.toDate().toISOString().split('T')[0] : 
-          entry.date;
-        return entryDate === dateStr;
-      });
+      const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
+      const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
+      
+      // Use consistent date resolution for headaches
+      const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
 
       days.push({
         dayLabel: dayNames[i],
@@ -244,6 +238,15 @@ export default function Dashboard() {
     return days;
   };
 
+  // Helper function: Consistent date resolution for all components
+  const getRecordDate = (record) => {
+    // Use the same date logic everywhere - prioritize 'date' field, fallback to createdAt
+    return record.date || 
+      (record.createdAt?.toDate ? 
+        record.createdAt.toDate().toISOString().split('T')[0] : 
+        new Date().toISOString().split('T')[0]);
+  };
+
   const processLast7Days = (sleepData, stressData, headacheData) => {
     const days = [];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -253,14 +256,11 @@ export default function Dashboard() {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
       
-      const sleepEntry = sleepData.find(entry => entry.date === dateStr);
-      const stressEntry = stressData.find(entry => entry.date === dateStr);
-      const dayHeadaches = headacheData.filter(entry => {
-        const entryDate = entry.createdAt?.toDate ? 
-          entry.createdAt.toDate().toISOString().split('T')[0] : 
-          entry.date;
-        return entryDate === dateStr;
-      });
+      const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
+      const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
+      
+      // Use consistent date resolution for headaches
+      const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
 
       const headacheCount = dayHeadaches.length;
       const totalPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
@@ -271,6 +271,10 @@ export default function Dashboard() {
         const intensity = headache.painLevel || 0;
         headachesByIntensity[intensity] = (headachesByIntensity[intensity] || 0) + 1;
       });
+
+      console.log(`=== WEEKLY CHART DEBUG - ${dayNames[date.getDay()]} (${dateStr}) ===`);
+      console.log('Headaches for this day:', dayHeadaches);
+      console.log('Headache count:', headacheCount);
 
       days.push({
         day: dayNames[date.getDay()],
@@ -346,46 +350,22 @@ export default function Dashboard() {
       // Filter headaches by date (matching calendar logic)
       const filteredHeadaches = headaches.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(headache => {
-          const recordDate = headache.date || 
-            (headache.createdAt?.toDate ? 
-              headache.createdAt.toDate().toISOString().split('T')[0] : 
-              new Date().toISOString().split('T')[0]);
-          return recordDate === dateStr;
-        });
+        .filter(headache => getRecordDate(headache) === dateStr);
 
       // Filter medications by date (matching calendar logic)
       const filteredMedications = medications.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(medication => {
-          const recordDate = medication.date || 
-            (medication.createdAt?.toDate ? 
-              medication.createdAt.toDate().toISOString().split('T')[0] : 
-              new Date().toISOString().split('T')[0]);
-          return recordDate === dateStr;
-        });
+        .filter(medication => getRecordDate(medication) === dateStr);
 
       // Filter sleep by date
       const filteredSleep = sleep.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(sleepRecord => {
-          const recordDate = sleepRecord.date || 
-            (sleepRecord.createdAt?.toDate ? 
-              sleepRecord.createdAt.toDate().toISOString().split('T')[0] : 
-              new Date().toISOString().split('T')[0]);
-          return recordDate === dateStr;
-        });
+        .filter(sleepRecord => getRecordDate(sleepRecord) === dateStr);
 
       // Filter stress by date
       const filteredStress = stress.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(stressRecord => {
-          const recordDate = stressRecord.date || 
-            (stressRecord.createdAt?.toDate ? 
-              stressRecord.createdAt.toDate().toISOString().split('T')[0] : 
-              new Date().toISOString().split('T')[0]);
-          return recordDate === dateStr;
-        });
+        .filter(stressRecord => getRecordDate(stressRecord) === dateStr);
 
       console.log('=== DETAIL MODAL DEBUG ===');
       console.log('Selected date:', dateStr);
