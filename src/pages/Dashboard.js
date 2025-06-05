@@ -69,6 +69,7 @@ export default function Dashboard() {
         new Date().toISOString().split('T')[0]);
   }, []);
 
+  // Data processing functions
   const processLast7Days = React.useCallback((sleepData, stressData, headacheData) => {
     const days = [];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -80,8 +81,6 @@ export default function Dashboard() {
       
       const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
       const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
-      
-      // Use consistent date resolution for headaches
       const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
 
       const headacheCount = dayHeadaches.length;
@@ -129,8 +128,6 @@ export default function Dashboard() {
       
       const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
       const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
-      
-      // Use consistent date resolution for headaches
       const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
 
       days.push({
@@ -152,7 +149,6 @@ export default function Dashboard() {
     const calendarData = {};
     
     headaches.forEach(headache => {
-      // Use consistent date resolution
       const date = getRecordDate(headache);
 
       if (!calendarData[date]) {
@@ -170,7 +166,6 @@ export default function Dashboard() {
     });
 
     medications.forEach(medication => {
-      // Use consistent date resolution
       const date = getRecordDate(medication);
       
       if (!calendarData[date]) {
@@ -209,7 +204,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Data fetching logic - RESTORED FROM ORIGINAL
+  // Data fetching logic
   useEffect(() => {
     if (!currentUser) return;
 
@@ -315,158 +310,8 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [currentUser, currentMonth, currentYear, processLast7Days, processDailyMetrics, processCalendarData, calculateStats]);
 
-  // Helper functions - RESTORED FROM ORIGINAL
-  const processCalendarData = React.useCallback((headaches, medications) => {
-    const calendarData = {};
-    
-    headaches.forEach(headache => {
-      // Use consistent date resolution
-      const date = getRecordDate(headache);
-
-      if (!calendarData[date]) {
-        calendarData[date] = { headaches: [], medications: [] };
-      }
-      calendarData[date].headaches.push({
-        id: headache.id,
-        painLevel: headache.painLevel,
-        location: headache.location,
-        duration: headache.duration || 0,
-        notes: headache.notes || '',
-        startTime: headache.startTime,
-        endTime: headache.endTime
-      });
-    });
-
-    medications.forEach(medication => {
-      // Use consistent date resolution
-      const date = getRecordDate(medication);
-      
-      if (!calendarData[date]) {
-        calendarData[date] = { headaches: [], medications: [] };
-      }
-      calendarData[date].medications.push({
-        id: medication.id,
-        name: medication.medicationName,
-        type: medication.medicationType,
-        effectiveness: medication.effectiveness,
-        dosage: medication.dosage || '',
-        time: medication.timeOfDay || ''
-      });
-    });
-
-    return calendarData;
-  }, [getRecordDate]);
-
-  const processDailyMetrics = React.useCallback((sleepData, stressData, headacheData) => {
-    const days = [];
-    const dayNames = ['Today', 'Yesterday', '2 Days Ago'];
-    
-    for (let i = 0; i < 3; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
-      const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
-      
-      // Use consistent date resolution for headaches
-      const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
-
-      days.push({
-        dayLabel: dayNames[i],
-        date: dateStr,
-        sleepHours: sleepEntry?.hoursSlept || 0,
-        sleepQuality: sleepEntry?.sleepQuality || 0,
-        stressLevel: stressEntry?.stressLevel || 0,
-        headacheCount: dayHeadaches.length,
-        avgPainLevel: dayHeadaches.length > 0 ? 
-          dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / dayHeadaches.length : 0
-      });
-    }
-    
-    return days;
-  }, [getRecordDate]);
-
-  // Helper function: Consistent date resolution for all components
-  const getRecordDate = React.useCallback((record) => {
-    // Use the same date logic everywhere - prioritize 'date' field, fallback to createdAt
-    return record.date || 
-      (record.createdAt?.toDate ? 
-        record.createdAt.toDate().toISOString().split('T')[0] : 
-        new Date().toISOString().split('T')[0]);
-  }, []);
-
-  const processLast7Days = React.useCallback((sleepData, stressData, headacheData) => {
-    const days = [];
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
-      const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
-      
-      // Use consistent date resolution for headaches
-      const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
-
-      const headacheCount = dayHeadaches.length;
-      const totalPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
-      const avgPainLevel = headacheCount > 0 ? totalPainScore / headacheCount : 0;
-
-      const headachesByIntensity = {};
-      dayHeadaches.forEach(headache => {
-        const intensity = headache.painLevel || 0;
-        headachesByIntensity[intensity] = (headachesByIntensity[intensity] || 0) + 1;
-      });
-
-      console.log(`=== WEEKLY CHART DEBUG - ${dayNames[date.getDay()]} (${dateStr}) ===`);
-      console.log('Headaches for this day:', dayHeadaches);
-      console.log('Headache count:', headacheCount);
-
-      days.push({
-        day: dayNames[date.getDay()],
-        date: dateStr,
-        sleepHours: sleepEntry?.hoursSlept || 0,
-        sleepQuality: sleepEntry?.sleepQuality || 0,
-        sleepQualityPercent: sleepEntry ? (sleepEntry.sleepQuality || 0) * 10 : 0,
-        stressLevel: stressEntry?.stressLevel || 0,
-        stressPercent: stressEntry ? (stressEntry.stressLevel || 0) * 10 : 0,
-        headaches: headacheCount,
-        avgPainLevel: avgPainLevel,
-        avgPainLevelPercent: avgPainLevel * 10,
-        totalPainScore: totalPainScore,
-        headachesByIntensity: headachesByIntensity,
-        hasData: sleepEntry || stressEntry || headacheCount > 0
-      });
-    }
-
-    return days;
-  }, [getRecordDate]);
-
-  const calculateStats = React.useCallback((sleepData, stressData, headacheData) => {
-    const totalHeadaches = headacheData.length;
-    const avgSleepHours = sleepData.length > 0 ? 
-      sleepData.reduce((sum, entry) => sum + (entry.hoursSlept || 0), 0) / sleepData.length : 0;
-    const avgSleepQuality = sleepData.length > 0 ? 
-      sleepData.reduce((sum, entry) => sum + (entry.sleepQuality || 0), 0) / sleepData.length : 0;
-    const avgStressLevel = stressData.length > 0 ? 
-      stressData.reduce((sum, entry) => sum + (entry.stressLevel || 0), 0) / stressData.length : 0;
-    
-    const personalWorstDay = Math.max(...headacheData.map(h => h.painLevel || 0), 1);
-
-    return {
-      totalHeadaches,
-      avgSleepHours: Math.round(avgSleepHours * 10) / 10,
-      avgSleepQuality: Math.round(avgSleepQuality * 10) / 10,
-      avgStressLevel: Math.round(avgStressLevel * 10) / 10,
-      personalWorstDay
-    };
-  }, []);
-
   // Enhanced: Load detailed records for specific date
-  const loadDetailedDateRecords = async (dateStr) => {
+  const loadDetailedDateRecords = React.useCallback(async (dateStr) => {
     if (!currentUser) return;
 
     setLoadingDateRecords(true);
@@ -474,44 +319,37 @@ export default function Dashboard() {
     try {
       // Fetch all records and filter by date (matching calendar logic)
       const [headaches, medications, sleep, stress] = await Promise.all([
-        // Headaches - get all and filter by date
         getDocs(query(
           collection(db, 'users', currentUser.uid, 'headaches'),
           orderBy('createdAt', 'desc')
         )),
-        // Medications - get all and filter by date
         getDocs(query(
           collection(db, 'users', currentUser.uid, 'medications'),
           orderBy('createdAt', 'desc')
         )),
-        // Sleep - get all and filter by date
         getDocs(query(
           collection(db, 'users', currentUser.uid, 'sleep'),
           orderBy('createdAt', 'desc')
         )),
-        // Stress - get all and filter by date
         getDocs(query(
           collection(db, 'users', currentUser.uid, 'stress'),
           orderBy('createdAt', 'desc')
         ))
       ]);
 
-      // Filter headaches by date (matching calendar logic)
+      // Filter by date using consistent date resolution
       const filteredHeadaches = headaches.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter(headache => getRecordDate(headache) === dateStr);
 
-      // Filter medications by date (matching calendar logic)
       const filteredMedications = medications.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter(medication => getRecordDate(medication) === dateStr);
 
-      // Filter sleep by date
       const filteredSleep = sleep.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter(sleepRecord => getRecordDate(sleepRecord) === dateStr);
 
-      // Filter stress by date
       const filteredStress = stress.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter(stressRecord => getRecordDate(stressRecord) === dateStr);
@@ -533,19 +371,19 @@ export default function Dashboard() {
     }
 
     setLoadingDateRecords(false);
-  };
+  }, [currentUser, getRecordDate]);
 
   // Enhanced: Calendar date click handler
-  const handleCalendarDateClick = async (dateStr, dayData) => {
+  const handleCalendarDateClick = React.useCallback(async (dateStr, dayData) => {
     setSelectedDate(dateStr);
     setShowDateModal(true);
     
     // Load detailed records for this date
     await loadDetailedDateRecords(dateStr);
-  };
+  }, [loadDetailedDateRecords]);
 
   // Delete record functionality
-  const handleDeleteRecord = async (recordType, recordId) => {
+  const handleDeleteRecord = React.useCallback(async (recordType, recordId) => {
     if (!currentUser) return;
 
     try {
@@ -565,23 +403,23 @@ export default function Dashboard() {
     }
 
     setDeleteConfirm(null);
-  };
+  }, [currentUser]);
 
   // Helper functions for modal
-  const getPainLevelColor = (level) => {
+  const getPainLevelColor = React.useCallback((level) => {
     if (level <= 3) return '#28a745';
     if (level <= 6) return '#ffc107';
     if (level <= 8) return '#fd7e14';
     return '#dc3545';
-  };
+  }, []);
 
-  const formatTime = (timestamp) => {
+  const formatTime = React.useCallback((timestamp) => {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  };
+  }, []);
 
-  const formatDuration = (duration) => {
+  const formatDuration = React.useCallback((duration) => {
     if (!duration || duration === 0) return 'Manual Entry';
     const hours = Math.floor(duration / 60);
     const minutes = duration % 60;
@@ -590,33 +428,33 @@ export default function Dashboard() {
       return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
-  };
+  }, []);
 
   // Quick entry handlers
-  const handleQuickHeadacheEntry = () => {
+  const handleQuickHeadacheEntry = React.useCallback(() => {
     navigate(`/record-headache?date=${selectedDate}&mode=manual-entry`);
-  };
+  }, [navigate, selectedDate]);
 
-  const handleQuickMedicationEntry = () => {
+  const handleQuickMedicationEntry = React.useCallback(() => {
     navigate(`/record-medication?date=${selectedDate}`);
-  };
+  }, [navigate, selectedDate]);
 
-  const handleQuickSleepEntry = () => {
+  const handleQuickSleepEntry = React.useCallback(() => {
     navigate(`/record-sleep?date=${selectedDate}&mode=manual-entry`);
-  };
+  }, [navigate, selectedDate]);
 
-  const handleQuickStressEntry = () => {
+  const handleQuickStressEntry = React.useCallback(() => {
     navigate(`/record-stress?date=${selectedDate}&mode=manual-entry`);
-  };
+  }, [navigate, selectedDate]);
 
-  const closeModal = () => {
+  const closeModal = React.useCallback(() => {
     setShowDateModal(false);
     setSelectedDate(null);
     setDetailedDateRecords({ headaches: [], medications: [], sleep: [], stress: [] });
-  };
+  }, []);
 
   // Format date for display
-  const formatSelectedDate = (dateStr) => {
+  const formatSelectedDate = React.useCallback((dateStr) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { 
       weekday: 'long', 
@@ -624,17 +462,17 @@ export default function Dashboard() {
       month: 'long', 
       day: 'numeric' 
     });
-  };
+  }, []);
 
   // Event handlers
-  const handleLogout = async () => {
+  const handleLogout = React.useCallback(async () => {
     try {
       await logout();
       navigate('/login');
     } catch (error) {
       console.error('Failed to log out:', error);
     }
-  };
+  }, [logout, navigate]);
 
   // Loading state
   if (dashboardData.loading) {
@@ -838,7 +676,7 @@ export default function Dashboard() {
                         <p style={{ color: '#9CA3AF', fontStyle: 'italic', margin: 0 }}>No headaches recorded</p>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          {detailedDateRecords.headaches.map((headache, index) => (
+                          {detailedDateRecords.headaches.map((headache) => (
                             <div key={headache.id} style={{
                               background: '#FEF2F2',
                               border: '1px solid #FECACA',
@@ -965,9 +803,9 @@ export default function Dashboard() {
                                   {medication.name || medication.medicationName}
                                 </div>
                                 <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>
-                                  Type: {medication.type || medication.medicationType} |
-                                  {medication.dosage && ` Dosage: ${medication.dosage} |`}
-                                  {medication.time && ` Time: ${medication.time}`}
+                                  Type: {medication.type || medication.medicationType}
+                                  {medication.dosage && ` | Dosage: ${medication.dosage}`}
+                                  {medication.time && ` | Time: ${medication.time}`}
                                   {medication.effectiveness && (
                                     <div style={{ marginTop: '0.25rem' }}>
                                       Effectiveness: {medication.effectiveness}/10
@@ -977,7 +815,7 @@ export default function Dashboard() {
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Link
-                                  to={`/record-medication?mode=edit&id=${medication.id}`}
+                                  to={`/record-medication?mode=manual-entry&editId=${medication.id}`}
                                   style={{
                                     background: '#3B82F6',
                                     border: 'none',
@@ -1077,7 +915,7 @@ export default function Dashboard() {
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Link
-                                  to={`/record-sleep?mode=edit&id=${sleep.id}`}
+                                  to={`/record-sleep?mode=manual-entry&editId=${sleep.id}`}
                                   style={{
                                     background: '#3B82F6',
                                     border: 'none',
@@ -1180,7 +1018,7 @@ export default function Dashboard() {
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Link
-                                  to={`/record-stress?mode=edit&id=${stress.id}`}
+                                  to={`/record-stress?mode=manual-entry&editId=${stress.id}`}
                                   style={{
                                     background: '#3B82F6',
                                     border: 'none',
