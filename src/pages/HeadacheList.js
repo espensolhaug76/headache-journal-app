@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, orderBy, getDocs, deleteDoc, doc, where } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export default function HeadacheList() {
@@ -79,7 +79,7 @@ export default function HeadacheList() {
   };
 
   // Load headaches from Firestore
-  const loadHeadaches = async () => {
+  const loadHeadaches = React.useCallback(async () => {
     if (!currentUser) return;
 
     setLoading(true);
@@ -104,7 +104,7 @@ export default function HeadacheList() {
     }
 
     setLoading(false);
-  };
+  }, [currentUser]);
 
   // Delete headache record
   const handleDelete = async (headacheId) => {
@@ -195,7 +195,7 @@ export default function HeadacheList() {
   // Load data on component mount
   useEffect(() => {
     loadHeadaches();
-  }, [currentUser]);
+  }, [loadHeadaches]);
 
   if (loading) {
     return (
