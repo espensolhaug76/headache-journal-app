@@ -60,6 +60,155 @@ export default function Dashboard() {
     }
   });
 
+  // Helper function: Consistent date resolution for all components
+  const getRecordDate = React.useCallback((record) => {
+    // Use the same date logic everywhere - prioritize 'date' field, fallback to createdAt
+    return record.date || 
+      (record.createdAt?.toDate ? 
+        record.createdAt.toDate().toISOString().split('T')[0] : 
+        new Date().toISOString().split('T')[0]);
+  }, []);
+
+  const processLast7Days = React.useCallback((sleepData, stressData, headacheData) => {
+    const days = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
+      const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
+      
+      // Use consistent date resolution for headaches
+      const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
+
+      const headacheCount = dayHeadaches.length;
+      const totalPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
+      const avgPainLevel = headacheCount > 0 ? totalPainScore / headacheCount : 0;
+
+      const headachesByIntensity = {};
+      dayHeadaches.forEach(headache => {
+        const intensity = headache.painLevel || 0;
+        headachesByIntensity[intensity] = (headachesByIntensity[intensity] || 0) + 1;
+      });
+
+      console.log(`=== WEEKLY CHART DEBUG - ${dayNames[date.getDay()]} (${dateStr}) ===`);
+      console.log('Headaches for this day:', dayHeadaches);
+      console.log('Headache count:', headacheCount);
+
+      days.push({
+        day: dayNames[date.getDay()],
+        date: dateStr,
+        sleepHours: sleepEntry?.hoursSlept || 0,
+        sleepQuality: sleepEntry?.sleepQuality || 0,
+        sleepQualityPercent: sleepEntry ? (sleepEntry.sleepQuality || 0) * 10 : 0,
+        stressLevel: stressEntry?.stressLevel || 0,
+        stressPercent: stressEntry ? (stressEntry.stressLevel || 0) * 10 : 0,
+        headaches: headacheCount,
+        avgPainLevel: avgPainLevel,
+        avgPainLevelPercent: avgPainLevel * 10,
+        totalPainScore: totalPainScore,
+        headachesByIntensity: headachesByIntensity,
+        hasData: sleepEntry || stressEntry || headacheCount > 0
+      });
+    }
+
+    return days;
+  }, [getRecordDate]);
+
+  const processDailyMetrics = React.useCallback((sleepData, stressData, headacheData) => {
+    const days = [];
+    const dayNames = ['Today', 'Yesterday', '2 Days Ago'];
+    
+    for (let i = 0; i < 3; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
+      const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
+      
+      // Use consistent date resolution for headaches
+      const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
+
+      days.push({
+        dayLabel: dayNames[i],
+        date: dateStr,
+        sleepHours: sleepEntry?.hoursSlept || 0,
+        sleepQuality: sleepEntry?.sleepQuality || 0,
+        stressLevel: stressEntry?.stressLevel || 0,
+        headacheCount: dayHeadaches.length,
+        avgPainLevel: dayHeadaches.length > 0 ? 
+          dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / dayHeadaches.length : 0
+      });
+    }
+    
+    return days;
+  }, [getRecordDate]);
+
+  const processCalendarData = React.useCallback((headaches, medications) => {
+    const calendarData = {};
+    
+    headaches.forEach(headache => {
+      // Use consistent date resolution
+      const date = getRecordDate(headache);
+
+      if (!calendarData[date]) {
+        calendarData[date] = { headaches: [], medications: [] };
+      }
+      calendarData[date].headaches.push({
+        id: headache.id,
+        painLevel: headache.painLevel,
+        location: headache.location,
+        duration: headache.duration || 0,
+        notes: headache.notes || '',
+        startTime: headache.startTime,
+        endTime: headache.endTime
+      });
+    });
+
+    medications.forEach(medication => {
+      // Use consistent date resolution
+      const date = getRecordDate(medication);
+      
+      if (!calendarData[date]) {
+        calendarData[date] = { headaches: [], medications: [] };
+      }
+      calendarData[date].medications.push({
+        id: medication.id,
+        name: medication.medicationName,
+        type: medication.medicationType,
+        effectiveness: medication.effectiveness,
+        dosage: medication.dosage || '',
+        time: medication.timeOfDay || ''
+      });
+    });
+
+    return calendarData;
+  }, [getRecordDate]);
+
+  const calculateStats = React.useCallback((sleepData, stressData, headacheData) => {
+    const totalHeadaches = headacheData.length;
+    const avgSleepHours = sleepData.length > 0 ? 
+      sleepData.reduce((sum, entry) => sum + (entry.hoursSlept || 0), 0) / sleepData.length : 0;
+    const avgSleepQuality = sleepData.length > 0 ? 
+      sleepData.reduce((sum, entry) => sum + (entry.sleepQuality || 0), 0) / sleepData.length : 0;
+    const avgStressLevel = stressData.length > 0 ? 
+      stressData.reduce((sum, entry) => sum + (entry.stressLevel || 0), 0) / stressData.length : 0;
+    
+    const personalWorstDay = Math.max(...headacheData.map(h => h.painLevel || 0), 1);
+
+    return {
+      totalHeadaches,
+      avgSleepHours: Math.round(avgSleepHours * 10) / 10,
+      avgSleepQuality: Math.round(avgSleepQuality * 10) / 10,
+      avgStressLevel: Math.round(avgStressLevel * 10) / 10,
+      personalWorstDay
+    };
+  }, []);
+
   // Data fetching logic - RESTORED FROM ORIGINAL
   useEffect(() => {
     if (!currentUser) return;
