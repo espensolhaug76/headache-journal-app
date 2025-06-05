@@ -31,7 +31,7 @@ export default function Dashboard() {
   const [currentMetricDay, setCurrentMetricDay] = useState(0);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = new Date().getFullYear());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear()); // Fixed: Added useState and corrected closing parenthesis/semicolon
   const [weekStartsOnMonday, setWeekStartsOnMonday] = useState(true); // European default
   
   // Enhanced calendar date modal state
