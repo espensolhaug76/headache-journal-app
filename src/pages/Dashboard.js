@@ -1,6 +1,5 @@
 // src/pages/Dashboard.js - Updated with Calendar Date Shortcuts
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
