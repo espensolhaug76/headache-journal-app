@@ -133,16 +133,19 @@ const CombinedSleepDisplay = ({ sleepHours, sleepQuality }) => {
   );
 };
 
-const StatsDisplay = ({ title, icon, children, color = '#4682B4' }) => (
-  <div style={{
-    background: '#FFFFFF',
-    border: '1px solid #E5E7EB',
-    borderRadius: '16px',
-    padding: '2rem 1.5rem',
-    textAlign: 'center',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-    transition: 'all 0.2s ease',
-    minHeight: '200px'
+const StatsDisplay = ({ title, icon, children, color = '#4682B4', onClick }) => (
+  <div 
+    onClick={onClick}
+    style={{
+      background: '#FFFFFF',
+      border: '1px solid #E5E7EB',
+      borderRadius: '16px',
+      padding: '2rem 1.5rem',
+      textAlign: 'center',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      transition: 'all 0.2s ease',
+      minHeight: '200px',
+      cursor: onClick ? 'pointer' : 'default'
   }}>
     <div style={{ 
       display: 'flex', 
@@ -171,7 +174,8 @@ export default function DailyMetricsModule({
   dailyMetrics, 
   currentMetricDay, 
   setCurrentMetricDay, 
-  onSwipe 
+  onSwipe,
+  onMetricsDayClick 
 }) {
   const handleTouchStart = (e) => {
     const touchStart = e.targetTouches[0].clientX;
@@ -269,6 +273,7 @@ export default function DailyMetricsModule({
           title="Sleep"
           icon="fas fa-bed"
           color="#20c997"
+          onClick={onMetricsDayClick ? () => onMetricsDayClick(currentMetricDay) : undefined}
         >
           <CombinedSleepDisplay
             sleepHours={currentDayMetrics.sleepHours}
@@ -281,6 +286,7 @@ export default function DailyMetricsModule({
           title="Stress Level"
           icon="fas fa-brain"
           color="#dc3545"
+          onClick={onMetricsDayClick ? () => onMetricsDayClick(currentMetricDay) : undefined}
         >
           <CircularProgress
             percentage={stressLevelPercent}
@@ -298,6 +304,7 @@ export default function DailyMetricsModule({
           title="Headaches"
           icon="fas fa-head-side-virus"
           color="#4682B4"
+          onClick={onMetricsDayClick ? () => onMetricsDayClick(currentMetricDay) : undefined}
         >
           <div style={{ textAlign: 'center' }}>
             <div style={{
