@@ -1,4 +1,13 @@
 // src/pages/Dashboard.js - Enhanced with Calendar Date Management
+// 
+// IMPORTANT: This component requires the useEditMode hook to be updated to support
+// both 'id' and 'editId' parameters for proper edit functionality.
+// 
+// Required change in src/hooks/useEditMode.js:
+// Change: const id = urlParams.get('id');
+// To: const id = urlParams.get('id') || urlParams.get('editId');
+// And: if ((mode === 'edit' || mode === 'manual-entry') && id) {
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
