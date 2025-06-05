@@ -31,7 +31,7 @@ export default function Dashboard() {
   const [currentMetricDay, setCurrentMetricDay] = useState(0);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentYear, setCurrentYear] = new Date().getFullYear());
   const [weekStartsOnMonday, setWeekStartsOnMonday] = useState(true); // European default
   
   // Enhanced calendar date modal state
@@ -226,6 +226,9 @@ export default function Dashboard() {
       daysWithMigraineMeds: daysWithMigraineMeds.size
     };
   }, [getRecordDate]);
+
+  // Define calculateStats as its own useCallback
+  const calculateStats = React.useCallback((sleepData, stressData, headacheData) => {
     const totalHeadaches = headacheData.length;
     const avgSleepHours = sleepData.length > 0 ? 
       sleepData.reduce((sum, entry) => sum + (entry.hoursSlept || 0), 0) / sleepData.length : 0;
@@ -543,7 +546,7 @@ export default function Dashboard() {
         <link 
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          xintegrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
           crossOrigin="anonymous" 
           referrerPolicy="no-referrer" 
         />
@@ -562,7 +565,7 @@ export default function Dashboard() {
       <link 
         rel="stylesheet" 
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+        xintegrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
         crossOrigin="anonymous" 
         referrerPolicy="no-referrer" 
       />
