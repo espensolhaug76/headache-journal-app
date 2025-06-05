@@ -346,82 +346,7 @@ const monthlyMedications = allMedications.filter(medication => {
       console.error('Failed to log out:', error);
     }
   };
-// Add this right after line 349 (after the QuickActionsModule)
-          <QuickActionsModule 
-            showQuickActions={showQuickActions}
-            setShowQuickActions={setShowQuickActions}
-          />
 
-          {/* NEW: Quick Navigation Section */}
-          <div style={{
-            background: '#FFFFFF',
-            border: '1px solid #E5E7EB',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            marginBottom: '2rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-          }}>
-            <h3 style={{
-              margin: '0 0 1rem 0',
-              fontSize: '1.2rem',
-              fontWeight: '600',
-              color: '#1E3A8A'
-            }}>
-              <i className="fas fa-list" style={{ marginRight: '0.5rem' }}></i>
-              Manage Records
-            </h3>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '1rem'
-            }}>
-              <Link
-                to="/headaches"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '1rem',
-                  background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  color: 'white',
-                  textDecoration: 'none',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  transition: 'transform 0.2s ease'
-                }}
-                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-              >
-                <i className="fas fa-head-side-virus" style={{ marginRight: '0.75rem', fontSize: '1.2rem' }}></i>
-                <div>
-                  <div>View All Headaches</div>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
-                    Edit, delete & analyze records
-                  </div>
-                </div>
-              </Link>
-              
-              {/* You can add more management links here later */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '1rem',
-                background: '#F3F4F6',
-                border: '1px dashed #D1D5DB',
-                borderRadius: '12px',
-                color: '#6B7280',
-                fontSize: '0.9rem'
-              }}>
-                <i className="fas fa-plus" style={{ marginRight: '0.75rem' }}></i>
-                More management tools coming soon
-              </div>
-            </div>
-          </div>
-            <WeeklyHealthChart 
-            data={dashboardData.sleepStressData}  
-          />
-         
   // Loading state
   if (dashboardData.loading) {
     return (
@@ -484,6 +409,70 @@ const monthlyMedications = allMedications.filter(medication => {
             showQuickActions={showQuickActions}
             setShowQuickActions={setShowQuickActions}
           />
+
+          {/* Manage Records Section */}
+          <div style={{
+            background: '#FFFFFF',
+            border: '1px solid #E5E7EB',
+            borderRadius: '16px',
+            padding: '1.5rem',
+            marginBottom: '2rem',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h3 style={{
+              margin: '0 0 1rem 0',
+              fontSize: '1.2rem',
+              fontWeight: '600',
+              color: '#1E3A8A'
+            }}>
+              <i className="fas fa-list" style={{ marginRight: '0.5rem' }}></i>
+              Manage Records
+            </h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1rem'
+            }}>
+              <Link
+                to="/headaches"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '1rem',
+                  background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: 'white',
+                  textDecoration: 'none',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  transition: 'transform 0.2s ease'
+                }}
+              >
+                <i className="fas fa-head-side-virus" style={{ marginRight: '0.75rem', fontSize: '1.2rem' }}></i>
+                <div>
+                  <div>View All Headaches</div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                    Edit, delete & analyze records
+                  </div>
+                </div>
+              </Link>
+              
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '1rem',
+                background: '#F3F4F6',
+                border: '1px dashed #D1D5DB',
+                borderRadius: '12px',
+                color: '#6B7280',
+                fontSize: '0.9rem'
+              }}>
+                <i className="fas fa-plus" style={{ marginRight: '0.75rem' }}></i>
+                More management tools coming soon
+              </div>
+            </div>
+          </div>
 
           <WeeklyHealthChart 
             data={dashboardData.sleepStressData}
