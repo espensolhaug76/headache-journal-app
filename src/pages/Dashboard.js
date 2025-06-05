@@ -27,7 +27,6 @@ export default function Dashboard() {
   // Enhanced calendar date modal state
   const [showDateModal, setShowDateModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedDateData, setSelectedDateData] = useState(null);
   const [detailedDateRecords, setDetailedDateRecords] = useState({
     headaches: [],
     medications: [],
@@ -356,7 +355,6 @@ export default function Dashboard() {
   // Enhanced: Calendar date click handler
   const handleCalendarDateClick = async (dateStr, dayData) => {
     setSelectedDate(dateStr);
-    setSelectedDateData(dayData);
     setShowDateModal(true);
     
     // Load detailed records for this date
@@ -431,7 +429,6 @@ export default function Dashboard() {
   const closeModal = () => {
     setShowDateModal(false);
     setSelectedDate(null);
-    setSelectedDateData(null);
     setDetailedDateRecords({ headaches: [], medications: [], sleep: [], stress: [] });
   };
 
