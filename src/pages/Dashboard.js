@@ -418,10 +418,10 @@ const monthlyMedications = allMedications.filter(medication => {
               </div>
             </div>
           </div>
-<>
-          <WeeklyHealthChart 
-            data={dashboardData.sleepStressData}          />
-              </>
+            <WeeklyHealthChart 
+            data={dashboardData.sleepStressData}  
+          />
+         
   // Loading state
   if (dashboardData.loading) {
     return (
