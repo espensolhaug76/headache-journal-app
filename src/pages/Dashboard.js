@@ -164,10 +164,10 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
-  }, [currentUser, currentMonth, currentYear]);
+  }, [currentUser, currentMonth, currentYear, processLast7Days, processDailyMetrics, processCalendarData, calculateStats]);
 
   // Helper functions - RESTORED FROM ORIGINAL
-  const processCalendarData = (headaches, medications) => {
+  const processCalendarData = React.useCallback((headaches, medications) => {
     const calendarData = {};
     
     headaches.forEach(headache => {
@@ -206,9 +206,9 @@ export default function Dashboard() {
     });
 
     return calendarData;
-  };
+  }, [getRecordDate]);
 
-  const processDailyMetrics = (sleepData, stressData, headacheData) => {
+  const processDailyMetrics = React.useCallback((sleepData, stressData, headacheData) => {
     const days = [];
     const dayNames = ['Today', 'Yesterday', '2 Days Ago'];
     
@@ -236,18 +236,18 @@ export default function Dashboard() {
     }
     
     return days;
-  };
+  }, [getRecordDate]);
 
   // Helper function: Consistent date resolution for all components
-  const getRecordDate = (record) => {
+  const getRecordDate = React.useCallback((record) => {
     // Use the same date logic everywhere - prioritize 'date' field, fallback to createdAt
     return record.date || 
       (record.createdAt?.toDate ? 
         record.createdAt.toDate().toISOString().split('T')[0] : 
         new Date().toISOString().split('T')[0]);
-  };
+  }, []);
 
-  const processLast7Days = (sleepData, stressData, headacheData) => {
+  const processLast7Days = React.useCallback((sleepData, stressData, headacheData) => {
     const days = [];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
@@ -294,9 +294,9 @@ export default function Dashboard() {
     }
 
     return days;
-  };
+  }, [getRecordDate]);
 
-  const calculateStats = (sleepData, stressData, headacheData) => {
+  const calculateStats = React.useCallback((sleepData, stressData, headacheData) => {
     const totalHeadaches = headacheData.length;
     const avgSleepHours = sleepData.length > 0 ? 
       sleepData.reduce((sum, entry) => sum + (entry.hoursSlept || 0), 0) / sleepData.length : 0;
@@ -314,7 +314,7 @@ export default function Dashboard() {
       avgStressLevel: Math.round(avgStressLevel * 10) / 10,
       personalWorstDay
     };
-  };
+  }, []);
 
   // Enhanced: Load detailed records for specific date
   const loadDetailedDateRecords = async (dateStr) => {
