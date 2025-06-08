@@ -6,14 +6,22 @@ export default function CalendarModule({
   currentYear,
   setCurrentMonth,
   setCurrentYear,
-  onDateClick // New prop for handling date clicks
+  onDateClick,
+  weekStartsOnMonday,
+  setWeekStartsOnMonday,
+  monthlyStats
 }) {
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();
   };
 
   const getFirstDayOfMonth = (year, month) => {
-    return new Date(year, month, 1).getDay();
+    const firstDay = new Date(year, month, 1).getDay();
+    // Adjust for Monday start if needed
+    if (weekStartsOnMonday) {
+      return firstDay === 0 ? 6 : firstDay - 1;
+    }
+    return firstDay;
   };
 
   // Helper function to get headache severity level for a day
@@ -77,6 +85,11 @@ export default function CalendarModule({
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+
+  // Adjust day headers based on week start preference
+  const dayHeaders = weekStartsOnMonday 
+    ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const days = [];
   
@@ -350,6 +363,144 @@ export default function CalendarModule({
         </button>
       </div>
 
+      {/* Week Start Preference Toggle */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: '1rem',
+        gap: '1rem'
+      }}>
+        <span style={{ color: '#6B7280', fontSize: '0.9rem' }}>Week starts on:</span>
+        <div style={{
+          display: 'flex',
+          background: '#F3F4F6',
+          borderRadius: '8px',
+          padding: '2px'
+        }}>
+          <button
+            onClick={() => setWeekStartsOnMonday(false)}
+            style={{
+              padding: '6px 12px',
+              background: !weekStartsOnMonday ? '#4682B4' : 'transparent',
+              color: !weekStartsOnMonday ? 'white' : '#6B7280',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: '500',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            Sunday
+          </button>
+          <button
+            onClick={() => setWeekStartsOnMonday(true)}
+            style={{
+              padding: '6px 12px',
+              background: weekStartsOnMonday ? '#4682B4' : 'transparent',
+              color: weekStartsOnMonday ? 'white' : '#6B7280',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: '500',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            Monday
+          </button>
+        </div>
+      </div>
+
+      {/* Monthly Statistics */}
+      {monthlyStats && (
+        <div style={{
+          background: 'linear-gradient(135deg, #EFF6FF, #F0F9FF)',
+          border: '1px solid #BFDBFE',
+          borderRadius: '12px',
+          padding: '1rem',
+          marginBottom: '1.5rem'
+        }}>
+          <h4 style={{
+            margin: '0 0 0.75rem 0',
+            fontSize: '1rem',
+            fontWeight: '600',
+            color: '#1E40AF',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem'
+          }}>
+            <i className="fas fa-chart-bar"></i>
+            This Month's Summary
+          </h4>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+            gap: '0.75rem',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#DC2626' }}>
+                {monthlyStats.daysWithHeadaches}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                days with headaches
+              </div>
+            </div>
+            
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F59E0B' }}>
+                {monthlyStats.totalAttacks}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                total attacks
+              </div>
+            </div>
+            
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#3B82F6' }}>
+                {monthlyStats.daysWithOTC}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                days with OTC meds
+              </div>
+            </div>
+            
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
+                {monthlyStats.daysWithMigraineMeds}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                days with migraine meds
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Day Headers */}
       <div style={{
         display: 'grid',
@@ -357,7 +508,7 @@ export default function CalendarModule({
         gap: '0.5rem',
         marginBottom: '1rem'
       }}>
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+        {dayHeaders.map(day => (
           <div key={day} style={{
             padding: '0.5rem',
             textAlign: 'center',
