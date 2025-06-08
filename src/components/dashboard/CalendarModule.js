@@ -66,12 +66,13 @@ export default function CalendarModule({
     ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const weeks = [];
-  let days = [];
-  
+  const allCellsForCalendar = [];
+
   // Add empty cells for days before the first day of the month
   for (let i = 0; i < firstDay; i++) {
-    days.push(<div key={`empty-${i}`} style={{ padding: '0.5rem' }}></div>);
+    allCellsForCalendar.push(
+      <div key={`empty-prefix-${i}`} style={{ flex: 1, padding: '0.5rem', minHeight: '70px' }}></div>
+    );
   }
 
   // Fill in days of the month
@@ -83,11 +84,12 @@ export default function CalendarModule({
     const hasMedication = dayData && dayData.medications.length > 0;
     const isToday = dateStr === new Date().toISOString().split('T')[0];
 
-    days.push(
+    allCellsForCalendar.push(
       <div
         key={day}
         onClick={() => onDateClick && onDateClick(dateStr, dayData)}
         style={{
+          flex: 1, // Ensure cells expand to fill column width
           padding: '0.25rem',
           minHeight: '70px',
           border: isToday ? '3px solid #4682B4' : `2px solid ${getDayBorderColor(dayData, severity)}`,
@@ -102,18 +104,18 @@ export default function CalendarModule({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'space-between',
-          ':hover': {
+          ':hover': { // Note: CSS-in-JS :hover like this is non-standard for React inline styles
             transform: 'scale(1.02)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
           }
         }}
         onMouseEnter={(e) => {
-          e.target.style.transform = 'scale(1.02)';
-          e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+          e.currentTarget.style.transform = 'scale(1.02)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
         }}
         onMouseLeave={(e) => {
-          e.target.style.transform = 'scale(1)';
-          e.target.style.boxShadow = 'none';
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = 'none';
         }}
         title={dayData ? 
           `${day}/${currentMonth + 1}: ${dayData.headaches.filter(h => h.isMigraine === true).length} migraine(s), ${dayData.headaches.filter(h => h.isMigraine === false).length} regular headache(s) on this day${totalDuration > 0 ? `, ${Math.round(totalDuration / 60)}h duration` : ''}, ${dayData.medications.length} medication(s). Click to add/edit.` : 
@@ -240,12 +242,28 @@ export default function CalendarModule({
         )}
       </div>
     );
-    
-    // Every 7 days, push row into weeks
-    if ((day + firstDay) % 7 === 0 || day === daysInMonth) {
-      weeks.push(<div key={`week-${day}`} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>{days}</div>);
-      days = [];
-    }
+  }
+
+  // Add empty suffix cells to fill up the grid to a multiple of 7
+  // Total cells needed = (number of empty prefix cells + number of days in month) rounded up to the nearest multiple of 7
+  const totalCellsInGrid = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+  let currentCellCount = allCellsForCalendar.length;
+  while (currentCellCount < totalCellsInGrid) {
+    allCellsForCalendar.push(
+      <div key={`empty-suffix-${currentCellCount}`} style={{ flex: 1, padding: '0.5rem', minHeight: '70px' }}></div>
+    );
+    currentCellCount++;
+  }
+
+  // Group allCellsForCalendar into weeks
+  const weeks = [];
+  for (let i = 0; i < allCellsForCalendar.length; i += 7) {
+    const weekCells = allCellsForCalendar.slice(i, i + 7);
+    weeks.push(
+      <div key={`week-${i / 7}`} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        {weekCells}
+      </div>
+    );
   }
 
   // Calendar Header and Stats
@@ -416,7 +434,7 @@ export default function CalendarModule({
         marginBottom: '1rem'
       }}>
         {dayHeaders.map(day => (
-          <div key={day} style={{ fontWeight: '600', color: '#4B5563' }}>{day}</div>
+          <div key={day} style={{ fontWeight: '600', color: '#4B5563', textAlign: 'center' }}>{day}</div>
         ))}
       </div>
 
