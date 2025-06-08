@@ -1,4 +1,4 @@
-// Updated DailyMetricsModule.js with Combined Sleep Metrics
+// Updated DailyMetricsModule.js with Combined Sleep Metrics - CLICKABLE VERSION
 import React from 'react';
 
 const CircularProgress = ({ percentage, size = 120, strokeWidth = 8, color = '#4682B4', label, value, unit = '', showPercentage = false }) => {
@@ -133,7 +133,7 @@ const CombinedSleepDisplay = ({ sleepHours, sleepQuality }) => {
   );
 };
 
-const StatsDisplay = ({ title, icon, children, color = '#4682B4', onClick }) => (
+const StatsDisplay = ({ title, icon, children, color = '#4682B4', onClick, isClickable = false }) => (
   <div 
     onClick={onClick}
     style={{
@@ -145,8 +145,28 @@ const StatsDisplay = ({ title, icon, children, color = '#4682B4', onClick }) => 
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
       transition: 'all 0.2s ease',
       minHeight: '200px',
-      cursor: onClick ? 'pointer' : 'default'
-  }}>
+      cursor: isClickable ? 'pointer' : 'default',
+      position: 'relative',
+      // Add hover effects for clickable items
+      ...(isClickable && {
+        ':hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          borderColor: color
+        }
+      })
+    }}
+    onMouseEnter={isClickable ? (e) => {
+      e.target.style.transform = 'translateY(-2px)';
+      e.target.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
+      e.target.style.borderColor = color;
+    } : undefined}
+    onMouseLeave={isClickable ? (e) => {
+      e.target.style.transform = 'translateY(0)';
+      e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
+      e.target.style.borderColor = '#E5E7EB';
+    } : undefined}
+  >
     <div style={{ 
       display: 'flex', 
       alignItems: 'center', 
@@ -167,6 +187,52 @@ const StatsDisplay = ({ title, icon, children, color = '#4682B4', onClick }) => 
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
       {children}
     </div>
+    
+    {/* Click indicator for interactive boxes */}
+    {isClickable && (
+      <div style={{
+        position: 'absolute',
+        top: '0.5rem',
+        right: '0.5rem',
+        width: '24px',
+        height: '24px',
+        background: `rgba(${color === '#20c997' ? '32, 201, 151' : 
+                               color === '#dc3545' ? '220, 53, 69' : '70, 130, 180'}, 0.1)`,
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: 0.7
+      }}>
+        <i className="fas fa-external-link-alt" style={{ 
+          fontSize: '0.7rem', 
+          color: color 
+        }}></i>
+      </div>
+    )}
+    
+    {/* Tooltip for clickable items */}
+    {isClickable && (
+      <div style={{
+        position: 'absolute',
+        bottom: '0.5rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: 'rgba(0, 0, 0, 0.8)',
+        color: 'white',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        fontSize: '0.7rem',
+        opacity: 0,
+        transition: 'opacity 0.2s ease',
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap'
+      }}
+      className="tooltip"
+    >
+      Click to view details
+    </div>
+    )}
   </div>
 );
 
@@ -214,6 +280,13 @@ export default function DailyMetricsModule({
 
   const stressLevelPercent = currentDayMetrics.stressLevel * 10;
 
+  // Handler for metric box clicks
+  const handleMetricClick = () => {
+    if (onMetricsDayClick) {
+      onMetricsDayClick(currentMetricDay);
+    }
+  };
+
   return (
     <div style={{ marginBottom: '3rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -257,7 +330,7 @@ export default function DailyMetricsModule({
         </button>
       </div>
 
-      {/* Updated Grid - Now 3 columns instead of 4 */}
+      {/* Updated Grid - Now 3 columns instead of 4, all clickable */}
       <div 
         style={{
           display: 'grid',
@@ -268,12 +341,13 @@ export default function DailyMetricsModule({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Combined Sleep Metrics */}
+        {/* Combined Sleep Metrics - CLICKABLE */}
         <StatsDisplay
           title="Sleep"
           icon="fas fa-bed"
           color="#20c997"
-          onClick={onMetricsDayClick ? () => onMetricsDayClick(currentMetricDay) : undefined}
+          onClick={handleMetricClick}
+          isClickable={true}
         >
           <CombinedSleepDisplay
             sleepHours={currentDayMetrics.sleepHours}
@@ -281,12 +355,13 @@ export default function DailyMetricsModule({
           />
         </StatsDisplay>
 
-        {/* Stress Level */}
+        {/* Stress Level - CLICKABLE */}
         <StatsDisplay
           title="Stress Level"
           icon="fas fa-brain"
           color="#dc3545"
-          onClick={onMetricsDayClick ? () => onMetricsDayClick(currentMetricDay) : undefined}
+          onClick={handleMetricClick}
+          isClickable={true}
         >
           <CircularProgress
             percentage={stressLevelPercent}
@@ -299,12 +374,13 @@ export default function DailyMetricsModule({
           />
         </StatsDisplay>
 
-        {/* Headaches */}
+        {/* Headaches - CLICKABLE */}
         <StatsDisplay
           title="Headaches"
           icon="fas fa-head-side-virus"
           color="#4682B4"
-          onClick={onMetricsDayClick ? () => onMetricsDayClick(currentMetricDay) : undefined}
+          onClick={handleMetricClick}
+          isClickable={true}
         >
           <div style={{ textAlign: 'center' }}>
             <div style={{
@@ -330,9 +406,22 @@ export default function DailyMetricsModule({
       
       <div style={{ textAlign: 'center', marginTop: '1rem', color: '#9CA3AF', fontSize: '0.85rem' }}>
         <i className="fas fa-hand-point-left" style={{ marginRight: '0.5rem' }}></i>
-        Swipe or use arrows to see previous days
+        Swipe or use arrows to see previous days • Click boxes to manage data
         <i className="fas fa-hand-point-right" style={{ marginLeft: '0.5rem' }}></i>
       </div>
+      
+      {/* Add CSS for hover tooltips */}
+      <style>
+        {`
+          .tooltip {
+            opacity: 0 !important;
+          }
+          
+          div:hover .tooltip {
+            opacity: 1 !important;
+          }
+        `}
+      </style>
     </div>
   );
 }
