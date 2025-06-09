@@ -140,7 +140,8 @@ export default function RecordHeadache() {
       }));
     } else if (name === 'time') {
       const [hours, minutes] = value.split(':').map(Number);
-      const newTime = new Date(prev.time);
+      // CORRECTED LINE: Use formData.time here instead of prev.time
+      const newTime = new Date(formData.time);
       newTime.setHours(hours);
       newTime.setMinutes(minutes);
       setFormData((prev) => ({
