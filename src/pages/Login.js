@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import logo from '../assets/logo.svg';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -79,6 +80,17 @@ export default function Login() {
   if (showForgotPassword) {
     return (
       <div className="form-container">
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <img 
+            src={logo} 
+            alt="Headache Journal Logo" 
+            style={{ 
+              height: '60px', 
+              width: 'auto',
+              marginBottom: '1rem'
+            }} 
+          />
+        </div>
         <h2>Reset Your Password</h2>
         {error && <div className="error">{error}</div>}
         {message && (
@@ -131,6 +143,17 @@ export default function Login() {
 
   return (
     <div className="form-container">
+      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <img 
+          src={logo} 
+          alt="Headache Journal Logo" 
+          style={{ 
+            height: '60px', 
+            width: 'auto',
+            marginBottom: '1rem'
+          }} 
+        />
+      </div>
       <h2>Log In to Headache Journal</h2>
       {error && <div className="error">{error}</div>}
       {message && (
