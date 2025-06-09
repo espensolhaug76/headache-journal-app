@@ -1,10 +1,11 @@
 // src/pages/Dashboard.js - Enhanced with Migraine Attack Statistics
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, orderBy, limit, getDocs, Timestamp, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useNavigate, Link } from 'react-router-dom'; // MOVED
+import { useAuth } from '../contexts/AuthContext'; // MOVED
+import { collection, query, where, orderBy, limit, getDocs, Timestamp, deleteDoc, doc } from 'firebase/firestore'; // MOVED
+import { db } from '../firebase'; // MOVED
+
 // Import modular components
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import QuickActionsModule from '../components/dashboard/QuickActionsModule';
@@ -13,35 +14,17 @@ import DailyMetricsModule from '../components/dashboard/DailyMetricsModule';
 import CalendarModule from '../components/dashboard/CalendarModule';
 import AIInsightsModule from '../components/dashboard/AIInsightsModule';
 import LogoutButton from '../components/dashboard/LogoutButton';
+
 export default function Dashboard() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-// State management
-  const [currentMetricDay, setCurrentMetricDay] = useState(0);
-  const [showQuickActions, setShowQuickActions] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, orderBy, limit, getDocs, Timestamp, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase';
-// Import modular components
-import DashboardHeader from '../components/dashboard/DashboardHeader';
-import QuickActionsModule from '../components/dashboard/QuickActionsModule';
-import WeeklyHealthChart from '../components/dashboard/WeeklyHealthChart';
-import DailyMetricsModule from '../components/dashboard/DailyMetricsModule';
-import CalendarModule from '../components/dashboard/CalendarModule';
-import AIInsightsModule from '../components/dashboard/AIInsightsModule';
-import LogoutButton from '../components/dashboard/LogoutButton';
-export default function Dashboard() {
-  const { currentUser, logout } = useAuth();
-  const navigate = useNavigate();
-// State management
+
+  // State management
   const [currentMetricDay, setCurrentMetricDay] = useState(0);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [weekStartsOnMonday, setWeekStartsOnMonday] = useState(true);
-// European default
+  const [weekStartsOnMonday, setWeekStartsOnMonday] = useState(true); // European default
   
   // Enhanced calendar date modal state
   const [showDateModal, setShowDateModal] = useState(false);
