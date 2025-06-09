@@ -709,3 +709,4 @@ export default function Dashboard() {
                 position: 'relative',
                 boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
               }}>
+                {/* Close Button */}
