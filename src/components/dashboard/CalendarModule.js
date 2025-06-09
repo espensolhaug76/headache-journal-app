@@ -369,59 +369,59 @@ export default function CalendarModule({
                 days with migraine meds
               </div>
             </div>
-            {/* Migraines-specific stats */}
-            <div style={{
-              background: '#FFFFFF',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#7C3AED' }}>
-                {monthlyStats.daysWithMigraines}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
-                days with migraines
-              </div>
-            </div>
-            <div style={{
-              background: '#FFFFFF',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#DB2777' }}>
-                {monthlyStats.daysWithRegularHeadaches}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
-                days with regular headaches
-              </div>
-            </div>
-            <div style={{
-              background: '#FFFFFF',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#8B5CF6' }}>
-                {monthlyStats.totalMigraines}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
-                total migraines
-              </div>
-            </div>
-            <div style={{
-              background: '#FFFFFF',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F472B6' }}>
-                {monthlyStats.totalRegularHeadaches}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
-                total regular headaches
-              </div>
-            </div>
+     {/* Migraines-specific stats */}
+<div style={{
+  background: '#FFFFFF',
+  padding: '0.75rem',
+  borderRadius: '8px',
+  border: '1px solid #E5E7EB'
+}}>
+  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#7C3AED' }}>
+    {monthlyStats.daysWithMigraines || 0}
+  </div>
+  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
+    days with migraines
+  </div>
+</div>
+<div style={{
+  background: '#FFFFFF',
+  padding: '0.75rem',
+  borderRadius: '8px',
+  border: '1px solid #E5E7EB'
+}}>
+  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#DB2777' }}>
+    {monthlyStats.daysWithRegularHeadaches || 0}
+  </div>
+  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
+    days with regular headaches
+  </div>
+</div>
+<div style={{
+  background: '#FFFFFF',
+  padding: '0.75rem',
+  borderRadius: '8px',
+  border: '1px solid #E5E7EB'
+}}>
+  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#8B5CF6' }}>
+    {monthlyStats.totalMigraines || 0}
+  </div>
+  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
+    total migraines
+  </div>
+</div>
+<div style={{
+  background: '#FFFFFF',
+  padding: '0.75rem',
+  borderRadius: '8px',
+  border: '1px solid #E5E7EB'
+}}>
+  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F472B6' }}>
+    {monthlyStats.totalRegularHeadaches || 0}
+  </div>
+  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
+    total regular headaches
+  </div>
+</div>
           </div>
         </div>
       )}
