@@ -937,8 +937,7 @@ export default function Dashboard() {
                     onClick={closeModal}
                     style={{
                       background: 'transparent',
-                      border: '1px solid 
- #E5E7EB',
+                      border: '1px solid #E5E7EB',
                       borderRadius: '8px',
                       color: '#6B7280',
                       padding: '0.75rem 1.5rem',
