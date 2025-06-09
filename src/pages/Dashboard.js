@@ -249,45 +249,47 @@ export default function Dashboard() {
   }, [getRecordDate]);
 
   // Calculate monthly calendar statistics
-const calculateMonthlyStats = React.useCallback((headaches, medications) => {
-  const daysWithHeadaches = new Set();
-  const daysWithMigraines = new Set(); // NEW
-  const daysWithRegularHeadaches = new Set(); // NEW
-  const totalAttacks = headaches.length;
-  const daysWithOTC = new Set();
-  const daysWithMigraineMeds = new Set();
+  const calculateMonthlyStats = React.useCallback((headaches, medications) => {
+    const daysWithHeadaches = new Set();
+    const daysWithMigrines = new Set(); // NEW
+    const totalAttacks = headaches.length;
+    const daysWithOTC = new Set();
+    const daysWithMigraineMeds = new Set();
 
-  // Count migraines and regular headaches
-  let totalMigraines = 0;
-  let totalRegularHeadaches = 0;
+    headaches.forEach(headache => {
+      const date = getRecordDate(headache);
+      daysWithHeadaches.add(date);
+      
+      // NEW: Track migraine-specific days
+      if (headache.isMigrineAttack) {
+        daysWithMigrines.add(date);
+      }
+    });
 
-  headaches.forEach(headache => {
-    const date = getRecordDate(headache);
-    daysWithHeadaches.add(date);
-    
-    // NEW: Track migraine-specific days
-    if (headache.isMigrineAttack) {
-      daysWithMigraines.add(date);
-      totalMigraines++;
-    } else {
-      daysWithRegularHeadaches.add(date);
-      totalRegularHeadaches++;
-    }
-  });
+    medications.forEach(medication => {
+      const date = getRecordDate(medication);
+      const medType = (medication.medicationType || medication.type || '').toLowerCase();
+      
+      if (medType.includes('otc') || medType.includes('over') || 
+          medType.includes('ibuprofen') || medType.includes('paracetamol') || 
+          medType.includes('aspirin') || medType.includes('acetaminophen')) {
+        daysWithOTC.add(date);
+      }
+      
+      if (medType.includes('migraine') || medType.includes('triptan') || 
+          medType.includes('sumatriptan') || medType.includes('rizatriptan')) {
+        daysWithMigraineMeds.add(date);
+      }
+    });
 
-  // ... existing medication code ...
-
-  return {
-    daysWithHeadaches: daysWithHeadaches.size,
-    daysWithMigraines: daysWithMigraines.size, // NEW
-    daysWithRegularHeadaches: daysWithRegularHeadaches.size, // NEW
-    totalAttacks,
-    totalMigraines, // NEW
-    totalRegularHeadaches, // NEW
-    daysWithOTC: daysWithOTC.size,
-    daysWithMigraineMeds: daysWithMigraineMeds.size
-  };
-}, [getRecordDate]);
+    return {
+      daysWithHeadaches: daysWithHeadaches.size,
+      daysWithMigrines: daysWithMigrines.size, // NEW
+      totalAttacks,
+      daysWithOTC: daysWithOTC.size,
+      daysWithMigraineMeds: daysWithMigraineMeds.size
+    };
+  }, [getRecordDate]);
 
   // Define calculateStats as its own useCallback
   const calculateStats = React.useCallback((sleepData, stressData, headacheData) => {
@@ -704,3 +706,6 @@ const calculateMonthlyStats = React.useCallback((headaches, medications) => {
                 width: '100%',
                 maxHeight: '90vh',
                 overflowY: 'auto',
+                position: 'relative',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+              }}>
