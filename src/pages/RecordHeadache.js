@@ -26,1539 +26,1095 @@ try {
   clusterHeadacheImg = require('../assets/headache-types/cluster-headache.png');
   sinusHeadacheImg = require('../assets/headache-types/sinus-headache.png');
 } catch (error) {
-  console.log('Some headache images not found, using placeholders');
-  // Fallback placeholder image URL
-  const placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjYwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5IZWFkYWNoZTwvdGV4dD4KPC9zdmc+';
-  
-  migrainerHeadacheImg = placeholder;
-  tensionHeadacheImg = placeholder;
-  reboundHeadacheImg = placeholder;
-  exertionHeadacheImg = placeholder;
-  caffeineHeadacheImg = placeholder;
-  hormoneHeadacheImg = placeholder;
-  clusterHeadacheImg = placeholder;
-  sinusHeadacheImg = placeholder;
+  console.warn("Error loading headache images:", error);
+  // Assign fallback images or null if images are not found
+  const fallbackImg = null; // Or a placeholder image
+  migrainerHeadacheImg = fallbackImg;
+  tensionHeadacheImg = fallbackImg;
+  reboundHeadacheImg = fallbackImg;
+  exertionHeadacheImg = fallbackImg;
+  caffeineHeadacheImg = fallbackImg;
+  hormoneHeadacheImg = fallbackImg;
+  clusterHeadacheImg = fallbackImg;
+  sinusHeadacheImg = fallbackImg;
 }
 
 export default function RecordHeadache() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  
-  // Dev toggle for testing freemium vs premium (remove in production)
-  const [isPremiumMode, setIsPremiumMode] = useState(false);
-  
-  // App state management
-  const [mode, setMode] = useState('selection'); // 'selection', 'start-headache', 'active-headache', 'end-headache', 'manual-entry'
-  const [ongoingSession, setOngoingSession] = useState(null);
-  const [currentSlide, setCurrentSlide] = useState(0);
-  
-  // Edit mode functionality
-  const { 
-    isEditMode, 
-    editDocId, 
-    loading: editLoading, 
-    error: editError, 
-    statusMessage: editStatusMessage,
-    loadExistingData, 
-    updateRecord, 
-    deleteRecord,
-    clearMessages 
-  } = useEditMode('headaches');
-  
-  // Form data
   const location = useLocation();
-  const urlParams = new URLSearchParams(location.search);
-  const prefilledDate = urlParams.get('date');
-  const prefilledMode = urlParams.get('mode');
+  const { isEditMode, editData, recordId } = useEditMode();
 
-  const [formData, setFormData] = useState({
-    date: prefilledDate || new Date().toISOString().split('T')[0],
-    painLevel: 5,
-    location: '',
-    isMigrineAttack: false, // NEW: Track if this is a migraine attack
-    // Premium fields
-    prodromeSymptoms: [],
-    currentSymptoms: [],
-    triggers: [],
-    notes: ''
-  });
-  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [mode, setMode] = useState('selection'); // 'selection', 'active-headache', 'prodrome-tracking', 'manual-entry', 'add-note', 'summary', 'edit-mode'
+  const [showSymptomsInput, setShowSymptomsInput] = useState(false);
+  const [showProdromeInput, setShowProdromeInput] = useState(false);
+  const [showTriggersInput, setShowTriggersInput] = useState(false);
+  const [activeHeadacheSession, setActiveHeadacheSession] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { type: 'headache' | 'prodrome', id: string }
 
-  // Headache types data
+  const [formData, setFormData] = useState({
+    type: '',
+    location: '',
+    intensity: 5, // 1-10
+    symptoms: [],
+    triggers: [],
+    medication: '',
+    notes: '',
+    prodromes: [],
+    attackDuration: null,
+    painDescription: '',
+    migrainePhase: 'attack', // 'prodrome', 'aura', 'attack', 'postdrome'
+    date: new Date(),
+    time: new Date(),
+  });
+
   const headacheTypes = [
-    {
-      id: 'tension',
-      name: 'Tension Headache',
-      description: 'Band around head/forehead',
-      image: tensionHeadacheImg,
-      pattern: 'Band-like pressure around the entire head'
-    },
-    {
-      id: 'migraine',
-      name: 'Migraine Headache',
-      description: 'One side of head',
-      image: migrainerHeadacheImg,
-      pattern: 'Throbbing pain, usually on one side'
-    },
-    {
-      id: 'cluster',
-      name: 'Cluster Headache',
-      description: 'Around one eye',
-      image: clusterHeadacheImg,
-      pattern: 'Severe pain around or behind one eye'
-    },
-    {
-      id: 'sinus',
-      name: 'Sinus Headache',
-      description: 'Forehead/cheek area',
-      image: sinusHeadacheImg,
-      pattern: 'Sinus pressure and congestion'
-    },
-    {
-      id: 'caffeine',
-      name: 'Caffeine Headache',
-      description: 'Front/temples',
-      image: caffeineHeadacheImg,
-      pattern: 'Dull ache at temples and front of head'
-    },
-    {
-      id: 'hormone',
-      name: 'Hormone Headache',
-      description: 'One side (menstrual)',
-      image: hormoneHeadacheImg,
-      pattern: 'Related to hormonal changes'
-    },
-    {
-      id: 'rebound',
-      name: 'Medication Overuse',
-      description: 'All over/top',
-      image: reboundHeadacheImg,
-      pattern: 'From medication overuse'
-    },
-    {
-      id: 'exertion',
-      name: 'Exertion Headache',
-      description: 'Back/all over',
-      image: exertionHeadacheImg,
-      pattern: 'Exercise-induced headache'
-    }
+    { name: 'Migraine', img: migrainerHeadacheImg, description: 'Often throbbing, severe, sensitive to light/sound.' },
+    { name: 'Tension', img: tensionHeadacheImg, description: 'Band-like pressure, mild to moderate.' },
+    { name: 'Cluster', img: clusterHeadacheImg, description: 'Severe, unilateral, behind eye, with autonomic symptoms.' },
+    { name: 'Sinus', img: sinusHeadacheImg, description: 'Pressure in face, forehead, congestion.' },
+    { name: 'Caffeine Withdrawal', img: caffeineHeadacheImg, description: 'Headache from sudden caffeine reduction.' },
+    { name: 'Hormone', img: hormoneHeadacheImg, description: 'Related to menstrual cycle, pregnancy, menopause.' },
+    { name: 'Rebound', img: reboundHeadacheImg, description: 'From overuse of headache medication.' },
+    { name: 'Exertion', img: exertionHeadacheImg, description: 'Triggered by physical activity.' },
   ];
 
-  // Premium features data (for future use)
-  const currentSymptoms = [
-    'Nausea', 'Vomiting', 'Light sensitivity', 'Sound sensitivity', 
-    'Dizziness', 'Blurred vision', 'Neck pain', 'Jaw tension'
+  const symptomOptions = [
+    'Nausea', 'Vomiting', 'Sensitivity to Light', 'Sensitivity to Sound', 'Sensitivity to Smell',
+    'Aura (visual disturbances)', 'Dizziness', 'Fatigue', 'Irritability', 'Stiff Neck', 'Blurred Vision',
+    'Numbness/Tingling', 'Difficulty Speaking', 'Weakness', 'Confusion', 'Runny Nose', 'Tearing Eyes',
+    'Facial Sweating', 'Eyelid Drooping'
   ];
 
-  const commonTriggers = [
-    'Stress', 'Lack of sleep', 'Weather changes', 'Bright lights',
-    'Loud noises', 'Strong smells', 'Certain foods', 'Alcohol',
-    'Hormonal changes', 'Skipped meals', 'Dehydration', 'Screen time'
+  const triggerOptions = [
+    'Stress', 'Lack of Sleep', 'Certain Foods', 'Caffeine (too much or withdrawal)', 'Alcohol', 'Weather Changes',
+    'Hormonal Changes', 'Bright Lights', 'Loud Noises', 'Strong Smells', 'Skipped Meals', 'Dehydration',
+    'Physical Exertion', 'Screens/Eye Strain', 'Travel', 'Perfumes/Odors', 'Cheeses', 'Processed Meats',
+    'Chocolate', 'MSG'
   ];
 
-  // Helper functions
-  const getPainLevelColor = (level) => {
-    if (level <= 3) return '#28a745';
-    if (level <= 6) return '#ffc107';
-    if (level <= 8) return '#fd7e14';
-    return '#dc3545';
-  };
-
-  const getPainLevelText = (level) => {
-    if (level <= 2) return 'Mild';
-    if (level <= 4) return 'Moderate';
-    if (level <= 6) return 'Strong';
-    if (level <= 8) return 'Severe';
-    return 'Extreme';
-  };
-
-  const formatDuration = (startTime) => {
-    const now = new Date();
-    const start = startTime.toDate();
-    const diffMs = now - start;
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
-
-  // NEW: Migraine Attack Toggle Component
-  const MigrineAttackToggle = () => (
-    <div style={{
-      background: formData.isMigrineAttack ? 'rgba(220, 53, 69, 0.1)' : '#F9FAFB',
-      border: formData.isMigrineAttack ? '2px solid #DC3545' : '1px solid #E5E7EB',
-      borderRadius: '12px',
-      padding: '1.5rem',
-      marginBottom: '2rem'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h4 style={{ 
-            color: formData.isMigrineAttack ? '#DC3545' : '#4B5563', 
-            margin: '0 0 0.5rem 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
-            <i className={formData.isMigrineAttack ? "fas fa-exclamation-triangle" : "fas fa-info-circle"}></i>
-            Migraine Attack
-          </h4>
-          <p style={{ 
-            margin: 0, 
-            color: '#6B7280', 
-            fontSize: '0.9rem' 
-          }}>
-            {formData.isMigrineAttack 
-              ? "This headache is part of a migraine attack with additional symptoms"
-              : "Check if this headache involves migraine symptoms (nausea, light sensitivity, etc.)"
-            }
-          </p>
-        </div>
-        <label style={{ 
-          position: 'relative', 
-          display: 'inline-block', 
-          width: '60px', 
-          height: '34px',
-          cursor: 'pointer'
-        }}>
-          <input
-            type="checkbox"
-            checked={formData.isMigrineAttack}
-            onChange={(e) => handleMigrineAttackChange(e.target.checked)}
-            style={{ opacity: 0, width: 0, height: 0 }}
-          />
-          <span style={{
-            position: 'absolute',
-            cursor: 'pointer',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: formData.isMigrineAttack ? '#DC3545' : '#ccc',
-            transition: '0.4s',
-            borderRadius: '34px'
-          }}>
-            <span style={{
-              position: 'absolute',
-              content: '""',
-              height: '26px',
-              width: '26px',
-              left: formData.isMigrineAttack ? '30px' : '4px',
-              bottom: '4px',
-              backgroundColor: 'white',
-              transition: '0.4s',
-              borderRadius: '50%'
-            }}></span>
-          </span>
-        </label>
-      </div>
-      
-      {formData.isMigrineAttack && (
-        <div style={{
-          marginTop: '1rem',
-          padding: '1rem',
-          background: 'rgba(220, 53, 69, 0.05)',
-          borderRadius: '8px',
-          border: '1px solid rgba(220, 53, 69, 0.2)'
-        }}>
-          <div style={{ fontSize: '0.85rem', color: '#DC3545', marginBottom: '0.5rem', fontWeight: '600' }}>
-            <i className="fas fa-lightbulb" style={{ marginRight: '0.5rem' }}></i>
-            Migraine Attack Tracking
-          </div>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: '#6B7280' }}>
-            This helps distinguish between regular headaches and migraine attacks, which may require different treatments and have different patterns.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-
-  // Event handlers
-  const handleTypeSelect = (typeName) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      location: typeName,
-      // Auto-suggest migraine attack for migraine headaches
-      isMigrineAttack: typeName === 'Migraine Headache' ? true : prev.isMigrineAttack
-    }));
-  };
-
-  // NEW: Handle migraine attack toggle
-  const handleMigrineAttackChange = (isMigrineAttack) => {
-    setFormData(prev => ({ ...prev, isMigrineAttack }));
-  };
-
-  const handlePainLevelChange = (level) => {
-    setFormData(prev => ({ ...prev, painLevel: level }));
-  };
-
-  const handleProdromeChange = (symptoms) => {
-    setFormData(prev => ({ ...prev, prodromeSymptoms: symptoms }));
-  };
-
-  // Check for ongoing session
-  const checkForOngoingSession = React.useCallback(async () => {
-    if (!currentUser) return;
-
-    try {
-      const ongoingQuery = query(
-        collection(db, 'users', currentUser.uid, 'ongoingHeadaches'),
-        where('ended', '==', false)
-      );
-      
-      const ongoingSnapshot = await getDocs(ongoingQuery);
-      
-      if (!ongoingSnapshot.empty) {
-        const sessionDoc = ongoingSnapshot.docs[0];
-        const sessionData = { id: sessionDoc.id, ...sessionDoc.data() };
-        
-        const startTime = sessionData.startTime.toDate();
-        const now = new Date();
-        const hoursDiff = (now - startTime) / (1000 * 60 * 60);
-        
-        if (hoursDiff <= 24) {
-          setOngoingSession(sessionData);
-          // If there's an ongoing session, show it in the selection screen
-        } else {
-          // Clean up stale session
-          await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingHeadaches', sessionDoc.id));
-        }
-      }
-    } catch (error) {
-      console.error('Error checking for ongoing session:', error);
-    }
-  }, [currentUser]);
+  const prodromeOptions = [
+    'Yawning', 'Fatigue', 'Mood Changes (irritability, euphoria)', 'Food Cravings', 'Stiff Neck',
+    'Increased Urination', 'Fluid Retention', 'Difficulty Concentrating', 'Sensitivity to Light/Sound'
+  ];
 
   useEffect(() => {
-    checkForOngoingSession();
-  }, [checkForOngoingSession]);
-
-  useEffect(() => {
-    if (prefilledDate) {
-      setFormData(prev => ({ ...prev, date: prefilledDate }));
+    if (isEditMode && editData) {
+      setMode('edit-mode');
+      setFormData({
+        type: editData.type || '',
+        location: editData.location || '',
+        intensity: editData.intensity || 5,
+        symptoms: editData.symptoms || [],
+        triggers: editData.triggers || [],
+        medication: editData.medication || '',
+        notes: editData.notes || '',
+        prodromes: editData.prodromes || [],
+        attackDuration: editData.attackDuration || null,
+        painDescription: editData.painDescription || '',
+        migrainePhase: editData.migrainePhase || 'attack',
+        date: editData.date?.toDate() || new Date(),
+        time: editData.time?.toDate() || new Date(),
+      });
+    } else if (location.state?.mode) {
+      setMode(location.state.mode); // e.g., 'start-headache' or 'manual-entry'
     }
-    if (prefilledMode) {
-      setMode(prefilledMode);
+  }, [isEditMode, editData, location.state]);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    if (type === 'checkbox') {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: checked
+          ? [...prev[name], value]
+          : prev[name].filter((item) => item !== value),
+      }));
+    } else if (name === 'date') {
+      setFormData((prev) => ({
+        ...prev,
+        date: new Date(value),
+      }));
+    } else if (name === 'time') {
+      const [hours, minutes] = value.split(':').map(Number);
+      const newTime = new Date(prev.time);
+      newTime.setHours(hours);
+      newTime.setMinutes(minutes);
+      setFormData((prev) => ({
+        ...prev,
+        time: newTime,
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
-  }, [prefilledDate, prefilledMode]);
+  };
 
-  // Load existing data for editing
-  useEffect(() => {
-    const loadData = async () => {
-      if (isEditMode && editDocId) {
-        setIsLoadingData(true);
-        const existingData = await loadExistingData();
-        if (existingData) {
-          setFormData(prev => ({
-            ...prev,
-            date: existingData.date || prev.date,
-            painLevel: existingData.painLevel || prev.painLevel,
-            location: existingData.location || prev.location,
-            isMigrineAttack: existingData.isMigrineAttack || false, // NEW: Load migraine attack status
-            prodromeSymptoms: existingData.prodromeSymptoms || [],
-            currentSymptoms: existingData.currentSymptoms || [],
-            triggers: existingData.triggers || [],
-            notes: existingData.notes || ''
-          }));
-        }
-        setIsLoadingData(false);
-      }
-    };
-    loadData();
-  }, [isEditMode, editDocId, loadExistingData]);
+  const handleHeadacheTypeSelect = (type) => {
+    setFormData((prev) => ({ ...prev, type }));
+    setMode('active-headache');
+  };
 
-  // Database operations
   const startHeadacheSession = async () => {
-    if (!currentUser) {
-      setError('You must be logged in to track headaches');
-      return;
-    }
-
-    if (!formData.location) {
-      setError('Please select a headache type');
-      return;
-    }
-
     setLoading(true);
     setError('');
-
     try {
-      const sessionData = {
-        startTime: Timestamp.now(),
-        painLevel: parseInt(formData.painLevel),
+      if (!currentUser) {
+        throw new Error("User not authenticated.");
+      }
+      if (!formData.location) {
+        throw new Error("Please specify the headache location.");
+      }
+
+      const headacheRef = await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), {
+        type: formData.type,
         location: formData.location,
-        isMigrineAttack: formData.isMigrineAttack, // NEW: Store migraine attack status
-        ended: false,
-        createdAt: Timestamp.now(),
-        // Store prodrome symptoms in session
-        ...(isPremiumMode && {
-          prodromeSymptoms: formData.prodromeSymptoms
-        })
-      };
-
-      const sessionRef = await addDoc(collection(db, 'users', currentUser.uid, 'ongoingHeadaches'), sessionData);
-      
-      setOngoingSession({ id: sessionRef.id, ...sessionData });
-      setMode('active-headache');
-      
-    } catch (error) {
-      console.error('Error starting headache session:', error);
-      setError('Failed to start tracking. Please try again.');
-    }
-
-    setLoading(false);
-  };
-
-  const endHeadacheSession = async () => {
-    if (!ongoingSession) {
-      setError('No ongoing headache session found');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const endTime = Timestamp.now();
-      const duration = Math.round((endTime.toDate() - ongoingSession.startTime.toDate()) / (1000 * 60));
-
-      const headacheData = {
+        intensity: formData.intensity,
+        startTime: Timestamp.now(),
+        status: 'active',
         userId: currentUser.uid,
-        painLevel: ongoingSession.painLevel,
-        location: ongoingSession.location,
-        isMigrineAttack: ongoingSession.isMigrineAttack || formData.isMigrineAttack, // NEW: Include migraine attack status
-        startTime: ongoingSession.startTime,
-        endTime: endTime,
-        duration: duration,
-        date: formData.date,
-        createdAt: Timestamp.now(),
-        ...(isPremiumMode && {
-          prodromeSymptoms: ongoingSession.prodromeSymptoms || formData.prodromeSymptoms,
-          currentSymptoms: formData.currentSymptoms,
-          triggers: formData.triggers,
-          notes: formData.notes
-        })
-      };
-
-      await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
-      await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingHeadaches', ongoingSession.id));
-      
-      // Clear session and return to dashboard
-      setOngoingSession(null);
-      navigate('/dashboard');
-
-    } catch (error) {
-      console.error('Error ending headache session:', error);
-      setError('Failed to end tracking. Please try again.');
+        date: Timestamp.fromDate(formData.date), // Use selected date
+        time: Timestamp.fromDate(formData.time), // Use selected time
+      });
+      setActiveHeadacheSession(headacheRef.id);
+      setMode('active-headache');
+      setLoading(false);
+      navigate('/dashboard'); // Navigate to dashboard after starting
+    } catch (err) {
+      console.error('Error starting headache session:', err);
+      setError(err.message || 'Failed to start headache session.');
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  const submitManualEntry = async () => {
-    if (!currentUser || !formData.location) {
-      setError('Please select a headache type');
-      return;
-    }
-
+  const recordManualEntry = async () => {
     setLoading(true);
     setError('');
-
     try {
-      if (isEditMode && editDocId) {
-        // Update existing record
-        const success = await updateRecord({
-          painLevel: parseInt(formData.painLevel),
-          location: formData.location,
-          isMigrineAttack: formData.isMigrineAttack, // NEW: Include migraine attack status
-          date: formData.date,
-          ...(isPremiumMode && {
-            prodromeSymptoms: formData.prodromeSymptoms,
-            currentSymptoms: formData.currentSymptoms,
-            triggers: formData.triggers,
-            notes: formData.notes
-          })
-        });
-        
-        if (success) {
-          navigate('/dashboard');
-        }
-      } else {
-        // Create new record (existing code)
-        const entryDate = new Date(formData.date + 'T' + new Date().toTimeString().slice(0, 8));
-        const headacheData = {
-          userId: currentUser.uid,
-          painLevel: parseInt(formData.painLevel),
-          location: formData.location,
-          isMigrineAttack: formData.isMigrineAttack, // NEW: Include migraine attack status
-          startTime: Timestamp.fromDate(entryDate),
-          endTime: Timestamp.fromDate(entryDate),
-          duration: 0,
-          date: formData.date,
-          createdAt: Timestamp.now(),
-          ...(isPremiumMode && {
-            prodromeSymptoms: formData.prodromeSymptoms,
-            currentSymptoms: formData.currentSymptoms,
-            triggers: formData.triggers,
-            notes: formData.notes
-          })
-        };
-        console.log('=== HEADACHE DEBUG ===');
-        console.log('Date being saved:', formData.date);
-        console.log('Full headache data:', headacheData);
-
-        await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
-        navigate('/dashboard');
+      if (!currentUser) {
+        throw new Error("User not authenticated.");
       }
-    } catch (error) {
-      console.error('Error recording headache:', error);
-      setError('Failed to record headache. Please try again.');
-    }
-
-    setLoading(false);
-  };
-
-  // Add delete functionality
-  const handleDelete = async () => {
-    if (isEditMode && editDocId) {
-      const success = await deleteRecord();
-      if (success) {
-        // Will navigate automatically via the hook
+      if (!formData.type || !formData.location || !formData.intensity) {
+        throw new Error("Please fill in all required fields (Type, Location, Intensity).");
       }
+
+      const combinedDateTime = new Date(formData.date);
+      combinedDateTime.setHours(formData.time.getHours());
+      combinedDateTime.setMinutes(formData.time.getMinutes());
+      combinedDateTime.setSeconds(formData.time.getSeconds());
+
+      await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), {
+        ...formData,
+        date: Timestamp.fromDate(combinedDateTime),
+        time: Timestamp.fromDate(combinedDateTime), // Store combined date and time in both fields for consistency
+        startTime: Timestamp.fromDate(combinedDateTime), // For tracking purposes if needed
+        status: 'completed', // Manual entries are completed
+        userId: currentUser.uid,
+        attackDuration: null, // Default for manual, can be updated later
+        prodromes: formData.prodromes, // Ensure prodromes are saved
+      });
+      setLoading(false);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error recording manual entry:', err);
+      setError(err.message || 'Failed to record manual entry.');
+      setLoading(false);
     }
   };
 
-  // MAIN SELECTION SCREEN
-  if (mode === 'selection') {
+  const updateHeadacheSession = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      if (!currentUser || !activeHeadacheSession) {
+        throw new Error("No active headache session or user not authenticated.");
+      }
+
+      // Logic to update active session (e.g., end time, notes, etc.)
+      // This is a placeholder; you'd likely fetch the existing session and update it.
+      console.log("Updating active headache session:", activeHeadacheSession);
+      setLoading(false);
+      setMode('summary'); // Move to summary after updating
+    } catch (err) {
+      console.error('Error updating headache session:', err);
+      setError(err.message || 'Failed to update headache session.');
+      setLoading(false);
+    }
+  };
+
+  const handleEditSave = async () => {
+    setEditLoading(true);
+    setError('');
+    try {
+      if (!currentUser || !recordId) {
+        throw new Error("Record ID missing or user not authenticated for edit.");
+      }
+
+      const recordRef = doc(db, 'users', currentUser.uid, 'headaches', recordId);
+
+      const updatedFormData = {
+        ...formData,
+        date: Timestamp.fromDate(formData.date),
+        time: Timestamp.fromDate(formData.time),
+      };
+
+      // Firestore update operation (replace with actual update method)
+      // await updateDoc(recordRef, updatedFormData); // Uncomment and use updateDoc
+
+      console.log('Record updated successfully (simulated):', updatedFormData);
+      setEditLoading(false);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error saving edit:', err);
+      setError(err.message || 'Failed to save changes.');
+      setEditLoading(false);
+    }
+  };
+
+  const handleDelete = async (typeToDelete, idToDelete) => {
+    setEditLoading(true);
+    setError('');
+    try {
+      if (!currentUser || !idToDelete) {
+        throw new Error("ID missing or user not authenticated for delete.");
+      }
+
+      const collectionPath = `users/${currentUser.uid}/${typeToDelete === 'headache' ? 'headaches' : 'prodromes'}`;
+      const recordRef = doc(db, collectionPath, idToDelete);
+      await deleteDoc(recordRef);
+
+      setEditLoading(false);
+      setDeleteConfirm(null); // Close confirmation modal
+      navigate('/dashboard'); // Go back to dashboard after deletion
+    } catch (err) {
+      console.error('Error deleting record:', err);
+      setError(err.message || 'Failed to delete record.');
+      setEditLoading(false);
+    }
+  };
+
+  const handleAddProdrome = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      if (!currentUser || !formData.prodromes.length) {
+        throw new Error("No prodromes selected or user not authenticated.");
+      }
+      await addDoc(collection(db, 'users', currentUser.uid, 'prodromes'), {
+        prodromes: formData.prodromes,
+        timestamp: Timestamp.now(),
+        userId: currentUser.uid,
+      });
+      setLoading(false);
+      setMode('active-headache'); // Go back to active headache view
+    } catch (err) {
+      console.error('Error adding prodrome:', err);
+      setError(err.message || 'Failed to add prodrome.');
+      setLoading(false);
+    }
+  };
+
+  const getHeadacheImage = (type) => {
+    switch (type) {
+      case 'Migraine': return migrainerHeadacheImg;
+      case 'Tension': return tensionHeadacheImg;
+      case 'Cluster': return clusterHeadacheImg;
+      case 'Sinus': return sinusHeadacheImg;
+      case 'Caffeine Withdrawal': return caffeineHeadacheImg;
+      case 'Hormone': return hormoneHeadacheImg;
+      case 'Rebound': return reboundHeadacheImg;
+      case 'Exertion': return exertionHeadacheImg;
+      default: return null;
+    }
+  };
+
+  if (mode === 'edit-mode') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#F8FAFC',
-        color: '#1E293B',
-        padding: '20px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <link 
-          rel="stylesheet" 
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
-          crossOrigin="anonymous" 
-          referrerPolicy="no-referrer" 
-        />
-
-        <div style={{ maxWidth: '500px', width: '100%' }}>
-          {/* Dev Toggle */}
-          <div style={{
-            position: 'fixed',
-            top: '10px',
-            right: '10px',
-            background: '#fff',
-            padding: '10px',
-            borderRadius: '8px',
-            border: '1px solid #ddd',
-            fontSize: '0.8rem'
-          }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input
-                type="checkbox"
-                checked={isPremiumMode}
-                onChange={(e) => setIsPremiumMode(e.target.checked)}
-              />
-              {isPremiumMode ? '💎 Premium Mode' : '🆓 Free Mode'}
-            </label>
-          </div>
-
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <h1 style={{
-              margin: '0 0 1rem 0',
-              fontSize: '2rem',
-              fontWeight: 'bold',
-              color: '#1E3A8A'
-            }}>
-              <i className="fas fa-head-side-virus" style={{ marginRight: '0.5rem' }}></i>
-              Headache Tracker
-            </h1>
-            <p style={{ color: '#6B7280', fontSize: '1.1rem', margin: 0 }}>
-              Record in seconds with auto-timer
-            </p>
-          </div>
-
-          {/* Ongoing Session Alert */}
-          {ongoingSession && (
-            <div style={{
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '2px solid #F87171',
-              borderRadius: '16px',
-              padding: '1.5rem',
-              marginBottom: '2rem',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#F87171' }}>
-                <i className="fas fa-exclamation-triangle"></i>
-              </div>
-              <h4 style={{ color: '#F87171', margin: '0 0 0.5rem 0' }}>
-                Headache in Progress
-              </h4>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#F87171', marginBottom: '0.5rem' }}>
-                Duration: {formatDuration(ongoingSession.startTime)}
-              </div>
-              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.9rem' }}>
-                Pain Level: {ongoingSession.painLevel}/10 • Type: {ongoingSession.location}
-                {ongoingSession.isMigrineAttack && (
-                  <span style={{ color: '#DC3545', fontWeight: 'bold' }}> • Migraine Attack</span>
-                )}
-              </p>
-            </div>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <div style={{
-              background: '#f8d7da',
-              border: '1px solid #dc3545',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '2rem',
-              color: '#721c24',
-              textAlign: 'center'
-            }}>
-              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-              {error}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '1.5rem',
-            marginBottom: '2rem'
-          }}>
-            <button
-              onClick={() => setMode('start-headache')}
-              disabled={loading || ongoingSession}
-              style={{
-                padding: '2rem 1rem',
-                background: ongoingSession 
-                  ? '#F3F4F6' 
-                  : 'linear-gradient(135deg, #F87171, #EF4444)',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: ongoingSession || loading ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease',
-                textAlign: 'center',
-                color: 'white',
-                boxShadow: ongoingSession ? 'none' : '0 4px 12px rgba(248, 113, 113, 0.2)',
-                opacity: ongoingSession ? 0.6 : 1
-              }}
+      <div style={{ padding: '2rem', maxWidth: '600px', margin: '2rem auto', background: 'white', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: '#333' }}>Edit Headache Record</h2>
+        <form onSubmit={handleEditSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Headache Type */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Headache Type:
+            <select
+              name="type"
+              value={formData.type}
+              onChange={handleChange}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
             >
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
-                <i className="fas fa-play"></i>
-              </div>
-              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
-                I Have a Headache
-              </h3>
-              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
-                Start auto-timer tracking
-              </div>
-            </button>
+              <option value="">Select Type</option>
+              {headacheTypes.map((ht) => (
+                <option key={ht.name} value={ht.name}>{ht.name}</option>
+              ))}
+            </select>
+          </label>
 
-            <button
-              onClick={() => setMode('end-headache')}
-              disabled={loading || !ongoingSession}
-              style={{
-                padding: '2rem 1rem',
-                background: !ongoingSession 
-                  ? '#F3F4F6' 
-                  : 'linear-gradient(135deg, #34D399, #10B981)',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: !ongoingSession || loading ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease',
-                textAlign: 'center',
-                color: 'white',
-                boxShadow: !ongoingSession ? 'none' : '0 4px 12px rgba(52, 211, 153, 0.2)',
-                opacity: !ongoingSession ? 0.6 : 1
-              }}
-            >
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
-                <i className="fas fa-stop"></i>
-              </div>
-              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
-                Headache Ended
-              </h3>
-              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
-                Complete current session
-              </div>
-            </button>
-
-            <button
-              onClick={() => setMode('manual-entry')}
-              disabled={loading}
-              style={{
-                padding: '2rem 1rem',
-                background: 'linear-gradient(135deg, #FBBF24, #F59E0B)',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease',
-                textAlign: 'center',
-                color: 'white',
-                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.2)'
-              }}
-            >
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
-                <i className="fas fa-edit"></i>
-              </div>
-              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
-                Manual Entry
-              </h3>
-              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
-                Log past headache
-              </div>
-            </button>
-          </div>
-
-          {/* Premium Teaser */}
-          {!isPremiumMode && (
-            <div style={{
-              background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              textAlign: 'center',
-              color: 'white',
-              marginBottom: '2rem'
-            }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                <i className="fas fa-crown"></i>
-              </div>
-              <h4 style={{ margin: '0 0 0.5rem 0' }}>Unlock Premium Features</h4>
-              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
-                Prodrome tracking, advanced analytics, triggers, AI insights & more
-              </p>
-            </div>
-          )}
-
-          {/* Back to Dashboard */}
-          <div style={{ textAlign: 'center' }}>
-            <Link
-              to="/dashboard"
-              style={{
-                background: 'transparent',
-                border: '1px solid #F3F4F6',
-                borderRadius: '8px',
-                color: '#6B7280',
-                padding: '8px 16px',
-                textDecoration: 'none',
-                fontSize: '0.9rem',
-                display: 'inline-flex',
-                alignItems: 'center'
-              }}
-            >
-              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // START HEADACHE FLOW
-  if (mode === 'start-headache') {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#F9FAFB',
-        color: '#000000',
-        padding: '20px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{ maxWidth: '500px', width: '100%' }}>
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h2 style={{ color: '#EF4444', marginBottom: '1rem' }}>
-              <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
-              Starting Headache Tracking
-            </h2>
-          </div>
-
-          {/* Pain Level Slider */}
-          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-            <h3 style={{ color: '#1E40AF', marginBottom: '1rem' }}>Current Pain Level</h3>
-            <div style={{
-              fontSize: '3rem',
-              marginBottom: '1rem',
-              color: getPainLevelColor(formData.painLevel)
-            }}>
-              {formData.painLevel}/10
-            </div>
-            <div style={{
-              fontSize: '1.2rem',
-              marginBottom: '1.5rem',
-              color: getPainLevelColor(formData.painLevel),
-              fontWeight: '600'
-            }}>
-              {getPainLevelText(formData.painLevel)}
-            </div>
+          {/* Location */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Location:
             <input
-              type="range"
+              type="text"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            />
+          </label>
+
+          {/* Intensity */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Intensity (1-10):
+            <input
+              type="number"
+              name="intensity"
+              value={formData.intensity}
+              onChange={handleChange}
               min="1"
               max="10"
-              value={formData.painLevel}
-              onChange={(e) => handlePainLevelChange(parseInt(e.target.value))}
-              style={{
-                width: '100%',
-                height: '12px',
-                borderRadius: '6px',
-                background: 'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
-                outline: 'none',
-                cursor: 'pointer',
-                marginBottom: '1rem'
-              }}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
             />
-          </div>
+          </label>
 
-          {/* Headache Type Selector */}
-          <HeadacheTypeSelector
-            headacheTypes={headacheTypes}
-            currentSlide={currentSlide}
-            setCurrentSlide={setCurrentSlide}
-            selectedType={formData.location}
-            onTypeSelect={handleTypeSelect}
-          />
-
-          {/* Migraine Attack Toggle */}
-          <MigrineAttackToggle />
-
-          {/* Premium Prodrome Tracking */}
-          {isPremiumMode && (
-            <PremiumProdromeTracker
-              selectedProdromeSymptoms={formData.prodromeSymptoms}
-              onProdromeChange={handleProdromeChange}
-              timeframe="in the last 24 hours"
-            />
-          )}
-
-          {error && (
-            <div style={{
-              background: '#f8d7da',
-              border: '1px solid #dc3545',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '1rem',
-              color: '#721c24',
-              textAlign: 'center'
-            }}>
-              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-              {error}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <button
-              onClick={() => setMode('selection')}
-              style={{
-                background: 'transparent',
-                border: '1px solid #E5E7EB',
-                borderRadius: '8px',
-                color: '#4B5563',
-                padding: '12px 20px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
-              Back
-            </button>
-            
-            <button
-              onClick={endHeadacheSession}
-              disabled={loading}
-              style={{
-                background: loading ? '#E5E7EB' : '#10B981',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                padding: '12px 24px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                fontWeight: '600'
-              }}
-            >
-              {loading ? (
-                <>
-                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>
-                  Complete & Save
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // MANUAL ENTRY MODE
-  if (mode === 'manual-entry') {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#F9FAFB',
-        color: '#000000',
-        padding: '20px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{ maxWidth: '500px', width: '100%' }}>
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h2 style={{ color: '#ffc107', marginBottom: '1rem' }}>
-              <i className="fas fa-edit" style={{ marginRight: '0.5rem' }}></i>
-              {isEditMode ? 'Edit Headache' : 'Manual Headache Entry'}
-            </h2>
-            <p style={{ color: '#9CA3AF', fontSize: '1rem', margin: 0 }}>
-              {isEditMode ? 'Modify existing headache data' : 'Log past headache'}
-            </p>
-          </div>
-
-          {/* Date Selector */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-              <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
-              Date of Headache
-            </h4>
+          {/* Date and Time */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Date:
             <input
               type="date"
-              value={formData.date}
-              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-              max={new Date().toISOString().split('T')[0]}
-              style={{
-                width: '100%',
-                maxWidth: '200px',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #E5E7EB',
-                background: '#FFFFFF',
-                color: '#000000',
-                fontSize: '1rem'
-              }}
+              name="date"
+              value={formData.date.toISOString().split('T')[0]}
+              onChange={handleChange}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
             />
-            {prefilledDate && (
-              <p style={{ 
-                margin: '0.5rem 0 0 0', 
-                fontSize: '0.85rem', 
-                color: '#6B7280',
-                fontStyle: 'italic'
-              }}>
-                <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
-                Date selected from calendar
-              </p>
-            )}
-          </div>
-
-          {/* Pain Level Slider */}
-          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-            <h3 style={{ color: '#4682B4', marginBottom: '1rem' }}>Pain Level</h3>
-            <div style={{
-              fontSize: '3rem',
-              marginBottom: '1rem',
-              color: getPainLevelColor(formData.painLevel)
-            }}>
-              {formData.painLevel}/10
-            </div>
-            <div style={{
-              fontSize: '1.2rem',
-              marginBottom: '1.5rem',
-              color: getPainLevelColor(formData.painLevel),
-              fontWeight: '600'
-            }}>
-              {getPainLevelText(formData.painLevel)}
-            </div>
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Time:
             <input
-              type="range"
-              min="1"
-              max="10"
-              value={formData.painLevel}
-              onChange={(e) => handlePainLevelChange(parseInt(e.target.value))}
-              style={{
-                width: '100%',
-                height: '12px',
-                borderRadius: '6px',
-                background: 'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
-                outline: 'none',
-                cursor: 'pointer',
-                marginBottom: '1rem'
-              }}
+              type="time"
+              name="time"
+              value={`${String(formData.time.getHours()).padStart(2, '0')}:${String(formData.time.getMinutes()).padStart(2, '0')}`}
+              onChange={handleChange}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
             />
-          </div>
+          </label>
 
-          {/* Headache Type Selector */}
-          <HeadacheTypeSelector
-            headacheTypes={headacheTypes}
-            currentSlide={currentSlide}
-            setCurrentSlide={setCurrentSlide}
-            selectedType={formData.location}
-            onTypeSelect={handleTypeSelect}
-          />
+          {/* Symptoms */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Symptoms:
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+              {symptomOptions.map((symptom) => (
+                <div key={symptom} style={{ display: 'flex', alignItems: 'center', background: '#F3F4F6', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="symptoms"
+                    value={symptom}
+                    checked={formData.symptoms.includes(symptom)}
+                    onChange={handleChange}
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.9rem', color: '#333' }}>{symptom}</span>
+                </div>
+              ))}
+            </div>
+          </label>
 
-          {/* Migraine Attack Toggle */}
-          <MigrineAttackToggle />
+          {/* Triggers */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Triggers:
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+              {triggerOptions.map((trigger) => (
+                <div key={trigger} style={{ display: 'flex', alignItems: 'center', background: '#F3F4F6', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="triggers"
+                    value={trigger}
+                    checked={formData.triggers.includes(trigger)}
+                    onChange={handleChange}
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.9rem', color: '#333' }}>{trigger}</span>
+                </div>
+              ))}
+            </div>
+          </label>
 
-          {/* Premium Prodrome Tracking for Manual Entry */}
-          {isPremiumMode && (
-            <PremiumProdromeTracker
-              selectedProdromeSymptoms={formData.prodromeSymptoms}
-              onProdromeChange={handleProdromeChange}
-              timeframe="before this headache"
+          {/* Medication */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Medication:
+            <input
+              type="text"
+              name="medication"
+              value={formData.medication}
+              onChange={handleChange}
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
             />
-          )}
+          </label>
 
           {/* Notes */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-              Notes about this headache (optional)
-            </h4>
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Notes:
             <textarea
+              name="notes"
               value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Duration, triggers, what helped, etc..."
-              rows="3"
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #E5E7EB',
-                background: '#FFFFFF',
-                color: '#000000',
-                fontSize: '1rem',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
+              onChange={handleChange}
+              rows="4"
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem', resize: 'vertical' }}
+            ></textarea>
+          </label>
+
+          {/* Prodromes */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Prodromes:
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+              {prodromeOptions.map((prodrome) => (
+                <div key={prodrome} style={{ display: 'flex', alignItems: 'center', background: '#F3F4F6', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="prodromes"
+                    value={prodrome}
+                    checked={formData.prodromes.includes(prodrome)}
+                    onChange={handleChange}
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.9rem', color: '#333' }}>{prodrome}</span>
+                </div>
+              ))}
+            </div>
+          </label>
+
+          {/* Attack Duration */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Attack Duration (minutes, if completed):
+            <input
+              type="number"
+              name="attackDuration"
+              value={formData.attackDuration || ''}
+              onChange={handleChange}
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
             />
-          </div>
+          </label>
 
-          {/* Premium Teaser */}
-          {!isPremiumMode && (
-            <div style={{
-              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              textAlign: 'center',
-              color: 'white',
-              marginBottom: '2rem'
-            }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                <i className="fas fa-crown"></i>
-              </div>
-              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Advanced Headache Tracking</h4>
-              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
-                Track prodrome symptoms, triggers, detailed analytics & more
-              </p>
-            </div>
-          )}
+          {/* Pain Description */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Pain Description:
+            <input
+              type="text"
+              name="painDescription"
+              value={formData.painDescription}
+              onChange={handleChange}
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            />
+          </label>
 
-          {/* Status Messages */}
-          {(error || editError || editStatusMessage) && (
-            <div style={{ marginBottom: '2rem' }}>
-              {(error || editError) && (
-                <div style={{
-                  background: '#f8d7da',
-                  border: '1px solid #dc3545',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  marginBottom: '1rem',
-                  color: '#721c24',
-                  textAlign: 'center'
-                }}>
-                  <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-                  {error || editError}
-                </div>
-              )}
-
-              {editStatusMessage && (
-                <div style={{
-                  background: '#d4edda',
-                  border: '1px solid #28a745',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  marginBottom: '1rem',
-                  color: '#155724',
-                  textAlign: 'center'
-                }}>
-                  <i className="fas fa-check-circle" style={{ marginRight: '0.5rem' }}></i>
-                  {editStatusMessage}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <button
-              onClick={() => setMode('selection')}
-              style={{
-                background: 'transparent',
-                border: '1px solid #E5E7EB',
-                borderRadius: '8px',
-                color: '#4B5563',
-                padding: '12px 20px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
+          {/* Migraine Phase */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Migraine Phase:
+            <select
+              name="migrainePhase"
+              value={formData.migrainePhase}
+              onChange={handleChange}
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
             >
-              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
-              Back
-            </button>
-            
-            <button
-              onClick={submitManualEntry}
-              disabled={loading || editLoading || !formData.location}
-              style={{
-                background: (loading || editLoading || !formData.location) ? '#E5E7EB' : '#ffc107',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                padding: '12px 24px',
-                cursor: (loading || editLoading || !formData.location) ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                fontWeight: '600'
-              }}
-            >
-              {(loading || editLoading) ? (
-                <>
-                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>
-                  {isEditMode ? 'Update Headache' : 'Save Headache'}
-                </>
-              )}
-            </button>
+              <option value="prodrome">Prodrome</option>
+              <option value="aura">Aura</option>
+              <option value="attack">Attack</option>
+              <option value="postdrome">Postdrome</option>
+            </select>
+          </label>
 
-            {/* Delete button for edit mode */}
-            {isEditMode && (
+          {error && <div style={{ color: '#DC2626', textAlign: 'center', marginBottom: '1rem' }}>{error}</div>}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+            <Link to="/dashboard" style={{ textDecoration: 'none' }}>
               <button
-                onClick={handleDelete}
-                disabled={loading || editLoading}
+                type="button"
+                disabled={editLoading}
                 style={{
-                  background: (loading || editLoading) ? '#F87171' : '#DC2626',
-                  border: 'none',
+                  background: 'transparent',
+                  border: '1px solid #E5E7EB',
                   borderRadius: '8px',
-                  color: 'white',
+                  color: '#4B5563',
                   padding: '12px 24px',
-                  cursor: (loading || editLoading) ? 'not-allowed' : 'pointer',
+                  cursor: editLoading ? 'not-allowed' : 'pointer',
                   fontSize: '1rem',
                   fontWeight: '600'
                 }}
               >
-                {(loading || editLoading) ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
-                    Delete
-                  </>
-                )}
+                Cancel
               </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
-}',
-                padding: '12px 20px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
-              Back
-            </button>
-            
+            </Link>
             <button
-              onClick={startHeadacheSession}
-              disabled={loading || !formData.location}
+              type="submit"
+              disabled={editLoading}
               style={{
-                background: (loading || !formData.location) ? '#E5E7EB' : '#EF4444',
+                background: editLoading ? '#9CA3AF' : '#2563EB',
                 border: 'none',
                 borderRadius: '8px',
                 color: 'white',
                 padding: '12px 24px',
-                cursor: (loading || !formData.location) ? 'not-allowed' : 'pointer',
+                cursor: editLoading ? 'not-allowed' : 'pointer',
                 fontSize: '1rem',
                 fontWeight: '600'
               }}
             >
-              {loading ? (
+              {editLoading ? (
                 <>
                   <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
-                  Starting...
+                  Saving...
                 </>
               ) : (
                 <>
-                  <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
-                  Start Tracking
+                  <i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>
+                  Save Changes
                 </>
               )}
             </button>
           </div>
-        </div>
+
+          {/* Delete button for edit mode */}
+          {isEditMode && (
+            <button
+              onClick={() => setDeleteConfirm({ type: 'headache', id: recordId })}
+              disabled={editLoading}
+              style={{
+                background: editLoading ? '#F87171' : '#DC2626',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: editLoading ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600',
+                marginTop: '1rem'
+              }}
+            >
+              {editLoading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
+                  Delete Record
+                </>
+              )}
+            </button>
+          )}
+        </form>
+
+        {deleteConfirm && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          }}>
+            <div style={{
+              background: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
+              maxWidth: '400px', width: '90%', textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#333', marginBottom: '1rem' }}>Confirm Deletion</h3>
+              <p style={{ color: '#555', marginBottom: '2rem' }}>Are you sure you want to delete this record? This action cannot be undone.</p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    color: '#4B5563',
+                    padding: '10px 20px',
+                    cursor: 'pointer',
+                    fontSize: '1rem'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDelete(deleteConfirm.type, deleteConfirm.id)}
+                  style={{
+                    background: '#DC2626',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: 'white',
+                    padding: '10px 20px',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: '600'
+                  }}
+                >
+                  <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // ACTIVE HEADACHE - Timer Running
-  if (mode === 'active-headache') {
+  if (mode === 'selection') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#F9FAFB',
-        color: '#000000',
-        padding: '20px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{ maxWidth: '500px', width: '100%' }}>
-          {/* Active Session Display */}
+      <div style={{ padding: '2rem', maxWidth: '800px', margin: '2rem auto', background: 'white', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: '#333' }}>Record a Headache</h2>
+
+        {error && (
           <div style={{
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '2px solid #F87171',
-            borderRadius: '16px',
-            padding: '2rem',
-            textAlign: 'center',
-            marginBottom: '2rem'
+            background: '#f8d7da',
+            border: '1px solid #dc3545',
+            borderRadius: '8px',
+            padding: '12px',
+            marginBottom: '1rem',
+            color: '#721c24',
+            textAlign: 'center'
           }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#F87171' }}>
-              <i className="fas fa-stopwatch"></i>
-            </div>
-            <h2 style={{ color: '#F87171', margin: '0 0 1rem 0' }}>
-              Headache in Progress
-            </h2>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#F87171', marginBottom: '0.5rem' }}>
-              {ongoingSession && formatDuration(ongoingSession.startTime)}
-            </div>
-            <div style={{ color: '#4B5563', fontSize: '1rem' }}>
-              <div>Pain Level: {ongoingSession?.painLevel}/10</div>
-              <div>Type: {ongoingSession?.location}</div>
-              {ongoingSession?.isMigrineAttack && (
-                <div style={{ color: '#DC3545', fontWeight: 'bold' }}>
-                  <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-                  Migraine Attack
-                </div>
-              )}
-              <div>Started: {ongoingSession?.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-            </div>
+            <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+            {error}
           </div>
+        )}
 
-          {/* Premium Features Preview */}
-          {isPremiumMode && (
-            <div style={{
-              background: '#FFFFFF',
-              border: '1px solid #E5E7EB',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              marginBottom: '2rem'
-            }}>
-              <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-                <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
-                Track symptoms (optional)
-              </h4>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                gap: '0.5rem'
-              }}>
-                {currentSymptoms.slice(0, 6).map(symptom => (
-                  <label key={symptom} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.75rem',
-                    background: formData.currentSymptoms.includes(symptom) ? 'rgba(220, 53, 69, 0.1)' : '#F9FAFB',
-                    border: formData.currentSymptoms.includes(symptom) ? '1px solid #dc3545' : '1px solid #E5E7EB',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={formData.currentSymptoms.includes(symptom)}
-                      onChange={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          currentSymptoms: prev.currentSymptoms.includes(symptom)
-                            ? prev.currentSymptoms.filter(s => s !== symptom)
-                            : [...prev.currentSymptoms, symptom]
-                        }));
-                      }}
-                      style={{ transform: 'scale(0.8)' }}
-                    />
-                    {symptom}
-                  </label>
-                ))}
-              </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.5rem' }}>
+          {headacheTypes.map((type) => (
+            <div
+              key={type.name}
+              onClick={() => handleHeadacheTypeSelect(type.name)}
+              style={{
+                background: '#F9FAFB',
+                padding: '1.5rem',
+                borderRadius: '12px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                ':hover': {
+                  transform: 'translateY(-5px)',
+                  boxShadow: '0 6px 16px rgba(0,0,0,0.1)'
+                }
+              }}
+            >
+              {type.img && <img src={type.img} alt={type.name} style={{ width: '60px', height: '60px', marginBottom: '1rem' }} />}
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#333', fontSize: '1.1rem' }}>{type.name}</h3>
+              <p style={{ margin: '0', fontSize: '0.85rem', color: '#666' }}>{type.description}</p>
             </div>
-          )}
+          ))}
+        </div>
 
-          {/* Premium Teaser for Free Users */}
-          {!isPremiumMode && (
-            <div style={{
-              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              textAlign: 'center',
-              color: 'white',
-              marginBottom: '2rem'
-            }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                <i className="fas fa-crown"></i>
-              </div>
-              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Real-time Symptom Tracking</h4>
-              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
-                Track symptoms during headaches for better pattern recognition
-              </p>
-            </div>
-          )}
-
-          {error && (
-            <div style={{
-              background: '#f8d7da',
-              border: '1px solid #dc3545',
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2.5rem' }}>
+          <button
+            onClick={() => setMode('manual-entry')}
+            style={{
+              background: '#4CAF50',
+              border: 'none',
               borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '1rem',
-              color: '#721c24',
-              textAlign: 'center'
-            }}>
-              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-              {error}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              color: 'white',
+              padding: '12px 24px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '600'
+            }}
+          >
+            <i className="fas fa-edit" style={{ marginRight: '0.5rem' }}></i>
+            Manual Entry
+          </button>
+          <Link to="/dashboard" style={{ textDecoration: 'none' }}>
             <button
-              onClick={() => setMode('selection')}
               style={{
                 background: 'transparent',
                 border: '1px solid #E5E7EB',
                 borderRadius: '8px',
                 color: '#4B5563',
-                padding: '12px 20px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
-              Back
-            </button>
-            
-            <button
-              onClick={() => setMode('end-headache')}
-              style={{
-                background: '#10B981',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
                 padding: '12px 24px',
                 cursor: 'pointer',
                 fontSize: '1rem',
                 fontWeight: '600'
               }}
             >
-              <i className="fas fa-stop" style={{ marginRight: '0.5rem' }}></i>
-              End Headache
+              <i className="fas fa-times" style={{ marginRight: '0.5rem' }}></i>
+              Cancel
             </button>
-          </div>
+          </Link>
         </div>
       </div>
     );
   }
 
-  // END HEADACHE FLOW
-  if (mode === 'end-headache') {
+  if (mode === 'active-headache') {
+    const selectedHeadache = headacheTypes.find(h => h.name === formData.type);
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#F9FAFB',
-        color: '#000000',
-        padding: '20px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{ maxWidth: '500px', width: '100%' }}>
-          {/* Session Summary */}
+      <div style={{ padding: '2rem', maxWidth: '600px', margin: '2rem auto', background: 'white', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: '#333' }}>Active {formData.type} Headache Session</h2>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          {selectedHeadache?.img && (
+            <img src={selectedHeadache.img} alt={selectedHeadache.name} style={{ width: '80px', height: '80px', marginBottom: '0.5rem' }} />
+          )}
+          <p style={{ fontSize: '1rem', color: '#666', margin: '0' }}>Location: {formData.location}</p>
+          <p style={{ fontSize: '1rem', color: '#666', margin: '0' }}>Intensity: {formData.intensity}/10</p>
+        </div>
+
+        {error && (
           <div style={{
-            background: 'rgba(16, 185, 129, 0.1)',
-            border: '2px solid #10B981',
-            borderRadius: '16px',
-            padding: '2rem',
-            textAlign: 'center',
-            marginBottom: '2rem'
+            background: '#f8d7da',
+            border: '1px solid #dc3545',
+            borderRadius: '8px',
+            padding: '12px',
+            marginBottom: '1rem',
+            color: '#721c24',
+            textAlign: 'center'
           }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#10B981' }}>
-              <i className="fas fa-flag-checkered"></i>
+            <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Prodrome Tracking */}
+          <div
+            onClick={() => setShowProdromeInput(!showProdromeInput)}
+            style={{
+              background: '#F9FAFB',
+              padding: '1rem',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+              transition: 'background 0.2s'
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: '1rem', color: '#333' }}>Record Prodromes (Premium)</h3>
+            <i className={`fas ${showProdromeInput ? 'fa-chevron-up' : 'fa-chevron-down'}`} style={{ color: '#666' }}></i>
+          </div>
+          {showProdromeInput && (
+            <div style={{ background: '#F0F4F8', padding: '1rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <PremiumProdromeTracker
+                prodromeOptions={prodromeOptions}
+                selectedProdromes={formData.prodromes}
+                onProdromeChange={(e) => handleChange({ target: { name: 'prodromes', value: e.target.value, type: 'checkbox', checked: e.target.checked } })}
+              />
+              <button
+                onClick={handleAddProdrome}
+                disabled={loading || !formData.prodromes.length}
+                style={{
+                  background: (loading || !formData.prodromes.length) ? '#9CA3AF' : '#60A5FA',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: 'white',
+                  padding: '10px 20px',
+                  cursor: (loading || !formData.prodromes.length) ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  marginTop: '0.5rem'
+                }}
+              >
+                {loading ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                    Adding Prodromes...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-plus" style={{ marginRight: '0.5rem' }}></i>
+                    Add Selected Prodromes
+                  </>
+                )}
+              </button>
             </div>
-            <h2 style={{ color: '#10B981', margin: '0 0 1rem 0' }}>
-              Headache Complete!
-            </h2>
-            {ongoingSession && (
+          )}
+
+          {/* Other options (Symptoms, Triggers, Medication, Notes) - expandable sections */}
+          <div
+            onClick={() => setShowSymptomsInput(!showSymptomsInput)}
+            style={{
+              background: '#F9FAFB',
+              padding: '1rem',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+              transition: 'background 0.2s'
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: '1rem', color: '#333' }}>Add Symptoms</h3>
+            <i className={`fas ${showSymptomsInput ? 'fa-chevron-up' : 'fa-chevron-down'}`} style={{ color: '#666' }}></i>
+          </div>
+          {showSymptomsInput && (
+            <div style={{ background: '#F0F4F8', padding: '1rem', borderRadius: '8px', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {symptomOptions.map((symptom) => (
+                <div key={symptom} style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="symptoms"
+                    value={symptom}
+                    checked={formData.symptoms.includes(symptom)}
+                    onChange={handleChange}
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.9rem', color: '#333' }}>{symptom}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div
+            onClick={() => setShowTriggersInput(!showTriggersInput)}
+            style={{
+              background: '#F9FAFB',
+              padding: '1rem',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+              transition: 'background 0.2s'
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: '1rem', color: '#333' }}>Add Triggers</h3>
+            <i className={`fas ${showTriggersInput ? 'fa-chevron-up' : 'fa-chevron-down'}`} style={{ color: '#666' }}></i>
+          </div>
+          {showTriggersInput && (
+            <div style={{ background: '#F0F4F8', padding: '1rem', borderRadius: '8px', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {triggerOptions.map((trigger) => (
+                <div key={trigger} style={{ display: 'flex', alignItems: 'center', background: 'white', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="triggers"
+                    value={trigger}
+                    checked={formData.triggers.includes(trigger)}
+                    onChange={handleChange}
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.9rem', color: '#333' }}>{trigger}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Medication Input */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Medication Taken:
+            <input
+              type="text"
+              name="medication"
+              value={formData.medication}
+              onChange={handleChange}
+              placeholder="e.g., Ibuprofen, Sumatriptan"
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            />
+          </label>
+
+          {/* Notes Input */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Notes:
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              rows="3"
+              placeholder="Any additional details..."
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem', resize: 'vertical' }}
+            ></textarea>
+          </label>
+
+          {/* End Headache Button */}
+          <button
+            onClick={updateHeadacheSession}
+            disabled={loading}
+            style={{
+              background: loading ? '#9CA3AF' : '#22C55E',
+              border: 'none',
+              borderRadius: '8px',
+              color: 'white',
+              padding: '15px 24px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '1.1rem',
+              fontWeight: '600',
+              marginTop: '1.5rem'
+            }}
+          >
+            {loading ? (
               <>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10B981', marginBottom: '0.5rem' }}>
-                  Duration: {formatDuration(ongoingSession.startTime)}
-                </div>
-                <div style={{ color: '#4B5563', fontSize: '1rem' }}>
-                  Type: {ongoingSession.location}
-                  <br />
-                  Pain Level: {ongoingSession.painLevel}/10
-                  {ongoingSession.isMigrineAttack && (
-                    <>
-                      <br />
-                      <span style={{ color: '#DC3545', fontWeight: 'bold' }}>
-                        <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-                        Migraine Attack
-                      </span>
-                    </>
-                  )}
-                  <br />
-                  Started: {ongoingSession.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
+                <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                Ending Headache...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-check-circle" style={{ marginRight: '0.5rem' }}></i>
+                End Headache Session
               </>
             )}
-          </div>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-          {/* Premium Prodrome Review */}
-          {isPremiumMode && ongoingSession?.prodromeSymptoms?.length > 0 && (
-            <div style={{
-              background: 'rgba(255, 215, 0, 0.1)',
-              border: '1px solid rgba(255, 215, 0, 0.3)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              marginBottom: '2rem'
-            }}>
-              <h4 style={{ color: '#B8860B', margin: '0 0 1rem 0' }}>
-                <i className="fas fa-crown" style={{ marginRight: '0.5rem' }}></i>
-                Prodrome Symptoms Tracked
-              </h4>
-              <p style={{ margin: '0 0 1rem 0', color: '#4B5563', fontSize: '0.9rem' }}>
-                You reported {ongoingSession.prodromeSymptoms.length} warning signs before this headache:
-              </p>
-              <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>
-                This data helps identify your personal headache patterns for better prevention.
-              </div>
-            </div>
-          )}
-
-          {/* Quick notes (optional) */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-              Any notes about this headache? (optional)
-            </h4>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="What helped? What made it worse? Any observations..."
-              rows="3"
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #E5E7EB',
-                background: '#FFFFFF',
-                color: '#000000',
-                fontSize: '1rem',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
+  if (mode === 'manual-entry') {
+    return (
+      <div style={{ padding: '2rem', maxWidth: '600px', margin: '2rem auto', background: 'white', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', color: '#333' }}>Record Manual Entry</h2>
+        <form onSubmit={(e) => { e.preventDefault(); recordManualEntry(); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Date and Time Pickers */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Date:
+            <input
+              type="date"
+              name="date"
+              value={formData.date.toISOString().split('T')[0]}
+              onChange={handleChange}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
             />
-          </div>
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Time:
+            <input
+              type="time"
+              name="time"
+              value={`${String(formData.time.getHours()).padStart(2, '0')}:${String(formData.time.getMinutes()).padStart(2, '0')}`}
+              onChange={handleChange}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            />
+          </label>
 
-          {/* Premium Features for End Session */}
-          {isPremiumMode && (
-            <div style={{
-              background: '#FFFFFF',
-              border: '1px solid #E5E7EB',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              marginBottom: '2rem'
-            }}>
-              <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
-                <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
-                What might have triggered this headache?
-              </h4>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                gap: '0.5rem'
-              }}>
-                {commonTriggers.slice(0, 8).map(trigger => (
-                  <label key={trigger} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.75rem',
-                    background: formData.triggers.includes(trigger) ? 'rgba(255, 193, 7, 0.1)' : '#F9FAFB',
-                    border: formData.triggers.includes(trigger) ? '1px solid #ffc107' : '1px solid #E5E7EB',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={formData.triggers.includes(trigger)}
-                      onChange={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          triggers: prev.triggers.includes(trigger)
-                            ? prev.triggers.filter(t => t !== trigger)
-                            : [...prev.triggers, trigger]
-                        }));
-                      }}
-                      style={{ transform: 'scale(0.8)' }}
-                    />
-                    {trigger}
-                  </label>
-                ))}
-              </div>
+          {/* Headache Type */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Headache Type:
+            <select
+              name="type"
+              value={formData.type}
+              onChange={handleChange}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            >
+              <option value="">Select Type</option>
+              {headacheTypes.map((ht) => (
+                <option key={ht.name} value={ht.name}>{ht.name}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* Location */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Location:
+            <input
+              type="text"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            />
+          </label>
+
+          {/* Intensity */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Intensity (1-10):
+            <input
+              type="number"
+              name="intensity"
+              value={formData.intensity}
+              onChange={handleChange}
+              min="1"
+              max="10"
+              required
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            />
+          </label>
+
+          {/* Pain Description */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Pain Description:
+            <input
+              type="text"
+              name="painDescription"
+              value={formData.painDescription}
+              onChange={handleChange}
+              placeholder="e.g., throbbing, dull, sharp"
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            />
+          </label>
+
+          {/* Symptoms */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Symptoms:
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+              {symptomOptions.map((symptom) => (
+                <div key={symptom} style={{ display: 'flex', alignItems: 'center', background: '#F3F4F6', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="symptoms"
+                    value={symptom}
+                    checked={formData.symptoms.includes(symptom)}
+                    onChange={handleChange}
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.9rem', color: '#333' }}>{symptom}</span>
+                </div>
+              ))}
             </div>
-          )}
+          </label>
 
-          {/* Premium Teaser for Free Users */}
-          {!isPremiumMode && (
+          {/* Triggers */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Triggers:
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+              {triggerOptions.map((trigger) => (
+                <div key={trigger} style={{ display: 'flex', alignItems: 'center', background: '#F3F4F6', borderRadius: '6px', padding: '8px 12px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="triggers"
+                    value={trigger}
+                    checked={formData.triggers.includes(trigger)}
+                    onChange={handleChange}
+                    style={{ marginRight: '0.5rem' }}
+                  />
+                  <span style={{ fontSize: '0.9rem', color: '#333' }}>{trigger}</span>
+                </div>
+              ))}
+            </div>
+          </label>
+
+          {/* Medication */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Medication:
+            <input
+              type="text"
+              name="medication"
+              value={formData.medication}
+              onChange={handleChange}
+              placeholder="e.g., Ibuprofen"
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem' }}
+            />
+          </label>
+
+          {/* Notes */}
+          <label style={{ display: 'flex', flexDirection: 'column', color: '#555', fontSize: '0.9rem', fontWeight: '600' }}>
+            Notes:
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              rows="4"
+              placeholder="Any additional details..."
+              style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', marginTop: '0.5rem', fontSize: '1rem', resize: 'vertical' }}
+            ></textarea>
+          </label>
+
+          {/* Prodromes (Premium Section) */}
+          {currentUser && ( // Example of conditional rendering for premium feature
             <div style={{
-              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              background: '#4F46E5', // Indigo color
               borderRadius: '12px',
               padding: '1.5rem',
               textAlign: 'center',
@@ -1593,9 +1149,54 @@ export default function RecordHeadache() {
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
             <button
-              onClick={() => setMode('active-headache')}
+              onClick={() => setMode('selection')}
               style={{
                 background: 'transparent',
                 border: '1px solid #E5E7EB',
                 borderRadius: '8px',
-                color: '#4B5563
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+             
+            <button
+              onClick={recordManualEntry}
+              disabled={loading || !formData.location || !formData.type || !formData.intensity}
+              style={{
+                background: (loading || !formData.location || !formData.type || !formData.intensity) ? '#E5E7EB' : '#EF4444',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: (loading || !formData.location || !formData.type || !formData.intensity) ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                  Recording...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>
+                  Record Headache
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // This return null; is for when no specific mode is active or matched.
+  // It should be the last return statement in the component if all conditions above are false.
+  return null;
+}
