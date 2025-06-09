@@ -69,7 +69,6 @@ export default function Dashboard() {
         moderate: 0,
         severe: 0
       }
-   
   }
   });
 
@@ -992,8 +991,7 @@ export default function Dashboard() {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                  <button
-                    onClick={() 
+                  onClick={() => setDeleteConfirm(null)}
  => setDeleteConfirm(null)}
                     style={{
                       background: 'transparent',
