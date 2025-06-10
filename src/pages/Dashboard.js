@@ -1,4 +1,4 @@
-// src/pages/Dashboard.js - Enhanced with Calendar Date Management
+// src/pages/Dashboard.js - Enhanced with Migraine Statistics
 // 
 // IMPORTANT: This component requires the useEditMode hook to be updated to support
 // both 'id' and 'editId' parameters for proper edit functionality.
@@ -31,7 +31,7 @@ export default function Dashboard() {
   const [currentMetricDay, setCurrentMetricDay] = useState(0);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear()); // Fixed: Added useState and corrected closing parenthesis/semicolon
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [weekStartsOnMonday, setWeekStartsOnMonday] = useState(true); // European default
   
   // Enhanced calendar date modal state
@@ -64,6 +64,18 @@ export default function Dashboard() {
       totalAttacks: 0,
       daysWithOTC: 0,
       daysWithMigraineMeds: 0
+    },
+    // NEW: Migraine-specific statistics
+    migrainStats: {
+      totalMigraines: 0,
+      totalRegularHeadaches: 0,
+      daysWithMigraines: 0,
+      avgMigrainePainLevel: 0,
+      avgRegularPainLevel: 0,
+      migrainePainDistribution: {},
+      regularPainDistribution: {},
+      migraineFrequency: 0, // migraines per week
+      lastMigraineDate: null
     }
   });
 
@@ -74,6 +86,11 @@ export default function Dashboard() {
       (record.createdAt?.toDate ? 
         record.createdAt.toDate().toISOString().split('T')[0] : 
         new Date().toISOString().split('T')[0]);
+  }, []);
+
+  // NEW: Helper function to determine if headache is migraine
+  const isMigraine = React.useCallback((headache) => {
+    return headache.isMigrineAttack === true;
   }, []);
 
   // Data processing functions
@@ -91,18 +108,32 @@ export default function Dashboard() {
       const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
 
       const headacheCount = dayHeadaches.length;
+      // NEW: Separate migraine and regular headache counts
+      const migraineCount = dayHeadaches.filter(h => isMigraine(h)).length;
+      const regularHeadacheCount = headacheCount - migraineCount;
+      
       const totalPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
       const avgPainLevel = headacheCount > 0 ? totalPainScore / headacheCount : 0;
 
       const headachesByIntensity = {};
+      const migrainesByIntensity = {};
+      const regularHeadachesByIntensity = {};
+      
       dayHeadaches.forEach(headache => {
         const intensity = headache.painLevel || 0;
         headachesByIntensity[intensity] = (headachesByIntensity[intensity] || 0) + 1;
+        
+        if (isMigraine(headache)) {
+          migrainesByIntensity[intensity] = (migrainesByIntensity[intensity] || 0) + 1;
+        } else {
+          regularHeadachesByIntensity[intensity] = (regularHeadachesByIntensity[intensity] || 0) + 1;
+        }
       });
 
       console.log(`=== WEEKLY CHART DEBUG - ${dayNames[date.getDay()]} (${dateStr}) ===`);
       console.log('Headaches for this day:', dayHeadaches);
       console.log('Headache count:', headacheCount);
+      console.log('Migraine count:', migraineCount);
 
       days.push({
         day: dayNames[date.getDay()],
@@ -113,6 +144,11 @@ export default function Dashboard() {
         stressLevel: stressEntry?.stressLevel || 0,
         stressPercent: stressEntry ? (stressEntry.stressLevel || 0) * 10 : 0,
         headaches: headacheCount,
+        // NEW: Migraine-specific data
+        migraines: migraineCount,
+        regularHeadaches: regularHeadacheCount,
+        migrainesByIntensity: migrainesByIntensity,
+        regularHeadachesByIntensity: regularHeadachesByIntensity,
         avgPainLevel: avgPainLevel,
         avgPainLevelPercent: avgPainLevel * 10,
         totalPainScore: totalPainScore,
@@ -122,7 +158,7 @@ export default function Dashboard() {
     }
 
     return days;
-  }, [getRecordDate]);
+  }, [getRecordDate, isMigraine]);
 
   const processDailyMetrics = React.useCallback((sleepData, stressData, headacheData) => {
     const days = [];
@@ -137,6 +173,10 @@ export default function Dashboard() {
       const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
       const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
 
+      // NEW: Separate migraine and regular headaches
+      const migraines = dayHeadaches.filter(h => isMigraine(h));
+      const regularHeadaches = dayHeadaches.filter(h => !isMigraine(h));
+
       days.push({
         dayLabel: dayNames[i],
         date: dateStr,
@@ -144,13 +184,20 @@ export default function Dashboard() {
         sleepQuality: sleepEntry?.sleepQuality || 0,
         stressLevel: stressEntry?.stressLevel || 0,
         headacheCount: dayHeadaches.length,
+        // NEW: Migraine-specific metrics
+        migraineCount: migraines.length,
+        regularHeadacheCount: regularHeadaches.length,
         avgPainLevel: dayHeadaches.length > 0 ? 
-          dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / dayHeadaches.length : 0
+          dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / dayHeadaches.length : 0,
+        avgMigrainePainLevel: migraines.length > 0 ?
+          migraines.reduce((sum, h) => sum + (h.painLevel || 0), 0) / migraines.length : 0,
+        avgRegularPainLevel: regularHeadaches.length > 0 ?
+          regularHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / regularHeadaches.length : 0
       });
     }
     
     return days;
-  }, [getRecordDate]);
+  }, [getRecordDate, isMigraine]);
 
   const processCalendarData = React.useCallback((headaches, medications) => {
     const calendarData = {};
@@ -168,7 +215,9 @@ export default function Dashboard() {
         duration: headache.duration || 0,
         notes: headache.notes || '',
         startTime: headache.startTime,
-        endTime: headache.endTime
+        endTime: headache.endTime,
+        // NEW: Include migraine status
+        isMigraine: isMigraine(headache)
       });
     });
 
@@ -189,7 +238,7 @@ export default function Dashboard() {
     });
 
     return calendarData;
-  }, [getRecordDate]);
+  }, [getRecordDate, isMigraine]);
 
   // Calculate monthly calendar statistics
   const calculateMonthlyStats = React.useCallback((headaches, medications) => {
@@ -226,6 +275,66 @@ export default function Dashboard() {
       daysWithMigraineMeds: daysWithMigraineMeds.size
     };
   }, [getRecordDate]);
+
+  // NEW: Calculate migraine-specific statistics
+  const calculateMigrainStats = React.useCallback((headacheData) => {
+    const migraines = headacheData.filter(h => isMigraine(h));
+    const regularHeadaches = headacheData.filter(h => !isMigraine(h));
+    
+    // Calculate days with migraines
+    const daysWithMigraines = new Set();
+    migraines.forEach(migraine => {
+      const date = getRecordDate(migraine);
+      daysWithMigraines.add(date);
+    });
+
+    // Calculate average pain levels
+    const avgMigrainePainLevel = migraines.length > 0 ? 
+      migraines.reduce((sum, m) => sum + (m.painLevel || 0), 0) / migraines.length : 0;
+    
+    const avgRegularPainLevel = regularHeadaches.length > 0 ? 
+      regularHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / regularHeadaches.length : 0;
+
+    // Calculate pain distribution
+    const migrainePainDistribution = {};
+    const regularPainDistribution = {};
+    
+    migraines.forEach(migraine => {
+      const level = migraine.painLevel || 0;
+      migrainePainDistribution[level] = (migrainePainDistribution[level] || 0) + 1;
+    });
+    
+    regularHeadaches.forEach(headache => {
+      const level = headache.painLevel || 0;
+      regularPainDistribution[level] = (regularPainDistribution[level] || 0) + 1;
+    });
+
+    // Calculate migraine frequency (per week)
+    const migraineFrequency = migraines.length > 0 ? (migraines.length / 4) : 0; // Assuming 4 weeks of data
+
+    // Find last migraine date
+    let lastMigraineDate = null;
+    if (migraines.length > 0) {
+      const sortedMigraines = migraines.sort((a, b) => {
+        const dateA = new Date(getRecordDate(a));
+        const dateB = new Date(getRecordDate(b));
+        return dateB - dateA;
+      });
+      lastMigraineDate = getRecordDate(sortedMigraines[0]);
+    }
+
+    return {
+      totalMigraines: migraines.length,
+      totalRegularHeadaches: regularHeadaches.length,
+      daysWithMigraines: daysWithMigraines.size,
+      avgMigrainePainLevel: Math.round(avgMigrainePainLevel * 10) / 10,
+      avgRegularPainLevel: Math.round(avgRegularPainLevel * 10) / 10,
+      migrainePainDistribution,
+      regularPainDistribution,
+      migraineFrequency: Math.round(migraineFrequency * 10) / 10,
+      lastMigraineDate
+    };
+  }, [isMigraine, getRecordDate]);
 
   // Define calculateStats as its own useCallback
   const calculateStats = React.useCallback((sleepData, stressData, headacheData) => {
@@ -414,6 +523,8 @@ export default function Dashboard() {
         const calendarData = processCalendarData(monthlyHeadaches, monthlyMedications);
         const stats = calculateStats(sleepData, stressData, headacheData);
         const monthlyStats = calculateMonthlyStats(monthlyHeadaches, monthlyMedications);
+        // NEW: Calculate migraine statistics
+        const migrainStats = calculateMigrainStats(monthlyHeadaches);
 
         setDashboardData({
           sleepStressData: processedData,
@@ -422,7 +533,8 @@ export default function Dashboard() {
           loading: false,
           error: null,
           stats,
-          monthlyStats
+          monthlyStats,
+          migrainStats // NEW: Add migraine stats to state
         });
 
       } catch (error) {
@@ -436,7 +548,7 @@ export default function Dashboard() {
     };
 
     fetchDashboardData();
-  }, [currentUser, currentMonth, currentYear, processLast7Days, processDailyMetrics, processCalendarData, calculateStats, calculateMonthlyStats]);
+  }, [currentUser, currentMonth, currentYear, processLast7Days, processDailyMetrics, processCalendarData, calculateStats, calculateMonthlyStats, calculateMigrainStats]);
 
   // Delete record functionality
   const handleDeleteRecord = React.useCallback(async (recordType, recordId) => {
@@ -546,7 +658,7 @@ export default function Dashboard() {
         <link 
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          xintegrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
           crossOrigin="anonymous" 
           referrerPolicy="no-referrer" 
         />
@@ -565,7 +677,7 @@ export default function Dashboard() {
       <link 
         rel="stylesheet" 
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-        xintegrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
         crossOrigin="anonymous" 
         referrerPolicy="no-referrer" 
       />
@@ -603,6 +715,138 @@ export default function Dashboard() {
             setCurrentMetricDay={setCurrentMetricDay}
             onMetricsDayClick={handleMetricsDayClick}
           />
+
+          {/* NEW: Migraine Statistics Module */}
+          <div style={{
+            background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
+            borderRadius: '20px',
+            padding: '2rem',
+            marginBottom: '2rem',
+            boxShadow: '0 10px 30px rgba(220, 38, 38, 0.2)',
+            color: 'white'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              marginBottom: '1.5rem',
+              gap: '0.75rem'
+            }}>
+              <div style={{ 
+                background: 'rgba(255, 255, 255, 0.2)', 
+                borderRadius: '12px', 
+                padding: '0.75rem',
+                fontSize: '1.5rem'
+              }}>
+                <i className="fas fa-brain"></i>
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>
+                  Migraine Tracking
+                </h3>
+                <p style={{ margin: 0, opacity: 0.9, fontSize: '0.95rem' }}>
+                  Monthly overview of migraine patterns
+                </p>
+              </div>
+            </div>
+
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+              gap: '1.5rem' 
+            }}>
+              {/* Migraine vs Regular Headaches */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.15)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
+                  {dashboardData.migrainStats.totalMigraines}
+                </div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.25rem' }}>
+                  Migraines
+                </div>
+                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                  vs {dashboardData.migrainStats.totalRegularHeadaches} regular
+                </div>
+              </div>
+
+              {/* Days with Migraines */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.15)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
+                  {dashboardData.migrainStats.daysWithMigraines}
+                </div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.25rem' }}>
+                  Days with Migraines
+                </div>
+                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                  this month
+                </div>
+              </div>
+
+              {/* Average Pain Comparison */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.15)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
+                  {dashboardData.migrainStats.avgMigrainePainLevel}
+                </div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.25rem' }}>
+                  Avg Migraine Pain
+                </div>
+                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                  vs {dashboardData.migrainStats.avgRegularPainLevel} regular
+                </div>
+              </div>
+
+              {/* Frequency */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.15)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
+                  {dashboardData.migrainStats.migraineFrequency}
+                </div>
+                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.25rem' }}>
+                  Per Week
+                </div>
+                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                  frequency
+                </div>
+              </div>
+            </div>
+
+            {/* Last Migraine */}
+            {dashboardData.migrainStats.lastMigraineDate && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                padding: '1rem',
+                marginTop: '1.5rem',
+                textAlign: 'center',
+                fontSize: '0.9rem',
+                opacity: 0.9
+              }}>
+                <i className="fas fa-clock" style={{ marginRight: '0.5rem' }}></i>
+                Last migraine: {new Date(dashboardData.migrainStats.lastMigraineDate).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </div>
+            )}
+          </div>
 
           <CalendarModule
             calendarData={dashboardData.calendarData}
@@ -748,6 +992,20 @@ export default function Dashboard() {
                             }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                  {/* NEW: Migraine Badge */}
+                                  {isMigraine(headache) && (
+                                    <span style={{
+                                      background: '#DC2626',
+                                      color: 'white',
+                                      padding: '2px 6px',
+                                      borderRadius: '8px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: 'bold',
+                                      marginRight: '0.25rem'
+                                    }}>
+                                      MIGRAINE
+                                    </span>
+                                  )}
                                   <span style={{
                                     background: getPainLevelColor(headache.painLevel),
                                     color: 'white',
