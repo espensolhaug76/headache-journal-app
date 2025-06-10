@@ -18,30 +18,30 @@
             </div>
           )}
 
-          {/* Back to Dashboard */}
-          <div style={{ textAlign: 'center' }}>
-            <Link
-              to="/dashboard"
-              style={{
-                background: 'transparent',
-                border: '1px solid #F3F4F6',
-                borderRadius: '8px',
-                color: '#6B7280',
-                padding: '8px 16px',
-                textDecoration: 'none',
-                fontSize: '0.9rem',
-                display: 'inline-flex',
-                alignItems: 'center'
-              }}
-            >
-              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+          return (
+  <div>
+    {/* Back to Dashboard */}
+    <div style={{ textAlign: 'center' }}>
+      <Link
+        to="/dashboard"
+        style={{
+          background: 'transparent',
+          border: '1px solid #F3F4F6',
+          borderRadius: '8px',
+          color: '#6B7280',
+          padding: '8px 16px',
+          textDecoration: 'none',
+          fontSize: '0.9rem',
+          display: 'inline-flex',
+          alignItems: 'center'
+        }}
+      >
+        <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+        Back to Dashboard
+      </Link>
+    </div>
+  </div>
+);
 
   // START HEADACHE FLOW
   if (mode === 'start-headache') {
