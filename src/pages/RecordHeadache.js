@@ -44,10 +44,9 @@
   }
 
   // START HEADACHE FLOW
-if (mode === 'start-headache') {
-  return (
-    <div
-      style={{
+  if (mode === 'start-headache') {
+    return (
+      <div style={{
         minHeight: '100vh',
         background: '#F9FAFB',
         color: '#000000',
@@ -55,61 +54,51 @@ if (mode === 'start-headache') {
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div style={{ maxWidth: '500px', width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h2 style={{ color: '#EF4444', marginBottom: '1rem' }}>
-            <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
-            Starting Headache Tracking
-          </h2>
-        </div>
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ color: '#EF4444', marginBottom: '1rem' }}>
+              <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
+              Starting Headache Tracking
+            </h2>
+          </div>
 
-        {/* Pain Level Slider */}
-        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-          <h3 style={{ color: '#1E40AF', marginBottom: '1rem' }}>Current Pain Level</h3>
-          <div
-            style={{
+          {/* Pain Level Slider */}
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <h3 style={{ color: '#1E40AF', marginBottom: '1rem' }}>Current Pain Level</h3>
+            <div style={{
               fontSize: '3rem',
               marginBottom: '1rem',
-              color: getPainLevelColor(formData.painLevel),
-            }}
-          >
-            {formData.painLevel}/10
-          </div>
-          <div
-            style={{
+              color: getPainLevelColor(formData.painLevel)
+            }}>
+              {formData.painLevel}/10
+            </div>
+            <div style={{
               fontSize: '1.2rem',
               marginBottom: '1.5rem',
               color: getPainLevelColor(formData.painLevel),
-              fontWeight: '600',
-            }}
-          >
-            {getPainLevelText(formData.painLevel)}
+              fontWeight: '600'
+            }}>
+              {getPainLevelText(formData.painLevel)}
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={formData.painLevel}
+              onChange={(e) => handlePainLevelChange(parseInt(e.target.value))}
+              style={{
+                width: '100%',
+                height: '12px',
+                borderRadius: '6px',
+                background: 'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
+                outline: 'none',
+                cursor: 'pointer',
+                marginBottom: '1rem'
+              }}
+            />
           </div>
-          <input
-            type="range"
-            min="1"
-            max="10"
-            value={formData.painLevel}
-            onChange={(e) => handlePainLevelChange(parseInt(e.target.value))}
-            style={{
-              width: '100%',
-              height: '12px',
-              borderRadius: '6px',
-              background:
-                'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
-              outline: 'none',
-              cursor: 'pointer',
-              marginBottom: '1rem',
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
 
           {/* Headache Type Selector */}
           <HeadacheTypeSelector
