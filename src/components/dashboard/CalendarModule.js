@@ -340,7 +340,7 @@ export default function CalendarModule({
             gap: '0.75rem',
             textAlign: 'center'
           }}>
-            {/* Original Stats */}
+            {/* Days-based Statistics */}
             <div style={{
               background: '#FFFFFF',
               padding: '0.75rem',
@@ -354,47 +354,6 @@ export default function CalendarModule({
                 days with headaches
               </div>
             </div>
-            <div style={{
-              background: '#FFFFFF',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F59E0B' }}>
-                {monthlyStats?.totalAttacks || 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                total attacks
-              </div>
-            </div>
-            <div style={{
-              background: '#FFFFFF',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#3B82F6' }}>
-                {monthlyStats?.daysWithOTC || 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                days with OTC meds
-              </div>
-            </div>
-            <div style={{
-              background: '#FFFFFF',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '1px solid #E5E7EB'
-            }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
-                {monthlyStats?.daysWithMigraineMeds || 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                days with migraine meds
-              </div>
-            </div>
-
-            {/* NEW: Migraine-specific stats */}
             <div style={{
               background: '#FFFFFF',
               padding: '0.75rem',
@@ -421,6 +380,8 @@ export default function CalendarModule({
                 days with regular headaches
               </div>
             </div>
+
+            {/* Episode-based Statistics */}
             <div style={{
               background: '#FFFFFF',
               padding: '0.75rem',
@@ -445,6 +406,34 @@ export default function CalendarModule({
               </div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                 total regular headaches
+              </div>
+            </div>
+
+            {/* Medication Statistics */}
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#3B82F6' }}>
+                {monthlyStats?.daysWithOTC || 0}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                days with OTC meds
+              </div>
+            </div>
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
+                {monthlyStats?.daysWithMigraineMeds || 0}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                days with migraine meds
               </div>
             </div>
           </div>
