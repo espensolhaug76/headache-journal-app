@@ -13,6 +13,7 @@ import RecordExercise from './pages/RecordExercise';
 import RecordBodyPain from './pages/RecordBodyPain';
 import RecordMedication from './pages/RecordMedication';
 import DataManager from './pages/DataManager'; // NEW: Data Manager page
+import AdminStats from './pages/AdminStats';
 import PrivateRoute from './components/PrivateRoute';
 import HeadacheList from './pages/HeadacheList';
 import './App.css';
@@ -40,7 +41,19 @@ function App() {
                 <DataManager />
               </PrivateRoute>
             } />
+            {/* 👇 Add this new route for the admin page */}
+            <Route path="/admin-stats" element={
+              <PrivateRoute>
+                <AdminStats />
+              </PrivateRoute>
+            } />
             
+            <Route path="/record-headache" element={
+              <PrivateRoute>
+                <RecordHeadache />
+              </PrivateRoute>
+            } />
+
             <Route path="/record-headache" element={
               <PrivateRoute>
                 <RecordHeadache />
