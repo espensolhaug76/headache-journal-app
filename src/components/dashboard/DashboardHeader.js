@@ -13,7 +13,7 @@ export default function DashboardHeader({ currentUser }) {
             src={logo} 
             alt="Ultimate Migraine Tracker Logo" 
             style={{ 
-              width: '225px', 
+              width: '175px', 
               height: 'auto',
               maxWidth: '100%'
             }} 
