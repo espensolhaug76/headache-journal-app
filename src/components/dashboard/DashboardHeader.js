@@ -1,5 +1,6 @@
 import React from 'react';
 import logo from '../../assets/logo.svg'; // Add logo import
+import favicon from '../../assets/tsm_favicon.png'; // Add favicon import
 
 export default function DashboardHeader({ currentUser }) {
   return (
@@ -8,8 +9,22 @@ export default function DashboardHeader({ currentUser }) {
       background: '#F9FAFB'
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Logo */}
+        {/* Logo and Favicon Section */}
         <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+          {/* Favicon */}
+          <div style={{ marginBottom: '0.75rem' }}>
+            <img 
+              src={favicon} 
+              alt="TSM Favicon" 
+              style={{ 
+                width: '48px', 
+                height: '48px',
+                borderRadius: '8px' // Optional: rounded corners for favicon
+              }} 
+            />
+          </div>
+          
+          {/* Main Logo */}
           <img 
             src={logo} 
             alt="Ultimate Migraine Tracker Logo" 
