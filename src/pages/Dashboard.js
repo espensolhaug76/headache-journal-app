@@ -731,6 +731,9 @@ export default function Dashboard() {
 
           <AIInsightsModule 
             stats={dashboardData.stats}
+            monthlyStats={dashboardData.monthlyStats}
+            migrainStats={dashboardData.migrainStats}
+            calendarData={dashboardData.calendarData}
           />
 
           <LogoutButton onLogout={handleLogout} />
