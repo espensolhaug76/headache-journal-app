@@ -39,8 +39,8 @@ export default function AIInsightsModule({ stats, monthlyStats, migrainStats, ca
       mohRisk.level = 'critical';
       mohRisk.warnings.push({
         type: 'critical',
-        message: `URGENT: You've used migraine medication for ${maxConsecutive} consecutive days. This significantly increases risk of Medication Overuse Headache (MOH).`,
-        action: 'Contact your healthcare provider immediately to discuss treatment modification.'
+        message: `You've used migraine medication for ${maxConsecutive} consecutive days. Extended daily use may increase risk of rebound headaches.`,
+        action: 'Consider discussing your medication pattern with your healthcare provider to explore alternative treatment strategies.'
       });
     }
     // High risk: 4-9 consecutive days OR >15 days/month
@@ -49,15 +49,15 @@ export default function AIInsightsModule({ stats, monthlyStats, migrainStats, ca
       if (maxConsecutive >= 4) {
         mohRisk.warnings.push({
           type: 'warning',
-          message: `Warning: ${maxConsecutive} consecutive days of medication use detected. This may lead to rebound headaches.`,
-          action: 'Consider spacing out medication use and consult your doctor about preventive treatments.'
+          message: `You've used medication for ${maxConsecutive} consecutive days. Frequent use may contribute to rebound headaches.`,
+          action: 'Consider spacing out medication use and discussing preventive treatment options with your doctor.'
         });
       }
       if (mohRisk.monthlyDays > 15) {
         mohRisk.warnings.push({
           type: 'warning',
-          message: `You've used headache medication ${mohRisk.monthlyDays} days this month. >15 days/month increases MOH risk.`,
-          action: 'Discuss preventive medication options with your healthcare provider.'
+          message: `You've used headache medication ${mohRisk.monthlyDays} days this month. Frequent use may increase rebound headache risk.`,
+          action: 'Consider discussing preventive medication options with your healthcare provider.'
         });
       }
     }
@@ -133,9 +133,9 @@ export default function AIInsightsModule({ stats, monthlyStats, migrainStats, ca
                        '#1E40AF',
                 marginBottom: '0.5rem'
               }}>
-                {warning.type === 'critical' ? 'MEDICATION OVERUSE ALERT' : 
-                 warning.type === 'warning' ? 'MOH Risk Warning' : 
-                 'Medication Usage Notice'}
+                {warning.type === 'critical' ? 'Medication Usage Pattern Notice' : 
+                 warning.type === 'warning' ? 'Medication Usage Reminder' : 
+                 'Medication Tracking Update'}
               </div>
               <div style={{ marginBottom: '0.5rem' }}>{warning.message}</div>
               <div style={{ 
