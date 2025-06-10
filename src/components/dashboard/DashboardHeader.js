@@ -1,4 +1,5 @@
 import React from 'react';
+import logo from '../../assets/logo.svg'; // Add logo import
 
 export default function DashboardHeader({ currentUser }) {
   return (
@@ -7,6 +8,20 @@ export default function DashboardHeader({ currentUser }) {
       background: '#F9FAFB'
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+          <img 
+            src={logo} 
+            alt="Ultimate Migraine Tracker Logo" 
+            style={{ 
+              width: '225px', 
+              height: 'auto',
+              maxWidth: '100%' // Responsive on mobile
+            }} 
+          />
+        </div>
+        
+        {/* Title */}
         <h1 style={{ 
           margin: 0, 
           fontSize: '2rem', 
@@ -16,6 +31,8 @@ export default function DashboardHeader({ currentUser }) {
         }}>
           Ultimate Migraine Tracker
         </h1>
+        
+        {/* Welcome Message */}
         <p style={{ 
           color: '#4B5563', 
           margin: '0.5rem 0', 
