@@ -19,7 +19,6 @@ export default function DashboardHeader({ currentUser }) {
             }} 
           />
         </div>
-        
         <h1 style={{ 
           margin: 0, 
           fontSize: '2rem', 
@@ -29,46 +28,6 @@ export default function DashboardHeader({ currentUser }) {
         }}>
           Ultimate Migraine Tracker
         </h1>
-        
-        <p style={{ 
-          color: '#4B5563', 
-          margin: '0.5rem 0', 
-          fontSize: '1rem',
-          textAlign: 'center'
-        }}>
-          Welcome back, {currentUser?.email?.split('@')[0]}!
-        </p>
-      </div>
-    </div>
-  );
-}
-            />
-          </div>
-          
-          {/* Main Logo */}
-          <img 
-            src={logo} 
-            alt="Ultimate Migraine Tracker Logo" 
-            style={{ 
-              width: '225px', 
-              height: 'auto',
-              maxWidth: '100%' // Responsive on mobile
-            }} 
-          />
-        </div>
-        
-        {/* Title */}
-        <h1 style={{ 
-          margin: 0, 
-          fontSize: '2rem', 
-          fontWeight: '700',
-          color: '#1E3A8A',
-          textAlign: 'center'
-        }}>
-          Ultimate Migraine Tracker
-        </h1>
-        
-        {/* Welcome Message */}
         <p style={{ 
           color: '#4B5563', 
           margin: '0.5rem 0', 
