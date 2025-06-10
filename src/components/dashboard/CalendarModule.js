@@ -313,14 +313,29 @@ export default function CalendarModule({
         }}>Next</button>
       </div>
 
-      {/* Monthly Statistics - UPDATED with Migraine Integration */}
+      {/* Day Headers */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '0.5rem',
+        marginBottom: '1rem'
+      }}>
+        {dayHeaders.map(day => (
+          <div key={day} style={{ fontWeight: '600', color: '#4B5563', textAlign: 'center' }}>{day}</div>
+        ))}
+      </div>
+
+      {/* Calendar Weeks */}
+      {weeks}
+
+      {/* Monthly Statistics - MOVED BELOW CALENDAR */}
       {(monthlyStats || migrainStats) && (
         <div style={{
           background: 'linear-gradient(135deg, #EFF6FF, #F0F9FF)',
           border: '1px solid #BFDBFE',
           borderRadius: '12px',
           padding: '1rem',
-          marginBottom: '1.5rem'
+          marginTop: '1.5rem'
         }}>
           <h4 style={{
             margin: '0 0 0.75rem 0',
@@ -439,21 +454,6 @@ export default function CalendarModule({
           </div>
         </div>
       )}
-
-      {/* Day Headers */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '0.5rem',
-        marginBottom: '1rem'
-      }}>
-        {dayHeaders.map(day => (
-          <div key={day} style={{ fontWeight: '600', color: '#4B5563', textAlign: 'center' }}>{day}</div>
-        ))}
-      </div>
-
-      {/* Calendar Weeks */}
-      {weeks}
     </div>
   );
 }
