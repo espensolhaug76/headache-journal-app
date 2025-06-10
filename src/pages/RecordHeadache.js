@@ -1,567 +1,444 @@
-// src/pages/Dashboard.js - Enhanced with Migraine Attack Statistics
+/* eslint-disable no-unused-vars */
+// src/pages/RecordHeadache.js - Complete Version with Premium Prodrome Tracking
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, query, where, orderBy, limit, getDocs, Timestamp, deleteDoc, doc } from 'firebase/firestore';
+import { useEditMode } from '../hooks/useEditMode';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Import modular components
-import DashboardHeader from '../components/dashboard/DashboardHeader';
-import QuickActionsModule from '../components/dashboard/QuickActionsModule';
-import WeeklyHealthChart from '../components/dashboard/WeeklyHealthChart';
-import DailyMetricsModule from '../components/dashboard/DailyMetricsModule';
-import CalendarModule from '../components/dashboard/CalendarModule';
-import AIInsightsModule from '../components/dashboard/AIInsightsModule';
-import LogoutButton from '../components/dashboard/LogoutButton';
+import HeadacheTypeSelector from '../components/headache/HeadacheTypeSelector';
+import PremiumProdromeTracker from '../components/headache/PremiumProdromeTracker';
 
-export default function Dashboard() {
-  const { currentUser, logout } = useAuth();
-  const navigate = useNavigate();
+// Import headache images - with fallback for missing images
+let migrainerHeadacheImg, tensionHeadacheImg, reboundHeadacheImg, exertionHeadacheImg;
+let caffeineHeadacheImg, hormoneHeadacheImg, clusterHeadacheImg, sinusHeadacheImg;
 
-  // State management
-  const [currentMetricDay, setCurrentMetricDay] = useState(0);
-  const [showQuickActions, setShowQuickActions] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [weekStartsOnMonday, setWeekStartsOnMonday] = useState(true); // European default
+try {
+  migrainerHeadacheImg = require('../assets/headache-types/migraine-headache.png');
+  tensionHeadacheImg = require('../assets/headache-types/tension-headache.png');
+  reboundHeadacheImg = require('../assets/headache-types/rebound-headache.png');
+  exertionHeadacheImg = require('../assets/headache-types/exertion-headache.png');
+  caffeineHeadacheImg = require('../assets/headache-types/caffeine-headache.png');
+  hormoneHeadacheImg = require('../assets/headache-types/hormone-headache.png');
+  clusterHeadacheImg = require('../assets/headache-types/cluster-headache.png');
+  sinusHeadacheImg = require('../assets/headache-types/sinus-headache.png');
+} catch (error) {
+  console.log('Some headache images not found, using placeholders');
+  // Fallback placeholder image URL
+  const placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjYwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5IZWFkYWNoZTwvdGV4dD4KPC9zdmc+';
   
-  // Enhanced calendar date modal state
-  const [showDateModal, setShowDateModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [detailedDateRecords, setDetailedDateRecords] = useState({
-    headaches: [],
-    medications: [],
-    sleep: [],
-    stress: []
+  migrainerHeadacheImg = placeholder;
+  tensionHeadacheImg = placeholder;
+  reboundHeadacheImg = placeholder;
+  exertionHeadacheImg = placeholder;
+  caffeineHeadacheImg = placeholder;
+  hormoneHeadacheImg = placeholder;
+  clusterHeadacheImg = placeholder;
+  sinusHeadacheImg = placeholder;
+}
+
+export default function RecordHeadache() {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  
+  // Dev toggle for testing freemium vs premium (remove in production)
+  const [isPremiumMode, setIsPremiumMode] = useState(false);
+  
+  // App state management
+  const [mode, setMode] = useState('selection'); // 'selection', 'start-headache', 'active-headache', 'end-headache', 'manual-entry'
+  const [ongoingSession, setOngoingSession] = useState(null);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  
+  // Edit mode functionality
+  const { 
+    isEditMode, 
+    editDocId, 
+    loading: editLoading, 
+    error: editError, 
+    statusMessage: editStatusMessage,
+    loadExistingData, 
+    updateRecord, 
+    deleteRecord,
+    clearMessages 
+  } = useEditMode('headaches');
+  
+  // Form data
+  const location = useLocation();
+  const urlParams = new URLSearchParams(location.search);
+  const prefilledDate = urlParams.get('date');
+  const prefilledMode = urlParams.get('mode');
+
+  const [formData, setFormData] = useState({
+    date: prefilledDate || new Date().toISOString().split('T')[0],
+    painLevel: 5,
+    location: '',
+    // Premium fields
+    prodromeSymptoms: [],
+    currentSymptoms: [],
+    triggers: [],
+    notes: ''
   });
-  const [loadingDateRecords, setLoadingDateRecords] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [dashboardData, setDashboardData] = useState({
-    sleepStressData: [],
-    dailyMetrics: [],
-    calendarData: {},
-    loading: true,
-    error: null,
-    stats: {
-      totalHeadaches: 0,
-      avgSleepHours: 0,
-      avgSleepQuality: 0,
-      avgStressLevel: 0,
-      personalWorstDay: 0
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Headache types data
+  const headacheTypes = [
+    {
+      id: 'tension',
+      name: 'Tension Headache',
+      description: 'Band around head/forehead',
+      image: tensionHeadacheImg,
+      pattern: 'Band-like pressure around the entire head'
     },
-    monthlyStats: {
-      daysWithHeadaches: 0,
-      totalAttacks: 0,
-      daysWithOTC: 0,
-      daysWithMigraineMeds: 0
+    {
+      id: 'migraine',
+      name: 'Migraine Headache',
+      description: 'One side of head',
+      image: migrainerHeadacheImg,
+      pattern: 'Throbbing pain, usually on one side'
     },
-    // NEW: Migraine-specific statistics
-    migrainStats: {
-      totalMigrineAttacks: 0,
-      totalRegularHeadaches: 0,
-      daysWithMigrines: 0,
-      avgMigrainePain: 0,
-      avgRegularHeadachePain: 0,
-      painLevelDistribution: {
-        mild: 0,
-        moderate: 0,
-        severe: 0
-      }
+    {
+      id: 'cluster',
+      name: 'Cluster Headache',
+      description: 'Around one eye',
+      image: clusterHeadacheImg,
+      pattern: 'Severe pain around or behind one eye'
+    },
+    {
+      id: 'sinus',
+      name: 'Sinus Headache',
+      description: 'Forehead/cheek area',
+      image: sinusHeadacheImg,
+      pattern: 'Sinus pressure and congestion'
+    },
+    {
+      id: 'caffeine',
+      name: 'Caffeine Headache',
+      description: 'Front/temples',
+      image: caffeineHeadacheImg,
+      pattern: 'Dull ache at temples and front of head'
+    },
+    {
+      id: 'hormone',
+      name: 'Hormone Headache',
+      description: 'One side (menstrual)',
+      image: hormoneHeadacheImg,
+      pattern: 'Related to hormonal changes'
+    },
+    {
+      id: 'rebound',
+      name: 'Medication Overuse',
+      description: 'All over/top',
+      image: reboundHeadacheImg,
+      pattern: 'From medication overuse'
+    },
+    {
+      id: 'exertion',
+      name: 'Exertion Headache',
+      description: 'Back/all over',
+      image: exertionHeadacheImg,
+      pattern: 'Exercise-induced headache'
     }
-  });
+  ];
 
-  // Helper function: Consistent date resolution for all components
-  const getRecordDate = React.useCallback((record) => {
-    // Use the same date logic everywhere - prioritize 'date' field, fallback to createdAt
-    return record.date || 
-      (record.createdAt?.toDate ? 
-        record.createdAt.toDate().toISOString().split('T')[0] : 
-        new Date().toISOString().split('T')[0]);
-  }, []);
-// NEW: Calculate migraine-specific statistics
-  const calculateMigrainStats = React.useCallback((headacheData) => {
-    const migrineAttacks = headacheData.filter(h => h.isMigrineAttack === true);
-    const regularHeadaches = headacheData.filter(h => h.isMigrineAttack !== true);
-    
-    // Days with migraines
-    const daysWithMigrines = new Set();
-    migrineAttacks.forEach(migraine => {
-      const date = getRecordDate(migraine);
-      daysWithMigrines.add(date);
-    });
+  // Premium features data (for future use)
+  const currentSymptoms = [
+    'Nausea', 'Vomiting', 'Light sensitivity', 'Sound sensitivity', 
+    'Dizziness', 'Blurred vision', 'Neck pain', 'Jaw tension'
+  ];
 
-    // Average pain levels
-    const avgMigrainePain = migrineAttacks.length > 0 
-      ? migrineAttacks.reduce((sum, m) => sum + (m.painLevel || 0), 0) / migrineAttacks.length
-      : 0;
+  const commonTriggers = [
+    'Stress', 'Lack of sleep', 'Weather changes', 'Bright lights',
+    'Loud noises', 'Strong smells', 'Certain foods', 'Alcohol',
+    'Hormonal changes', 'Skipped meals', 'Dehydration', 'Screen time'
+  ];
 
-    const avgRegularHeadachePain = regularHeadaches.length > 0
-      ? regularHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / regularHeadaches.length
-      : 0;
-
-    // Pain level distribution for migraines
-    const painLevelDistribution = {
-      mild: 0,    // 1-4
-      moderate: 0, // 5-7
-      severe: 0   // 8-10
-    };
-
-    migrineAttacks.forEach(migraine => {
-      const pain = migraine.painLevel || 0;
-      if (pain <= 4) painLevelDistribution.mild++;
-      else if (pain <= 7) painLevelDistribution.moderate++;
-      else painLevelDistribution.severe++;
-    });
- console.log('=== MIGRAINE STATS DEBUG ===');
-    console.log('Total headaches:', headacheData.length);
-    console.log('Migraine attacks:', migrineAttacks.length);
-    console.log('Regular headaches:', regularHeadaches.length);
-    console.log('Days with migraines:', daysWithMigrines.size);
- console.log('Average migraine pain:', avgMigrainePain);
-
-    return {
-      totalMigrineAttacks: migrineAttacks.length,
-      totalRegularHeadaches: regularHeadaches.length,
-      daysWithMigrines: daysWithMigrines.size,
-      avgMigrainePain: avgMigrainePain,
-      avgRegularHeadachePain: avgRegularHeadachePain,
-      painLevelDistribution: painLevelDistribution
-    };
-}, [getRecordDate]);
-
-  // Data processing functions
-  const processLast7Days = React.useCallback((sleepData, stressData, headacheData) => {
-    const days = [];
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
-      const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
-      const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
-
-      const headacheCount = dayHeadaches.length;
-      const migrineCount = dayHeadaches.filter(h => h.isMigrineAttack === true).length;
-      const totalPainScore = dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0);
-      const avgPainLevel = headacheCount > 0 ? totalPainScore / headacheCount : 0;
-
-      const headachesByIntensity = {};
- dayHeadaches.forEach(headache => {
-        const intensity = headache.painLevel || 0;
-        headachesByIntensity[intensity] = (headachesByIntensity[intensity] || 0) + 1;
-      });
- days.push({
-        day: dayNames[date.getDay()],
-        date: dateStr,
-        sleepHours: sleepEntry?.hoursSlept || 0,
-        sleepQuality: sleepEntry?.sleepQuality || 0,
-        sleepQualityPercent: sleepEntry ? (sleepEntry.sleepQuality || 0) * 10 : 0,
-        stressLevel: stressEntry?.stressLevel || 0,
-        stressPercent: stressEntry ? (stressEntry.stressLevel || 0) * 10 : 0,
-        headaches: headacheCount,
-        migrines: migrineCount, // NEW: Track migraines separately
-        avgPainLevel: avgPainLevel,
-        avgPainLevelPercent: avgPainLevel * 10,
-        totalPainScore: totalPainScore,
-        headachesByIntensity: headachesByIntensity,
-        hasData: sleepEntry || stressEntry || headacheCount > 0
-      });
- }
-
-    return days;
-  }, [getRecordDate]);
-
-  const processDailyMetrics = React.useCallback((sleepData, stressData, headacheData) => {
-    const days = [];
-    const dayNames = ['Today', 'Yesterday', '2 Days Ago'];
-    
-    for (let i = 0; i < 3; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      const sleepEntry = sleepData.find(entry => getRecordDate(entry) === dateStr);
-      const stressEntry = stressData.find(entry => getRecordDate(entry) === dateStr);
-      const dayHeadaches = headacheData.filter(entry => getRecordDate(entry) === dateStr);
-
-      days.push({
-        dayLabel: dayNames[i],
-        date: dateStr,
-        sleepHours: sleepEntry?.hoursSlept || 0,
-        sleepQuality: sleepEntry?.sleepQuality || 0,
-        stressLevel: stressEntry?.stressLevel || 0,
-        headacheCount: dayHeadaches.length,
-        migrineCount: dayHeadaches.filter(h => h.isMigrineAttack === true).length, // NEW
-        avgPainLevel: dayHeadaches.length > 0 ?
-          dayHeadaches.reduce((sum, h) => sum + (h.painLevel || 0), 0) / dayHeadaches.length : 0
-      });
- }
-    
-    return days;
-  }, [getRecordDate]);
- const processCalendarData = React.useCallback((headaches, medications) => {
-    const calendarData = {};
-    
-    headaches.forEach(headache => {
-      const date = getRecordDate(headache);
-
-      if (!calendarData[date]) {
-        calendarData[date] = { headaches: [], medications: [] };
-      }
-      calendarData[date].headaches.push({
-        id: headache.id,
-        painLevel: headache.painLevel,
-        location: headache.location,
-        duration: headache.duration || 0,
-        notes: headache.notes || '',
-        startTime: headache.startTime,
-        endTime: headache.endTime,
-        isMigrineAttack: headache.isMigrineAttack || false // NEW
-      });
-    });
-
-    medications.forEach(medication => {
-      const date = getRecordDate(medication);
-      
-      if (!calendarData[date]) {
-        calendarData[date] = { headaches: [], medications: [] };
-      }
-      calendarData[date].medications.push({
-        id: medication.id,
-        name: medication.medicationName,
-        type: medication.medicationType,
-        effectiveness: medication.effectiveness,
-        dosage: medication.dosage || '',
-        time: medication.timeOfDay || ''
-      });
-    });
- return calendarData;
-  }, [getRecordDate]);
-
-  // Calculate monthly calendar statistics
-  const calculateMonthlyStats = React.useCallback((headaches, medications) => {
-    const daysWithHeadaches = new Set();
-    const daysWithMigrines = new Set(); // NEW
-    const totalAttacks = headaches.length;
-    const daysWithOTC = new Set();
-    const daysWithMigraineMeds = new Set();
-
-    headaches.forEach(headache => {
-      const date = getRecordDate(headache);
-      daysWithHeadaches.add(date);
-      
-      // NEW: Track migraine-specific days
-      if (headache.isMigrineAttack) {
-        daysWithMigrines.add(date);
-      }
-    });
-
-    medications.forEach(medication => {
-      const date = getRecordDate(medication);
-      const medType = (medication.medicationType || medication.type || '').toLowerCase();
-      
-      if (medType.includes('otc') || medType.includes('over') || 
-          medType.includes('ibuprofen') || medType.includes('paracetamol') || 
-          medType.includes('aspirin') || medType.includes('acetaminophen')) {
-        daysWithOTC.add(date);
-      }
-      
-      if (medType.includes('migraine') || medType.includes('triptan') || 
-          medType.includes('sumatriptan') || medType.includes('rizatriptan')) {
-        daysWithMigraineMeds.add(date);
- }
-    });
-
-    return {
-      daysWithHeadaches: daysWithHeadaches.size,
-      daysWithMigrines: daysWithMigrines.size, // NEW
-      totalAttacks,
-      daysWithOTC: daysWithOTC.size,
-      daysWithMigraineMeds: daysWithMigraineMeds.size
-    };
-}, [getRecordDate]);
-
-  // Define calculateStats as its own useCallback
-  const calculateStats = React.useCallback((sleepData, stressData, headacheData) => {
-    const totalHeadaches = headacheData.length;
-    const avgSleepHours = sleepData.length > 0 ? 
-      sleepData.reduce((sum, entry) => sum + (entry.hoursSlept || 0), 0) / sleepData.length : 0;
-    const avgSleepQuality = sleepData.length > 0 ? 
-      sleepData.reduce((sum, entry) => sum + (entry.sleepQuality || 0), 0) / sleepData.length : 0;
-    const avgStressLevel = stressData.length > 0 ? 
-      stressData.reduce((sum, entry) => sum + (entry.stressLevel || 0), 0) / stressData.length : 0;
-    
-    const personalWorstDay = Math.max(...headacheData.map(h => h.painLevel || 0), 1);
-
-    return {
-      totalHeadaches,
-      avgSleepHours: Math.round(avgSleepHours * 10) / 10,
-      avgSleepQuality: Math.round(avgSleepQuality * 10) / 10,
-      avgStressLevel: Math.round(avgStressLevel * 10) / 10,
-      personalWorstDay
-    };
-}, []);
-// Enhanced: Load detailed records for specific date
-  const loadDetailedDateRecords = React.useCallback(async (dateStr) => {
-    if (!currentUser) return;
-
-    setLoadingDateRecords(true);
-
-    try {
-      // Fetch all records and filter by date (matching calendar logic)
-      const [headaches, medications, sleep, stress] = await Promise.all([
-        getDocs(query(
-          collection(db, 'users', currentUser.uid, 'headaches'),
-          orderBy('createdAt', 'desc')
-        )),
-        getDocs(query(
-          collection(db, 'users', currentUser.uid, 'medications'),
-          orderBy('createdAt', 'desc')
-        )),
-        getDocs(query(
-          collection(db, 'users', currentUser.uid, 'sleep'),
-          orderBy('createdAt', 'desc')
-        )),
-        getDocs(query(
-          collection(db, 'users', currentUser.uid, 'stress'),
-          orderBy('createdAt', 'desc')
-        ))
-      ]);
-
-      // Filter by date using consistent date resolution
-      const filteredHeadaches = headaches.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(headache => getRecordDate(headache) === dateStr);
- const filteredMedications = medications.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(medication => getRecordDate(medication) === dateStr);
- const filteredSleep = sleep.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(sleepRecord => getRecordDate(sleepRecord) === dateStr);
- const filteredStress = stress.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(stressRecord => getRecordDate(stressRecord) === dateStr);
- setDetailedDateRecords({
-        headaches: filteredHeadaches,
-        medications: filteredMedications,
-        sleep: filteredSleep,
-        stress: filteredStress
-      });
- } catch (error) {
-      console.error('Error loading detailed date records:', error);
-    }
-
-    setLoadingDateRecords(false);
-}, [currentUser, getRecordDate]);
-
-  // Enhanced: Calendar date click handler
-  const handleCalendarDateClick = React.useCallback(async (dateStr, dayData) => {
-    setSelectedDate(dateStr);
-    setShowDateModal(true);
-    
-    // Load detailed records for this date
-    await loadDetailedDateRecords(dateStr);
-  }, [loadDetailedDateRecords]);
-// Handle metrics day click - navigate to date overview
-  const handleMetricsDayClick = React.useCallback(async (dayIndex) => {
-    const date = new Date();
-    date.setDate(date.getDate() - dayIndex);
-    const dateStr = date.toISOString().split('T')[0];
-    
-    // Open the date modal for this day
-    await handleCalendarDateClick(dateStr, null);
-  }, [handleCalendarDateClick]);
-// Data fetching logic
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const fetchDashboardData = async () => {
-      try {
-        setDashboardData(prev => ({ ...prev, loading: true, error: null }));
-
-        // Get last 7 days of data
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-        // Fetch sleep data
-        const sleepQuery = query(
-          collection(db, 'users', currentUser.uid, 'sleep'),
-          where('createdAt', '>=', Timestamp.fromDate(sevenDaysAgo)),
-          orderBy('createdAt', 'desc'),
-          limit(7)
-        );
-        const sleepSnapshot = await getDocs(sleepQuery);
-        const sleepData = sleepSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // Fetch stress data
-        const stressQuery = query(
-          collection(db, 'users', currentUser.uid, 'stress'),
-          where('createdAt', '>=', Timestamp.fromDate(sevenDaysAgo)),
-          orderBy('createdAt', 'desc'),
-          limit(7)
-        );
- const stressSnapshot = await getDocs(stressQuery);
-        const stressData = stressSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-// Fetch headache data
-        const headacheQuery = query(
-          collection(db, 'users', currentUser.uid, 'headaches'),
-          where('createdAt', '>=', Timestamp.fromDate(sevenDaysAgo)),
-          orderBy('createdAt', 'desc')
-        );
- const headacheSnapshot = await getDocs(headacheQuery);
-        const headacheData = headacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-// Fetch monthly calendar data
-        const monthlyHeadacheQuery = query(
-          collection(db, 'users', currentUser.uid, 'headaches'),
-          orderBy('createdAt', 'desc')
-        );
- const monthlyHeadacheSnapshot = await getDocs(monthlyHeadacheQuery);
-        const allHeadaches = monthlyHeadacheSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-// Filter by date field instead of createdAt
-        const monthlyHeadaches = allHeadaches.filter(headache => {
-          if (headache.date) {
-            const headacheDate = new Date(headache.date);
-            const headacheMonth = headacheDate.getMonth();
-            const headacheYear = headacheDate.getFullYear();
-            return headacheMonth === currentMonth && headacheYear === currentYear;
-          }
-          return false;
-        });
- const monthlyMedicationQuery = query(
-          collection(db, 'users', currentUser.uid, 'medications'),
-          orderBy('createdAt', 'desc')
-        );
- const monthlyMedicationSnapshot = await getDocs(monthlyMedicationQuery);
-        const allMedications = monthlyMedicationSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-// Filter by date field instead of createdAt
-        const monthlyMedications = allMedications.filter(medication => {
-          if (medication.date) {
-            const medicationDate = new Date(medication.date);
-            const medicationMonth = medicationDate.getMonth();
-            const medicationYear = medicationDate.getFullYear();
-            return medicationMonth === currentMonth && medicationYear === currentYear;
-          }
-          return false;
-        });
-// Process data
-        const processedData = processLast7Days(sleepData, stressData, headacheData);
- const dailyMetrics = processDailyMetrics(sleepData, stressData, headacheData);
-        const calendarData = processCalendarData(monthlyHeadaches, monthlyMedications);
-        const stats = calculateStats(sleepData, stressData, headacheData);
- const monthlyStats = calculateMonthlyStats(monthlyHeadaches, monthlyMedications);
-        const migrainStats = calculateMigrainStats(monthlyHeadaches); // NEW: Calculate migraine stats
-
-        setDashboardData({
-          sleepStressData: processedData,
-          dailyMetrics: dailyMetrics,
-          calendarData: calendarData,
-          loading: false,
-          error: null,
-          stats,
-          monthlyStats,
-          migrainStats // NEW: Add migraine stats to dashboard data
-        });
- } catch (error) {
-        console.error('Error fetching dashboard data:', error);
- setDashboardData(prev => ({
-          ...prev,
-          loading: false,
-          error: 'Failed to load dashboard data. Please try refreshing.'
-        }));
- }
-    };
-
-    fetchDashboardData();
-  }, [currentUser, currentMonth, currentYear, processLast7Days, processDailyMetrics, processCalendarData, calculateStats, calculateMonthlyStats, calculateMigrainStats]);
-// Delete record functionality
-  const handleDeleteRecord = React.useCallback(async (recordType, recordId) => {
-    if (!currentUser) return;
-
-    try {
-      await deleteDoc(doc(db, 'users', currentUser.uid, recordType, recordId));
-      
-      // Update local state
-      setDetailedDateRecords(prev => ({
-        ...prev,
-        [recordType]: prev[recordType].filter(record => record.id !== recordId)
-      }));
-
-      // Refresh dashboard data
-      window.location.reload(); 
- // Simple refresh for now
-
-    } catch (error) {
-      console.error('Error deleting record:', error);
-    }
-
-    setDeleteConfirm(null);
-  }, [currentUser]);
-// Helper functions for modal
-  const getPainLevelColor = React.useCallback((level) => {
+  // Helper functions
+  const getPainLevelColor = (level) => {
     if (level <= 3) return '#28a745';
     if (level <= 6) return '#ffc107';
     if (level <= 8) return '#fd7e14';
     return '#dc3545';
-  }, []);
- const formatTime = React.useCallback((timestamp) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  }, []);
- const formatDuration = React.useCallback((duration) => {
-    if (!duration || duration === 0) return 'Manual Entry';
-    const hours = Math.floor(duration / 60);
-    const minutes = duration % 60;
+  };
+
+  const getPainLevelText = (level) => {
+    if (level <= 2) return 'Mild';
+    if (level <= 4) return 'Moderate';
+    if (level <= 6) return 'Strong';
+    if (level <= 8) return 'Severe';
+    return 'Extreme';
+  };
+
+  const formatDuration = (startTime) => {
+    const now = new Date();
+    const start = startTime.toDate();
+    const diffMs = now - start;
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
-  }, []);
-// Quick entry handlers
-  const handleQuickHeadacheEntry = React.useCallback(() => {
-    navigate(`/record-headache?date=${selectedDate}&mode=manual-entry`);
-  }, [navigate, selectedDate]);
- const closeModal = React.useCallback(() => {
-    setShowDateModal(false);
-    setSelectedDate(null);
-    setDetailedDateRecords({ headaches: [], medications: [], sleep: [], stress: [] });
-  }, []);
-// Format date for display
-  const formatSelectedDate = React.useCallback((dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  }, []);
-// Event handlers
-  const handleLogout = React.useCallback(async () => {
+  };
+
+  // Event handlers
+  const handleTypeSelect = (typeName) => {
+    setFormData(prev => ({ ...prev, location: typeName }));
+  };
+
+  const handlePainLevelChange = (level) => {
+    setFormData(prev => ({ ...prev, painLevel: level }));
+  };
+
+  const handleProdromeChange = (symptoms) => {
+    setFormData(prev => ({ ...prev, prodromeSymptoms: symptoms }));
+  };
+
+  // Check for ongoing session
+  const checkForOngoingSession = React.useCallback(async () => {
+    if (!currentUser) return;
+
     try {
-      await logout();
-      navigate('/login');
+      const ongoingQuery = query(
+        collection(db, 'users', currentUser.uid, 'ongoingHeadaches'),
+        where('ended', '==', false)
+      );
+      
+      const ongoingSnapshot = await getDocs(ongoingQuery);
+      
+      if (!ongoingSnapshot.empty) {
+        const sessionDoc = ongoingSnapshot.docs[0];
+        const sessionData = { id: sessionDoc.id, ...sessionDoc.data() };
+        
+        const startTime = sessionData.startTime.toDate();
+        const now = new Date();
+        const hoursDiff = (now - startTime) / (1000 * 60 * 60);
+        
+        if (hoursDiff <= 24) {
+          setOngoingSession(sessionData);
+          // If there's an ongoing session, show it in the selection screen
+        } else {
+          // Clean up stale session
+          await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingHeadaches', sessionDoc.id));
+        }
+      }
     } catch (error) {
-      console.error('Failed to log out:', error);
+      console.error('Error checking for ongoing session:', error);
     }
-  }, [logout, navigate]);
-// Loading state
-  if (dashboardData.loading) {
+  }, [currentUser]);
+
+  useEffect(() => {
+    checkForOngoingSession();
+  }, [checkForOngoingSession]);
+
+  useEffect(() => {
+    if (prefilledDate) {
+      setFormData(prev => ({ ...prev, date: prefilledDate }));
+    }
+    if (prefilledMode) {
+      setMode(prefilledMode);
+    }
+  }, [prefilledDate, prefilledMode]);
+
+  // Load existing data for editing
+  useEffect(() => {
+    const loadData = async () => {
+      if (isEditMode && editDocId) {
+        setIsLoadingData(true);
+        const existingData = await loadExistingData();
+        if (existingData) {
+          setFormData(prev => ({
+            ...prev,
+            date: existingData.date || prev.date,
+            painLevel: existingData.painLevel || prev.painLevel,
+            location: existingData.location || prev.location,
+            prodromeSymptoms: existingData.prodromeSymptoms || [],
+            currentSymptoms: existingData.currentSymptoms || [],
+            triggers: existingData.triggers || [],
+            notes: existingData.notes || ''
+          }));
+        }
+        setIsLoadingData(false);
+      }
+    };
+    loadData();
+  }, [isEditMode, editDocId, loadExistingData]);
+
+  // Database operations
+  const startHeadacheSession = async () => {
+    if (!currentUser) {
+      setError('You must be logged in to track headaches');
+      return;
+    }
+
+    if (!formData.location) {
+      setError('Please select a headache type');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const sessionData = {
+        startTime: Timestamp.now(),
+        painLevel: parseInt(formData.painLevel),
+        location: formData.location,
+        ended: false,
+        createdAt: Timestamp.now(),
+        // Store prodrome symptoms in session
+        ...(isPremiumMode && {
+          prodromeSymptoms: formData.prodromeSymptoms
+        })
+      };
+
+      const sessionRef = await addDoc(collection(db, 'users', currentUser.uid, 'ongoingHeadaches'), sessionData);
+      
+      setOngoingSession({ id: sessionRef.id, ...sessionData });
+      setMode('active-headache');
+      
+    } catch (error) {
+      console.error('Error starting headache session:', error);
+      setError('Failed to start tracking. Please try again.');
+    }
+
+    setLoading(false);
+  };
+
+  const endHeadacheSession = async () => {
+    if (!ongoingSession) {
+      setError('No ongoing headache session found');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const endTime = Timestamp.now();
+      const duration = Math.round((endTime.toDate() - ongoingSession.startTime.toDate()) / (1000 * 60));
+
+      const headacheData = {
+        userId: currentUser.uid,
+        painLevel: ongoingSession.painLevel,
+        location: ongoingSession.location,
+        startTime: ongoingSession.startTime,
+        endTime: endTime,
+        duration: duration,
+        date: formData.date,
+        createdAt: Timestamp.now(),
+        ...(isPremiumMode && {
+          prodromeSymptoms: ongoingSession.prodromeSymptoms || formData.prodromeSymptoms,
+          currentSymptoms: formData.currentSymptoms,
+          triggers: formData.triggers,
+          notes: formData.notes
+        })
+      };
+
+      await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
+      await deleteDoc(doc(db, 'users', currentUser.uid, 'ongoingHeadaches', ongoingSession.id));
+      
+      // Clear session and return to dashboard
+      setOngoingSession(null);
+      navigate('/dashboard');
+
+    } catch (error) {
+      console.error('Error ending headache session:', error);
+      setError('Failed to end tracking. Please try again.');
+    }
+
+    setLoading(false);
+  };
+
+  const submitManualEntry = async () => {
+    if (!currentUser || !formData.location) {
+      setError('Please select a headache type');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isEditMode && editDocId) {
+        // Update existing record
+        const success = await updateRecord({
+          painLevel: parseInt(formData.painLevel),
+          location: formData.location,
+          date: formData.date,
+          ...(isPremiumMode && {
+            prodromeSymptoms: formData.prodromeSymptoms,
+            currentSymptoms: formData.currentSymptoms,
+            triggers: formData.triggers,
+            notes: formData.notes
+          })
+        });
+        
+        if (success) {
+          navigate('/dashboard');
+        }
+      } else {
+        // Create new record (existing code)
+        const entryDate = new Date(formData.date + 'T' + new Date().toTimeString().slice(0, 8));
+        const headacheData = {
+          userId: currentUser.uid,
+          painLevel: parseInt(formData.painLevel),
+          location: formData.location,
+          startTime: Timestamp.fromDate(entryDate),
+          endTime: Timestamp.fromDate(entryDate),
+          duration: 0,
+          date: formData.date,
+          createdAt: Timestamp.now(),
+          ...(isPremiumMode && {
+            prodromeSymptoms: formData.prodromeSymptoms,
+            currentSymptoms: formData.currentSymptoms,
+            triggers: formData.triggers,
+            notes: formData.notes
+          })
+        };
+        console.log('=== HEADACHE DEBUG ===');
+        console.log('Date being saved:', formData.date);
+        console.log('Full headache data:', headacheData);
+
+        await addDoc(collection(db, 'users', currentUser.uid, 'headaches'), headacheData);
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('Error recording headache:', error);
+      setError('Failed to record headache. Please try again.');
+    }
+
+    setLoading(false);
+  };
+
+  // Add delete functionality
+  const handleDelete = async () => {
+    if (isEditMode && editDocId) {
+      const success = await deleteRecord();
+      if (success) {
+        // Will navigate automatically via the hook
+      }
+    }
+  };
+
+  // MAIN SELECTION SCREEN
+  if (mode === 'selection') {
     return (
       <div style={{
-        background: '#F9FAFB',
         minHeight: '100vh',
-        color: '#000000',
+        background: '#F8FAFC',
+        color: '#1E293B',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '1.2rem',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        justifyContent: 'center'
       }}>
         <link 
           rel="stylesheet" 
@@ -570,373 +447,1024 @@ export default function Dashboard() {
           crossOrigin="anonymous" 
           referrerPolicy="no-referrer" 
         />
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#4682B4' }}>
-            <i className="fas fa-spinner fa-spin"></i>
+
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          {/* Dev Toggle */}
+          <div style={{
+            position: 'fixed',
+            top: '10px',
+            right: '10px',
+            background: '#fff',
+            padding: '10px',
+            borderRadius: '8px',
+            border: '1px solid #ddd',
+            fontSize: '0.8rem'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                checked={isPremiumMode}
+                onChange={(e) => setIsPremiumMode(e.target.checked)}
+              />
+              {isPremiumMode ? '💎 Premium Mode' : '🆓 Free Mode'}
+            </label>
           </div>
-          <div>Loading your health data...</div>
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            <h1 style={{
+              margin: '0 0 1rem 0',
+              fontSize: '2rem',
+              fontWeight: 'bold',
+              color: '#1E3A8A'
+            }}>
+              <i className="fas fa-head-side-virus" style={{ marginRight: '0.5rem' }}></i>
+              Headache Tracker
+            </h1>
+            <p style={{ color: '#6B7280', fontSize: '1.1rem', margin: 0 }}>
+              Record in seconds with auto-timer
+            </p>
+          </div>
+
+          {/* Ongoing Session Alert */}
+          {ongoingSession && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '2px solid #F87171',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              marginBottom: '2rem',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#F87171' }}>
+                <i className="fas fa-exclamation-triangle"></i>
+              </div>
+              <h4 style={{ color: '#F87171', margin: '0 0 0.5rem 0' }}>
+                Headache in Progress
+              </h4>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#F87171', marginBottom: '0.5rem' }}>
+                Duration: {formatDuration(ongoingSession.startTime)}
+              </div>
+              <p style={{ margin: 0, color: '#6B7280', fontSize: '0.9rem' }}>
+                Pain Level: {ongoingSession.painLevel}/10 • Type: {ongoingSession.location}
+              </p>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '2rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '2rem'
+          }}>
+            <button
+              onClick={() => setMode('start-headache')}
+              disabled={loading || ongoingSession}
+              style={{
+                padding: '2rem 1rem',
+                background: ongoingSession 
+                  ? '#F3F4F6' 
+                  : 'linear-gradient(135deg, #F87171, #EF4444)',
+                border: 'none',
+                borderRadius: '16px',
+                cursor: ongoingSession || loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                textAlign: 'center',
+                color: 'white',
+                boxShadow: ongoingSession ? 'none' : '0 4px 12px rgba(248, 113, 113, 0.2)',
+                opacity: ongoingSession ? 0.6 : 1
+              }}
+            >
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-play"></i>
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
+                I Have a Headache
+              </h3>
+              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                Start auto-timer tracking
+              </div>
+            </button>
+
+            <button
+              onClick={() => setMode('end-headache')}
+              disabled={loading || !ongoingSession}
+              style={{
+                padding: '2rem 1rem',
+                background: !ongoingSession 
+                  ? '#F3F4F6' 
+                  : 'linear-gradient(135deg, #34D399, #10B981)',
+                border: 'none',
+                borderRadius: '16px',
+                cursor: !ongoingSession || loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                textAlign: 'center',
+                color: 'white',
+                boxShadow: !ongoingSession ? 'none' : '0 4px 12px rgba(52, 211, 153, 0.2)',
+                opacity: !ongoingSession ? 0.6 : 1
+              }}
+            >
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-stop"></i>
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
+                Headache Ended
+              </h3>
+              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                Complete current session
+              </div>
+            </button>
+
+            <button
+              onClick={() => setMode('manual-entry')}
+              disabled={loading}
+              style={{
+                padding: '2rem 1rem',
+                background: 'linear-gradient(135deg, #FBBF24, #F59E0B)',
+                border: 'none',
+                borderRadius: '16px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                textAlign: 'center',
+                color: 'white',
+                boxShadow: '0 4px 12px rgba(251, 191, 36, 0.2)'
+              }}
+            >
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-edit"></i>
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: '600' }}>
+                Manual Entry
+              </h3>
+              <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                Log past headache
+              </div>
+            </button>
+          </div>
+
+          {/* Premium Teaser */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Unlock Premium Features</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Prodrome tracking, advanced analytics, triggers, AI insights & more
+              </p>
+            </div>
+          )}
+
+          {/* Back to Dashboard */}
+          <div style={{ textAlign: 'center' }}>
+            <Link
+              to="/dashboard"
+              style={{
+                background: 'transparent',
+                border: '1px solid #F3F4F6',
+                borderRadius: '8px',
+                color: '#6B7280',
+                padding: '8px 16px',
+                textDecoration: 'none',
+                fontSize: '0.9rem',
+                display: 'inline-flex',
+                alignItems: 'center'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back to Dashboard
+            </Link>
+          </div>
         </div>
       </div>
     );
- }
+  }
 
-  return (
-    <div style={{ background: '#F9FAFB', minHeight: '100vh', color: '#000000' }}>
-      <link 
-        rel="stylesheet" 
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
-        crossOrigin="anonymous" 
-        referrerPolicy="no-referrer" 
-      />
+  // START HEADACHE FLOW
+  if (mode === 'start-headache') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ color: '#EF4444', marginBottom: '1rem' }}>
+              <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
+              Starting Headache Tracking
+            </h2>
+          </div>
 
-      <DashboardHeader currentUser={currentUser} />
-      
-      <div style={{ padding: '0 1rem 2rem 1rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          {dashboardData.error && (
+          {/* Pain Level Slider */}
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <h3 style={{ color: '#1E40AF', marginBottom: '1rem' }}>Current Pain Level</h3>
             <div style={{
-              background: 'rgba(220, 53, 69, 0.1)',
-              border: '1px solid rgba(220, 53, 69, 0.3)',
-              borderRadius: '12px',
-              padding: '1rem',
-              marginBottom: '2rem',
-              color: '#dc3545',
+              fontSize: '3rem',
+              marginBottom: '1rem',
+              color: getPainLevelColor(formData.painLevel)
+            }}>
+              {formData.painLevel}/10
+            </div>
+            <div style={{
+              fontSize: '1.2rem',
+              marginBottom: '1.5rem',
+              color: getPainLevelColor(formData.painLevel),
+              fontWeight: '600'
+            }}>
+              {getPainLevelText(formData.painLevel)}
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={formData.painLevel}
+              onChange={(e) => handlePainLevelChange(parseInt(e.target.value))}
+              style={{
+                width: '100%',
+                height: '12px',
+                borderRadius: '6px',
+                background: 'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
+                outline: 'none',
+                cursor: 'pointer',
+                marginBottom: '1rem'
+              }}
+            />
+          </div>
+
+          {/* Headache Type Selector */}
+          <HeadacheTypeSelector
+            headacheTypes={headacheTypes}
+            currentSlide={currentSlide}
+            setCurrentSlide={setCurrentSlide}
+            selectedType={formData.location}
+            onTypeSelect={handleTypeSelect}
+          />
+
+          {/* Premium Prodrome Tracking */}
+          {isPremiumMode && (
+            <PremiumProdromeTracker
+              selectedProdromeSymptoms={formData.prodromeSymptoms}
+              onProdromeChange={handleProdromeChange}
+              timeframe="in the last 24 hours"
+            />
+          )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
               textAlign: 'center'
             }}>
-              {dashboardData.error}
+              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+              {error}
             </div>
           )}
 
-          <QuickActionsModule 
-            showQuickActions={showQuickActions}
-            setShowQuickActions={setShowQuickActions}
-          />
-
-          <WeeklyHealthChart 
-            data={dashboardData.sleepStressData}
-          />
-
-          <DailyMetricsModule
-            dailyMetrics={dashboardData.dailyMetrics}
-            currentMetricDay={currentMetricDay}
-            setCurrentMetricDay={setCurrentMetricDay}
-            onMetricsDayClick={handleMetricsDayClick}
-          />
-
-          <CalendarModule
-            calendarData={dashboardData.calendarData}
-            currentMonth={currentMonth}
-            currentYear={currentYear}
-            setCurrentMonth={setCurrentMonth}
-            setCurrentYear={setCurrentYear}
-            onDateClick={handleCalendarDateClick}
-            weekStartsOnMonday={weekStartsOnMonday}
-            setWeekStartsOnMonday={setWeekStartsOnMonday}
-            monthlyStats={dashboardData.monthlyStats}
-          />
-
-          <AIInsightsModule 
-            stats={dashboardData.stats}
-          />
-
-          <LogoutButton onLogout={handleLogout} />
-
-          {/* Date Management Modal */}
-          {showDateModal && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-              padding: '20px'
-            }}>
-              <div style={{
-                background: '#FFFFFF',
-                borderRadius: '16px',
-                padding: '2rem',
-                maxWidth: '700px',
-                width: '100%',
-                maxHeight: '90vh',
-                overflowY: 'auto',
-                position: 'relative',
-                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
-              }}>
-                {/* Close Button */}
-                <button
-                  onClick={closeModal}
-                  style={{
-                    position: 'absolute',
-                    top: '1rem',
-                    right: '1rem',
-                    background: 'transparent',
-                    border: 'none',
-                    fontSize: '1.5rem',
-                    color: '#9CA3AF',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <i className="fas fa-times"></i>
-                </button>
-
-                {/* Modal Header */}
-                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                  <h3 style={{ 
-                    margin: '0 0 0.5rem 0', 
-                    fontSize: '1.5rem', 
-                    fontWeight: '600',
-                    color: '#1E3A8A'
-                  }}>
-                    <i className="fas fa-calendar-day" style={{ marginRight: '0.5rem' }}></i>
-                    Daily Overview
-                  </h3>
-                  <p style={{ 
-                    margin: 0, 
-                    color: '#6B7280', 
-                    fontSize: '1rem' 
-                  }}>
-                    {selectedDate && formatSelectedDate(selectedDate)}
-                  </p>
-                </div>
-
-                {/* Loading State */}
-                {loadingDateRecords && (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: '#6B7280' }}>
-                    <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', marginBottom: '1rem' }}></i>
-                    <div>Loading records...</div>
-                  </div>
-                )}
-
-                {/* Records Display */}
-                {!loadingDateRecords && (
-                  <div style={{ marginBottom: '2rem' }}>
-                    {/* Headaches Section */}
-                    <div style={{ marginBottom: '2rem' }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        marginBottom: '1rem'
-                      }}>
-                        <h4 style={{ 
-                          margin: 0, 
-                          fontSize: '1.1rem', 
-                          fontWeight: '600',
-                          color: '#DC2626',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}>
-                          <i className="fas fa-head-side-virus" style={{ marginRight: '0.5rem' }}></i>
-                          Headaches & Migraines ({detailedDateRecords.headaches.length})
-                        </h4>
-                        <button
-                          onClick={handleQuickHeadacheEntry}
-                          style={{
-                            background: '#DC2626',
-                            border: 'none',
-                            borderRadius: '6px',
-                            color: 'white',
-                            padding: '6px 12px',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem'
-                          }}
-                        >
-                          <i className="fas fa-plus" style={{ marginRight: '0.25rem' }}></i>
-                          Add
-                        </button>
-                      </div>
-                      
-                      {detailedDateRecords.headaches.length === 0 ? (
-                        <p style={{ color: '#9CA3AF', fontStyle: 'italic', margin: 0 }}>No headaches recorded</p>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          {detailedDateRecords.headaches.map((headache) => (
-                            <div key={headache.id} style={{
-                              background: headache.isMigrineAttack ? '#FEF2F2' : '#F9FAFB',
-                              border: headache.isMigrineAttack ? '2px solid #DC2626' : '1px solid #E5E7EB',
-                              borderRadius: '8px',
-                              padding: '1rem',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                  {headache.isMigrineAttack && (
-                                    <span style={{
-                                      background: '#DC2626',
-                                      color: 'white',
-                                      padding: '2px 6px',
-                                      borderRadius: '4px',
-                                      fontSize: '0.7rem',
-                                      fontWeight: 'bold'
-                                    }}>
-                                      MIGRAINE
-                                    </span>
-                                  )}
-                                  <span style={{
-                                    background: getPainLevelColor(headache.painLevel),
-                                    color: 'white',
-                                    padding: '2px 8px',
-                                    borderRadius: '12px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 'bold'
-                                  }}>
-                                    {headache.painLevel}/10
-                                  </span>
-                                  <span style={{ fontWeight: '600', color: '#374151' }}>
-                                    {headache.location}
-                                  </span>
-                                </div>
-                                <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>
-                                  Duration: {formatDuration(headache.duration)} |
-                                  Time: {formatTime(headache.startTime)}
-                                  {headache.notes && (
-                                    <div style={{ marginTop: '0.25rem', fontStyle: 'italic' }}>
-                                      "{headache.notes}"
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <Link
-                                  to={`/record-headache?mode=manual-entry&editId=${headache.id}`}
-                                  style={{
-                                    background: '#3B82F6',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    color: 'white',
-                                    padding: '6px 8px',
-                                    textDecoration: 'none',
-                                    fontSize: '0.8rem'
-                                  }}
-                                >
-                                  <i className="fas fa-edit"></i>
-                                </Link>
-                                <button
-                                  onClick={() => setDeleteConfirm({ 
-                                    type: 'headaches', 
-                                    id: headache.id, 
-                                    name: `${headache.isMigrineAttack ? 'migraine attack' : headache.location + ' headache'}` 
-                                  })}
-                                  style={{
-                                    background: '#DC2626',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    color: 'white',
-                                    padding: '6px 8px',
-                                    cursor: 'pointer',
-                                    fontSize: '0.8rem'
-                                  }}
-                                >
-                                  <i className="fas fa-trash"></i>
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Close Button */}
-                <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-                  <button
-                    onClick={closeModal}
-                    style={{
-                      background: 'transparent',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '8px',
-                      color: '#6B7280',
-                      padding: '0.75rem 1.5rem',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem'
-                    }}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Delete Confirmation Modal */}
-          {deleteConfirm && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1100
-            }}>
-              <div style={{
-                background: '#FFFFFF',
-                borderRadius: '12px',
-                padding: '2rem',
-                maxWidth: '400px',
-                width: '90%'
-              }}>
-                <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                  <div style={{ fontSize: '3rem', color: '#DC2626', marginBottom: '1rem' }}>
-                    <i className="fas fa-exclamation-triangle"></i>
-                  </div>
-                  <h3 style={{ color: '#DC2626', marginBottom: '0.5rem' }}>Delete Record</h3>
-                  <p style={{ color: '#6B7280', margin: 0 }}>
-                    Are you sure you want to delete this {deleteConfirm.name}?
-                    This action cannot be undone.
-                  </p>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                  <button
-                    onClick={() => setDeleteConfirm(null)}
-                    style={{
-                      background: 'transparent',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '8px',
-                      color: '#4B5563',
-                      padding: '10px 20px',
-                      cursor: 'pointer',
-                      fontSize: '1rem'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  
-                  <button
-                    onClick={() => handleDeleteRecord(deleteConfirm.type, deleteConfirm.id)}
-                    style={{
-                      background: '#DC2626',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: 'white',
-                      padding: '10px 20px',
-                      cursor: 'pointer',
-                      fontSize: '1rem',
-                      fontWeight: '600'
-                    }}
-                  >
-                    <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('selection')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+            
+            <button
+              onClick={startHeadacheSession}
+              disabled={loading || !formData.location}
+              style={{
+                background: (loading || !formData.location) ? '#E5E7EB' : '#EF4444',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: (loading || !formData.location) ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-play" style={{ marginRight: '0.5rem' }}></i>
+                  Start Tracking
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // ACTIVE HEADACHE - Timer Running
+  if (mode === 'active-headache') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          {/* Active Session Display */}
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '2px solid #F87171',
+            borderRadius: '16px',
+            padding: '2rem',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#F87171' }}>
+              <i className="fas fa-stopwatch"></i>
+            </div>
+            <h2 style={{ color: '#F87171', margin: '0 0 1rem 0' }}>
+              Headache in Progress
+            </h2>
+            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#F87171', marginBottom: '0.5rem' }}>
+              {ongoingSession && formatDuration(ongoingSession.startTime)}
+            </div>
+            <div style={{ color: '#4B5563', fontSize: '1rem' }}>
+              <div>Pain Level: {ongoingSession?.painLevel}/10</div>
+              <div>Type: {ongoingSession?.location}</div>
+              <div>Started: {ongoingSession?.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+          </div>
+
+          {/* Premium Features Preview */}
+          {isPremiumMode && (
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              marginBottom: '2rem'
+            }}>
+              <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                Track symptoms (optional)
+              </h4>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                gap: '0.5rem'
+              }}>
+                {currentSymptoms.slice(0, 6).map(symptom => (
+                  <label key={symptom} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem',
+                    background: formData.currentSymptoms.includes(symptom) ? 'rgba(220, 53, 69, 0.1)' : '#F9FAFB',
+                    border: formData.currentSymptoms.includes(symptom) ? '1px solid #dc3545' : '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.currentSymptoms.includes(symptom)}
+                      onChange={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          currentSymptoms: prev.currentSymptoms.includes(symptom)
+                            ? prev.currentSymptoms.filter(s => s !== symptom)
+                            : [...prev.currentSymptoms, symptom]
+                        }));
+                      }}
+                      style={{ transform: 'scale(0.8)' }}
+                    />
+                    {symptom}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Premium Teaser for Free Users */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Real-time Symptom Tracking</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Track symptoms during headaches for better pattern recognition
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('selection')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+            
+            <button
+              onClick={() => setMode('end-headache')}
+              style={{
+                background: '#10B981',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              <i className="fas fa-stop" style={{ marginRight: '0.5rem' }}></i>
+              End Headache
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // END HEADACHE FLOW
+  if (mode === 'end-headache') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          {/* Session Summary */}
+          <div style={{
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '2px solid #10B981',
+            borderRadius: '16px',
+            padding: '2rem',
+            textAlign: 'center',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#10B981' }}>
+              <i className="fas fa-flag-checkered"></i>
+            </div>
+            <h2 style={{ color: '#10B981', margin: '0 0 1rem 0' }}>
+              Headache Complete!
+            </h2>
+            {ongoingSession && (
+              <>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10B981', marginBottom: '0.5rem' }}>
+                  Duration: {formatDuration(ongoingSession.startTime)}
+                </div>
+                <div style={{ color: '#4B5563', fontSize: '1rem' }}>
+                  Type: {ongoingSession.location}
+                  <br />
+                  Pain Level: {ongoingSession.painLevel}/10
+                  <br />
+                  Started: {ongoingSession.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Premium Prodrome Review */}
+          {isPremiumMode && ongoingSession?.prodromeSymptoms?.length > 0 && (
+            <div style={{
+              background: 'rgba(255, 215, 0, 0.1)',
+              border: '1px solid rgba(255, 215, 0, 0.3)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              marginBottom: '2rem'
+            }}>
+              <h4 style={{ color: '#B8860B', margin: '0 0 1rem 0' }}>
+                <i className="fas fa-crown" style={{ marginRight: '0.5rem' }}></i>
+                Prodrome Symptoms Tracked
+              </h4>
+              <p style={{ margin: '0 0 1rem 0', color: '#4B5563', fontSize: '0.9rem' }}>
+                You reported {ongoingSession.prodromeSymptoms.length} warning signs before this headache:
+              </p>
+              <div style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                This data helps identify your personal headache patterns for better prevention.
+              </div>
+            </div>
+          )}
+
+          {/* Quick notes (optional) */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+              Any notes about this headache? (optional)
+            </h4>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="What helped? What made it worse? Any observations..."
+              rows="3"
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
+                fontSize: '1rem',
+                resize: 'vertical',
+                fontFamily: 'inherit'
+              }}
+            />
+          </div>
+
+          {/* Premium Features for End Session */}
+          {isPremiumMode && (
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              marginBottom: '2rem'
+            }}>
+              <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+                <i className="fas fa-star" style={{ color: '#ffd700', marginRight: '0.5rem' }}></i>
+                What might have triggered this headache?
+              </h4>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                gap: '0.5rem'
+              }}>
+                {commonTriggers.slice(0, 8).map(trigger => (
+                  <label key={trigger} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem',
+                    background: formData.triggers.includes(trigger) ? 'rgba(255, 193, 7, 0.1)' : '#F9FAFB',
+                    border: formData.triggers.includes(trigger) ? '1px solid #ffc107' : '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.triggers.includes(trigger)}
+                      onChange={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          triggers: prev.triggers.includes(trigger)
+                            ? prev.triggers.filter(t => t !== trigger)
+                            : [...prev.triggers, trigger]
+                        }));
+                      }}
+                      style={{ transform: 'scale(0.8)' }}
+                    />
+                    {trigger}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Premium Teaser for Free Users */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Trigger Analysis</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Identify what causes your headaches with detailed trigger tracking
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              background: '#f8d7da',
+              border: '1px solid #dc3545',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+              color: '#721c24',
+              textAlign: 'center'
+            }}>
+              <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+              {error}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('active-headache')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+            
+            <button
+              onClick={endHeadacheSession}
+              disabled={loading}
+              style={{
+                background: loading ? '#E5E7EB' : '#10B981',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {loading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>
+                  Complete & Save
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // MANUAL ENTRY MODE
+  if (mode === 'manual-entry') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        color: '#000000',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ maxWidth: '500px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ color: '#ffc107', marginBottom: '1rem' }}>
+              <i className="fas fa-edit" style={{ marginRight: '0.5rem' }}></i>
+              {isEditMode ? 'Edit Headache' : 'Manual Headache Entry'}
+            </h2>
+            <p style={{ color: '#9CA3AF', fontSize: '1rem', margin: 0 }}>
+              {isEditMode ? 'Modify existing headache data' : 'Log past headache'}
+            </p>
+          </div>
+
+          {/* Date Selector */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+              <i className="fas fa-calendar" style={{ marginRight: '0.5rem' }}></i>
+              Date of Headache
+            </h4>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              max={new Date().toISOString().split('T')[0]}
+              style={{
+                width: '100%',
+                maxWidth: '200px',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
+                fontSize: '1rem'
+              }}
+            />
+            {prefilledDate && (
+              <p style={{ 
+                margin: '0.5rem 0 0 0', 
+                fontSize: '0.85rem', 
+                color: '#6B7280',
+                fontStyle: 'italic'
+              }}>
+                <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+                Date selected from calendar
+              </p>
+            )}
+          </div>
+
+          {/* Pain Level Slider */}
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <h3 style={{ color: '#4682B4', marginBottom: '1rem' }}>Pain Level</h3>
+            <div style={{
+              fontSize: '3rem',
+              marginBottom: '1rem',
+              color: getPainLevelColor(formData.painLevel)
+            }}>
+              {formData.painLevel}/10
+            </div>
+            <div style={{
+              fontSize: '1.2rem',
+              marginBottom: '1.5rem',
+              color: getPainLevelColor(formData.painLevel),
+              fontWeight: '600'
+            }}>
+              {getPainLevelText(formData.painLevel)}
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={formData.painLevel}
+              onChange={(e) => handlePainLevelChange(parseInt(e.target.value))}
+              style={{
+                width: '100%',
+                height: '12px',
+                borderRadius: '6px',
+                background: 'linear-gradient(to right, #28a745 0%, #ffc107 50%, #dc3545 100%)',
+                outline: 'none',
+                cursor: 'pointer',
+                marginBottom: '1rem'
+              }}
+            />
+          </div>
+
+          {/* Headache Type Selector */}
+          <HeadacheTypeSelector
+            headacheTypes={headacheTypes}
+            currentSlide={currentSlide}
+            setCurrentSlide={setCurrentSlide}
+            selectedType={formData.location}
+            onTypeSelect={handleTypeSelect}
+          />
+
+          {/* Premium Prodrome Tracking for Manual Entry */}
+          {isPremiumMode && (
+            <PremiumProdromeTracker
+              selectedProdromeSymptoms={formData.prodromeSymptoms}
+              onProdromeChange={handleProdromeChange}
+              timeframe="before this headache"
+            />
+          )}
+
+          {/* Notes */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 style={{ color: '#4682B4', marginBottom: '1rem' }}>
+              Notes about this headache (optional)
+            </h4>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Duration, triggers, what helped, etc..."
+              rows="3"
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #E5E7EB',
+                background: '#FFFFFF',
+                color: '#000000',
+                fontSize: '1rem',
+                resize: 'vertical',
+                fontFamily: 'inherit'
+              }}
+            />
+          </div>
+
+          {/* Premium Teaser */}
+          {!isPremiumMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #4682B4, #2c5aa0)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: 'white',
+              marginBottom: '2rem'
+            }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                <i className="fas fa-crown"></i>
+              </div>
+              <h4 style={{ margin: '0 0 0.5rem 0' }}>Premium: Advanced Headache Tracking</h4>
+              <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.9 }}>
+                Track prodrome symptoms, triggers, detailed analytics & more
+              </p>
+            </div>
+          )}
+
+          {/* Status Messages */}
+          {(error || editError || editStatusMessage) && (
+            <div style={{ marginBottom: '2rem' }}>
+              {(error || editError) && (
+                <div style={{
+                  background: '#f8d7da',
+                  border: '1px solid #dc3545',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '1rem',
+                  color: '#721c24',
+                  textAlign: 'center'
+                }}>
+                  <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                  {error || editError}
+                </div>
+              )}
+
+              {editStatusMessage && (
+                <div style={{
+                  background: '#d4edda',
+                  border: '1px solid #28a745',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '1rem',
+                  color: '#155724',
+                  textAlign: 'center'
+                }}>
+                  <i className="fas fa-check-circle" style={{ marginRight: '0.5rem' }}></i>
+                  {editStatusMessage}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => setMode('selection')}
+              style={{
+                background: 'transparent',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                color: '#4B5563',
+                padding: '12px 20px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              <i className="fas fa-arrow-left" style={{ marginRight: '0.5rem' }}></i>
+              Back
+            </button>
+            
+            <button
+              onClick={submitManualEntry}
+              disabled={loading || editLoading || !formData.location}
+              style={{
+                background: (loading || editLoading || !formData.location) ? '#E5E7EB' : '#ffc107',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '12px 24px',
+                cursor: (loading || editLoading || !formData.location) ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600'
+              }}
+            >
+              {(loading || editLoading) ? (
+                <>
+                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-save" style={{ marginRight: '0.5rem' }}></i>
+                  {isEditMode ? 'Update Headache' : 'Save Headache'}
+                </>
+              )}
+            </button>
+
+            {/* Delete button for edit mode */}
+            {isEditMode && (
+              <button
+                onClick={handleDelete}
+                disabled={loading || editLoading}
+                style={{
+                  background: (loading || editLoading) ? '#F87171' : '#DC2626',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: 'white',
+                  padding: '12px 24px',
+                  cursor: (loading || editLoading) ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '600'
+                }}
+              >
+                {(loading || editLoading) ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
+                    Delete
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
