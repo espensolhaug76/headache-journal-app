@@ -171,16 +171,50 @@ export default function AIInsightsModule({ stats, monthlyStats, migrainStats, ca
         ))}
         
         {/* Migraine Pattern Analysis */}
-        {migrainStats && migrainStats.totalMigraines > 0 && (
+        {migrainStats && (migrainStats.totalMigraines > 0 || migrainStats.totalRegularHeadaches > 0) && (
           <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', marginBottom: '1rem', padding: '1rem', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '12px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
             <div style={{ fontSize: '1.5rem', color: '#8B5CF6' }}>
               <i className="fas fa-brain"></i>
             </div>
-            <span style={{ color: '#5B21B6' }}>
-              <strong>Migraine Analysis:</strong> You've had {migrainStats.totalMigraines} migraine{migrainStats.totalMigraines > 1 ? 's' : ''} and {migrainStats.totalRegularHeadaches} regular headache{migrainStats.totalRegularHeadaches > 1 ? 's' : ''} this month.
-              {migrainStats.avgMigrainePainLevel > migrainStats.avgRegularPainLevel + 2 && 
-                ' Your migraines are significantly more severe than regular headaches - this supports proper migraine diagnosis.'}
-            </span>
+            <div style={{ color: '#5B21B6' }}>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <strong>Headache Type Analysis:</strong> This month you've recorded:
+              </div>
+              <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+                {migrainStats.totalMigraines > 0 && (
+                  <li>
+                    <strong>{migrainStats.totalMigraines} migraine attack{migrainStats.totalMigraines > 1 ? 's' : ''}</strong>
+                    {migrainStats.avgMigrainePainLevel > 0 && ` (avg pain: ${migrainStats.avgMigrainePainLevel}/10)`}
+                    {migrainStats.daysWithMigraines > 0 && ` across ${migrainStats.daysWithMigraines} day${migrainStats.daysWithMigraines > 1 ? 's' : ''}`}
+                  </li>
+                )}
+                {migrainStats.totalRegularHeadaches > 0 && (
+                  <li>
+                    <strong>{migrainStats.totalRegularHeadaches} regular headache{migrainStats.totalRegularHeadaches > 1 ? 's' : ''}</strong>
+                    {migrainStats.avgRegularPainLevel > 0 && ` (avg pain: ${migrainStats.avgRegularPainLevel}/10)`}
+                  </li>
+                )}
+              </ul>
+              {migrainStats.totalMigraines > 0 && migrainStats.totalRegularHeadaches > 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                  {migrainStats.avgMigrainePainLevel > migrainStats.avgRegularPainLevel + 1.5 
+                    ? '✓ Your migraines are significantly more severe than regular headaches, supporting proper migraine classification.'
+                    : migrainStats.avgMigrainePainLevel > migrainStats.avgRegularPainLevel 
+                    ? '✓ Migraines show higher pain levels than regular headaches, which is typical.'
+                    : 'Consider if episodes marked as "regular headaches" might actually be migraines - they often have similar pain levels.'}
+                </div>
+              )}
+              {migrainStats.totalMigraines > 0 && migrainStats.totalRegularHeadaches === 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                  All your headaches this month were classified as migraines. This suggests a clear migraine pattern.
+                </div>
+              )}
+              {migrainStats.totalMigraines === 0 && migrainStats.totalRegularHeadaches > 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                  All headaches were classified as regular headaches. If any were severe with nausea or light sensitivity, they might be migraines.
+                </div>
+              )}
+            </div>
           </div>
         )}
         
