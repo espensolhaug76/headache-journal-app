@@ -9,7 +9,8 @@ export default function CalendarModule({
   onDateClick,
   weekStartsOnMonday,
   setWeekStartsOnMonday,
-  monthlyStats
+  monthlyStats,
+  migrainStats // NEW: Accept migraine statistics prop
 }) {
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();
@@ -53,6 +54,23 @@ export default function CalendarModule({
     }
   };
 
+  // NEW: Helper function to check if headache is migraine
+  const isMigraine = (headache) => {
+    return headache.isMigraine === true;
+  };
+
+  // NEW: Helper function to get migraine count for a day
+  const getMigraineCount = (dayData) => {
+    if (!dayData || dayData.headaches.length === 0) return 0;
+    return dayData.headaches.filter(h => isMigraine(h)).length;
+  };
+
+  // NEW: Helper function to get regular headache count for a day
+  const getRegularHeadacheCount = (dayData) => {
+    if (!dayData || dayData.headaches.length === 0) return 0;
+    return dayData.headaches.filter(h => !isMigraine(h)).length;
+  };
+
   // Calculate how many weeks to display
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
@@ -83,6 +101,10 @@ export default function CalendarModule({
     const totalDuration = getTotalDuration(dayData);
     const hasMedication = dayData && dayData.medications.length > 0;
     const isToday = dateStr === new Date().toISOString().split('T')[0];
+    
+    // NEW: Get migraine and regular headache counts
+    const migraineCount = getMigraineCount(dayData);
+    const regularCount = getRegularHeadacheCount(dayData);
 
     allCellsForCalendar.push(
       <div
@@ -92,13 +114,11 @@ export default function CalendarModule({
           flex: 1, // Ensure cells expand to fill column width
           padding: '0.25rem',
           minHeight: '70px',
-          border: isToday ? '3px solid #4682B4' : `2px solid ${getDayBorderColor(dayData, severity)}`,
+          border: isToday ? '3px solid #4682B4' : `2px solid ${getDayBorderColor(dayData, severity, migraineCount)}`,
           borderRadius: '12px',
           cursor: onDateClick ? 'pointer' : 'default',
           position: 'relative',
-          background: isToday ? 'rgba(70, 130, 180, 0.1)' : (severity === 'none' ? '#E5E7EB' :
-                     (severity === 'mild' ? '#FEF3C7' :
-                     (severity === 'moderate' || severity === 'severe' ? '#FEE2E2' : '#FEE2E2'))),
+          background: isToday ? 'rgba(70, 130, 180, 0.1)' : getBackgroundColor(severity, migraineCount),
           transition: 'all 0.2s ease',
           display: 'flex',
           flexDirection: 'column',
@@ -118,7 +138,7 @@ export default function CalendarModule({
           e.currentTarget.style.boxShadow = 'none';
         }}
         title={dayData ? 
-          `${day}/${currentMonth + 1}: ${dayData.headaches.filter(h => h.isMigraine === true).length} migraine(s), ${dayData.headaches.filter(h => h.isMigraine === false).length} regular headache(s) on this day${totalDuration > 0 ? `, ${Math.round(totalDuration / 60)}h duration` : ''}, ${dayData.medications.length} medication(s). Click to add/edit.` : 
+          `${day}/${currentMonth + 1}: ${migraineCount} migraine(s), ${regularCount} regular headache(s)${totalDuration > 0 ? `, ${Math.round(totalDuration / 60)}h duration` : ''}, ${dayData.medications.length} medication(s). Click to add/edit.` : 
           `${day}/${currentMonth + 1} - Click to log headache for this date`
         }
       >
@@ -142,6 +162,21 @@ export default function CalendarModule({
           flex: 1,
           width: '100%'
         }}>
+          {/* NEW: Migraine Badge */}
+          {migraineCount > 0 && (
+            <div style={{ 
+              background: '#DC2626',
+              color: 'white',
+              padding: '1px 4px',
+              borderRadius: '6px',
+              fontSize: '0.6rem',
+              fontWeight: 'bold',
+              marginBottom: '2px'
+            }}>
+              MIGRAINE
+            </div>
+          )}
+
           {/* Severity Emoji */}
           {severity !== 'none' && (
             <div style={{ 
@@ -149,17 +184,6 @@ export default function CalendarModule({
               marginBottom: '2px'
             }}>
               {getSeverityEmoji(severity)}
-            </div>
-          )}
-
-          {/* Migraine Indicator */}
-          {dayData && dayData.headaches.some(h => h.isMigraine) && (
-            <div style={{ 
-              fontSize: '1.2rem', 
-              color: '#8B5CF6', 
-              marginBottom: '2px'
-            }} title="Migraine day">
-              🤕
             </div>
           )}
 
@@ -207,7 +231,6 @@ export default function CalendarModule({
               background: '#DC2626',
               borderRadius: '1px'
             }} />
-            {dayData.medications.length}×
           </div>
         )}
 
@@ -290,8 +313,8 @@ export default function CalendarModule({
         }}>Next</button>
       </div>
 
-      {/* Monthly Statistics */}
-      {monthlyStats && (
+      {/* Monthly Statistics - UPDATED with Migraine Integration */}
+      {(monthlyStats || migrainStats) && (
         <div style={{
           background: 'linear-gradient(135deg, #EFF6FF, #F0F9FF)',
           border: '1px solid #BFDBFE',
@@ -317,6 +340,7 @@ export default function CalendarModule({
             gap: '0.75rem',
             textAlign: 'center'
           }}>
+            {/* Original Stats */}
             <div style={{
               background: '#FFFFFF',
               padding: '0.75rem',
@@ -324,7 +348,7 @@ export default function CalendarModule({
               border: '1px solid #E5E7EB'
             }}>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#DC2626' }}>
-                {monthlyStats.daysWithHeadaches}
+                {monthlyStats?.daysWithHeadaches || 0}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                 days with headaches
@@ -337,7 +361,7 @@ export default function CalendarModule({
               border: '1px solid #E5E7EB'
             }}>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F59E0B' }}>
-                {monthlyStats.totalAttacks}
+                {monthlyStats?.totalAttacks || 0}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                 total attacks
@@ -350,7 +374,7 @@ export default function CalendarModule({
               border: '1px solid #E5E7EB'
             }}>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#3B82F6' }}>
-                {monthlyStats.daysWithOTC}
+                {monthlyStats?.daysWithOTC || 0}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                 days with OTC meds
@@ -363,65 +387,66 @@ export default function CalendarModule({
               border: '1px solid #E5E7EB'
             }}>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
-                {monthlyStats.daysWithMigraineMeds}
+                {monthlyStats?.daysWithMigraineMeds || 0}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                 days with migraine meds
               </div>
             </div>
-     {/* Migraines-specific stats */}
-<div style={{
-  background: '#FFFFFF',
-  padding: '0.75rem',
-  borderRadius: '8px',
-  border: '1px solid #E5E7EB'
-}}>
-  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#7C3AED' }}>
-    {monthlyStats.daysWithMigraines || 0}
-  </div>
-  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
-    days with migraines
-  </div>
-</div>
-<div style={{
-  background: '#FFFFFF',
-  padding: '0.75rem',
-  borderRadius: '8px',
-  border: '1px solid #E5E7EB'
-}}>
-  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#DB2777' }}>
-    {monthlyStats.daysWithRegularHeadaches || 0}
-  </div>
-  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
-    days with regular headaches
-  </div>
-</div>
-<div style={{
-  background: '#FFFFFF',
-  padding: '0.75rem',
-  borderRadius: '8px',
-  border: '1px solid #E5E7EB'
-}}>
-  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#8B5CF6' }}>
-    {monthlyStats.totalMigraines || 0}
-  </div>
-  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
-    total migraines
-  </div>
-</div>
-<div style={{
-  background: '#FFFFFF',
-  padding: '0.75rem',
-  borderRadius: '8px',
-  border: '1px solid #E5E7EB'
-}}>
-  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F472B6' }}>
-    {monthlyStats.totalRegularHeadaches || 0}
-  </div>
-  <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: '0.25rem' }}>
-    total regular headaches
-  </div>
-</div>
+
+            {/* NEW: Migraine-specific stats */}
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#7C3AED' }}>
+                {migrainStats?.daysWithMigraines || 0}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                days with migraines
+              </div>
+            </div>
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
+                {(monthlyStats?.daysWithHeadaches || 0) - (migrainStats?.daysWithMigraines || 0)}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                days with regular headaches
+              </div>
+            </div>
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#8B5CF6' }}>
+                {migrainStats?.totalMigraines || 0}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                total migraines
+              </div>
+            </div>
+            <div style={{
+              background: '#FFFFFF',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '1px solid #E5E7EB'
+            }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#F472B6' }}>
+                {migrainStats?.totalRegularHeadaches || 0}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                total regular headaches
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -444,12 +469,36 @@ export default function CalendarModule({
   );
 }
 
-// Helper for day border color based on severity
-const getDayBorderColor = (dayData, severity) => {
+// NEW: Helper for background color with migraine awareness
+const getBackgroundColor = (severity, migraineCount) => {
+  if (migraineCount > 0) {
+    // Migraine days get a reddish background
+    if (severity === 'severe') return '#FEE2E2'; // Light red
+    if (severity === 'moderate') return '#FEF3F3'; // Very light red
+    return '#FFF5F5'; // Extremely light red
+  }
+  
+  // Regular headaches
+  if (severity === 'none') return '#E5E7EB';
+  if (severity === 'mild') return '#FEF3C7';
+  if (severity === 'moderate') return '#FEE2E2';
+  return '#FEE2E2';
+};
+
+// UPDATED: Helper for day border color with migraine awareness
+const getDayBorderColor = (dayData, severity, migraineCount) => {
   const hasHeadache = dayData && dayData.headaches.length > 0;
   if (!hasHeadache) return '#E5E7EB'; // gray for no headache
-  if (severity === 'severe') return '#EF4444';    // red
-  if (severity === 'moderate') return '#F59E0B';  // amber
-  // mild includes regular headaches by default
-  return '#FBBF24';                               // yellow
+  
+  // Migraine days get different border colors
+  if (migraineCount > 0) {
+    if (severity === 'severe') return '#DC2626';    // Dark red for severe migraines
+    if (severity === 'moderate') return '#EF4444';  // Red for moderate migraines
+    return '#F87171';                               // Light red for mild migraines
+  }
+  
+  // Regular headaches
+  if (severity === 'severe') return '#F59E0B';     // Orange for severe regular
+  if (severity === 'moderate') return '#FBBF24';   // Yellow for moderate regular
+  return '#FDE047';                                // Light yellow for mild regular
 };
