@@ -716,138 +716,6 @@ export default function Dashboard() {
             onMetricsDayClick={handleMetricsDayClick}
           />
 
-          {/* NEW: Migraine Statistics Module */}
-          <div style={{
-            background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
-            borderRadius: '20px',
-            padding: '2rem',
-            marginBottom: '2rem',
-            boxShadow: '0 10px 30px rgba(220, 38, 38, 0.2)',
-            color: 'white'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              marginBottom: '1.5rem',
-              gap: '0.75rem'
-            }}>
-              <div style={{ 
-                background: 'rgba(255, 255, 255, 0.2)', 
-                borderRadius: '12px', 
-                padding: '0.75rem',
-                fontSize: '1.5rem'
-              }}>
-                <i className="fas fa-brain"></i>
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>
-                  Migraine Tracking
-                </h3>
-                <p style={{ margin: 0, opacity: 0.9, fontSize: '0.95rem' }}>
-                  Monthly overview of migraine patterns
-                </p>
-              </div>
-            </div>
-
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: '1.5rem' 
-            }}>
-              {/* Migraine vs Regular Headaches */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                borderRadius: '16px',
-                padding: '1.5rem',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
-                  {dashboardData.migrainStats.totalMigraines}
-                </div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.25rem' }}>
-                  Migraines
-                </div>
-                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                  vs {dashboardData.migrainStats.totalRegularHeadaches} regular
-                </div>
-              </div>
-
-              {/* Days with Migraines */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                borderRadius: '16px',
-                padding: '1.5rem',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
-                  {dashboardData.migrainStats.daysWithMigraines}
-                </div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.25rem' }}>
-                  Days with Migraines
-                </div>
-                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                  this month
-                </div>
-              </div>
-
-              {/* Average Pain Comparison */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                borderRadius: '16px',
-                padding: '1.5rem',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
-                  {dashboardData.migrainStats.avgMigrainePainLevel}
-                </div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.25rem' }}>
-                  Avg Migraine Pain
-                </div>
-                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                  vs {dashboardData.migrainStats.avgRegularPainLevel} regular
-                </div>
-              </div>
-
-              {/* Frequency */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                borderRadius: '16px',
-                padding: '1.5rem',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
-                  {dashboardData.migrainStats.migraineFrequency}
-                </div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.25rem' }}>
-                  Per Week
-                </div>
-                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                  frequency
-                </div>
-              </div>
-            </div>
-
-            {/* Last Migraine */}
-            {dashboardData.migrainStats.lastMigraineDate && (
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '12px',
-                padding: '1rem',
-                marginTop: '1.5rem',
-                textAlign: 'center',
-                fontSize: '0.9rem',
-                opacity: 0.9
-              }}>
-                <i className="fas fa-clock" style={{ marginRight: '0.5rem' }}></i>
-                Last migraine: {new Date(dashboardData.migrainStats.lastMigraineDate).toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
-              </div>
-            )}
-          </div>
-
           <CalendarModule
             calendarData={dashboardData.calendarData}
             currentMonth={currentMonth}
@@ -858,6 +726,7 @@ export default function Dashboard() {
             weekStartsOnMonday={weekStartsOnMonday}
             setWeekStartsOnMonday={setWeekStartsOnMonday}
             monthlyStats={dashboardData.monthlyStats}
+            migrainStats={dashboardData.migrainStats}
           />
 
           <AIInsightsModule 
