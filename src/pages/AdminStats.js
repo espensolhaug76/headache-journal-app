@@ -12,25 +12,24 @@ export default function AdminStats() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchAllUsersData = async () => {
-      // NOTE: This function will require updated Firebase rules to work.
-      // We will address that in the next step.
-      try {
-        const usersCollectionRef = collection(db, 'users');
-        const usersSnapshot = await getDocs(usersCollectionRef);
-        setUserCount(usersSnapshot.size);
-      } catch (err) {
-        console.error("Permission Error:", err.message);
-        setError("You do not have permission to view this page. Please contact support to be granted admin access.");
-      }
-      setLoading(false);
-    };
+  const fetchAllUsersData = async () => {
+    // NOTE: This function will require updated Firebase rules to work.
+    // We will address that in the next step.
+    try {
+      const usersCollectionRef = collection(db, 'users');
+      const usersSnapshot = await getDocs(usersCollectionRef);
+      setUserCount(usersSnapshot.size);
+    } catch (err) {
+      console.error("Permission Error:", err.message);
+      setError("You do not have permission to view this page. Please contact support to be granted admin access.");
+    }
+    setLoading(false);
+  };
 
-    // We will uncomment this once the security rules are in place.
-    // fetchAllUsersData();
-    setLoading(false); // For now, we'll just stop loading.
+  // The security rules are updated, so we now call the function.
+  fetchAllUsersData();
 
-  }, [currentUser]);
+}, [currentUser]);
 
   return (
     <div style={{
