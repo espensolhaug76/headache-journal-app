@@ -7,7 +7,7 @@ import { collection, collectionGroup, getDocs, query, doc, getDoc } from 'fireba
 // It's better to manage admin access via Firebase Security Rules or Custom Claims for production.
 // This email list is a simple approach for initial development.
 const ADMIN_EMAILS = [
-  'your-admin-email@example.com',
+  'espen.solhaug@gmail.com',
   'another-admin@example.com'
 ];
 
