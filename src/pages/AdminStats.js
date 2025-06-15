@@ -289,6 +289,5 @@ export default function AdminStats() {
           <strong>Error:</strong> {error.message || 'An unexpected error occurred. Please try again.'}
         </div>
       ) : null}
-    </div>
   );
 }
