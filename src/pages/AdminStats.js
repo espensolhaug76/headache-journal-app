@@ -287,3 +287,4 @@ export default function AdminStats() {
             marginBottom: '2rem'
           }}>
             <strong>Error:</strong>
+          </div>
