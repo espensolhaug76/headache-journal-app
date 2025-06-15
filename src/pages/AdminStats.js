@@ -20,7 +20,7 @@ export default function AdminStats() {
 
   // List of admin emails - you can move this to Firebase config later
   const ADMIN_EMAILS = [
-    'your-admin-email@example.com', // Replace with your actual admin email
+    'espen.solhaug@egmail.com', // Replace with your actual admin email
     'another-admin@example.com'      // Add more admin emails as needed
   ];
 
