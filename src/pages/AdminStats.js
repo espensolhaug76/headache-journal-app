@@ -278,13 +278,14 @@ export default function AdminStats() {
         </div>
 
         {error ? (
-          <div style={{
-            background: '#f8d7da',
-            border: '1px solid #dc3545',
-            borderRadius: '8px',
-            padding: '1rem',
-            color: '#721c24',
-            marginBottom: '2rem'
-          }}>
-            <strong>Error:</strong>
-          </div>
+  <div style={{
+    background: '#f8d7da',
+    border: '1px solid #dc3545',
+    borderRadius: '8px',
+    padding: '1rem',
+    color: '#721c24',
+    marginBottom: '2rem'
+  }}>
+    <strong>Error:</strong> {error.message || 'An unexpected error occurred. Please try again.'}
+  </div>
+) : null}
