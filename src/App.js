@@ -35,25 +35,18 @@ function App() {
               </PrivateRoute>
             } />
             
-            {/* NEW: Data Manager route */}
             <Route path="/data-manager" element={
               <PrivateRoute>
                 <DataManager />
               </PrivateRoute>
             } />
-            {/* 👇 Add this new route for the admin page */}
+            
             <Route path="/admin-stats" element={
               <PrivateRoute>
                 <AdminStats />
               </PrivateRoute>
             } />
             
-            <Route path="/record-headache" element={
-              <PrivateRoute>
-                <RecordHeadache />
-              </PrivateRoute>
-            } />
-
             <Route path="/record-headache" element={
               <PrivateRoute>
                 <RecordHeadache />
@@ -96,7 +89,7 @@ function App() {
               </PrivateRoute>
             } />
 
-<Route path="/headaches" element={<HeadacheList />} />
+            <Route path="/headaches" element={<HeadacheList />} />
             
             {/* Redirect root to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
