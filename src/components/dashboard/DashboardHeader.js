@@ -1,4 +1,4 @@
-import React from 'react';
+ache journalimport React from 'react';
 import logo from '../../assets/logo.svg';
 
 export default function DashboardHeader({ currentUser }) {
@@ -26,7 +26,7 @@ export default function DashboardHeader({ currentUser }) {
           color: '#1E3A8A',
           textAlign: 'center'
         }}>
-          Ultimate Migraine Tracker
+          TSM Headache Journal
         </h1>
         <p style={{ 
           color: '#4B5563', 
