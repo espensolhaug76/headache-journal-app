@@ -1,4 +1,4 @@
-ache journalimport; React from 'react';
+import React from 'react';
 import logo from '../../assets/logo.svg';
 
 export default function DashboardHeader({ currentUser }) {
