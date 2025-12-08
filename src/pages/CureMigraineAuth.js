@@ -3,7 +3,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -11,7 +10,6 @@ import { auth } from '../firebase';
 export default function CureMigraineAuth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
   const { activatePremium } = usePremium();
   
   const [status, setStatus] = useState('Verifying your CureMigraine account...');
@@ -30,7 +28,7 @@ export default function CureMigraineAuth() {
         setStatus('Verifying token with CureMigraine...');
         
         // Verify token with CureMigraine API
-        const response = await fetch('https://api.curemigraine.org/api/verify-journal-token', {
+        const response = await fetch('https://api.curemigraine.org/journal/verify-token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -48,7 +46,7 @@ export default function CureMigraineAuth() {
           throw new Error('Invalid token');
         }
 
-        const { email, isPaid, name } = data.user;
+        const { email, isPaid } = data.user;
 
         setStatus('Setting up your account...');
 
@@ -113,12 +111,6 @@ export default function CureMigraineAuth() {
         boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
       }}>
         <div style={{ marginBottom: '2rem' }}>
-          <img 
-            src="/logo.svg" 
-            alt="Headache Journal" 
-            style={{ height: '60px', marginBottom: '1rem' }}
-            onError={(e) => e.target.style.display = 'none'}
-          />
           <h2 style={{ color: '#1E3A8A', margin: 0 }}>
             CureMigraine Login
           </h2>
