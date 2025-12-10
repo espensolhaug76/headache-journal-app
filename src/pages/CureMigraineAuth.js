@@ -1,11 +1,7 @@
-// src/pages/CureMigraineAuth.js
-// Handles SSO from CureMigraine - verifies token and activates premium
-
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { usePremium } from '../contexts/PremiumContext';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
 
 export default function CureMigraineAuth() {
   const [searchParams] = useSearchParams();
@@ -14,6 +10,8 @@ export default function CureMigraineAuth() {
   
   const [status, setStatus] = useState('Verifying your CureMigraine account...');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     async function handleAuth() {
@@ -27,7 +25,6 @@ export default function CureMigraineAuth() {
       try {
         setStatus('Verifying token with CureMigraine...');
         
-        // Verify token with CureMigraine API
         const response = await fetch('https://api.curemigraine.org/journal/verify-token', {
           method: 'POST',
           headers: {
@@ -47,41 +44,15 @@ export default function CureMigraineAuth() {
         }
 
         const { email, isPaid } = data.user;
+        setUserEmail(email);
 
-        setStatus('Setting up your account...');
-
-        // Try to sign in or create account with the email
-        // Using a deterministic password based on email (user won't need it - they use CureMigraine to login)
-        const tempPassword = `CM_${btoa(email).slice(0, 20)}_HJ`;
-        
-        try {
-          // Try to sign in first
-          await signInWithEmailAndPassword(auth, email, tempPassword);
-        } catch (signInError) {
-          if (signInError.code === 'auth/user-not-found') {
-            // Create new account
-            await createUserWithEmailAndPassword(auth, email, tempPassword);
-          } else if (signInError.code === 'auth/wrong-password') {
-            // User exists but with different password - they registered directly
-            setError('This email is already registered. Please log in with your Headache Journal password, or use a different email in CureMigraine.');
-            return;
-          } else {
-            throw signInError;
-          }
-        }
-
-        // Activate premium if user has paid CureMigraine subscription
         if (isPaid) {
           setStatus('Activating premium features...');
           await activatePremium('curemigraine', email);
         }
 
-        setStatus('Success! Redirecting to dashboard...');
-        
-        // Small delay so user sees success message
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000);
+        setSuccess(true);
+        setStatus('');
 
       } catch (err) {
         console.error('CureMigraine auth error:', err);
@@ -90,7 +61,7 @@ export default function CureMigraineAuth() {
     }
 
     handleAuth();
-  }, [searchParams, navigate, activatePremium]);
+  }, [searchParams, activatePremium]);
 
   return (
     <div style={{
@@ -105,16 +76,14 @@ export default function CureMigraineAuth() {
         background: 'white',
         borderRadius: '16px',
         padding: '3rem',
-        maxWidth: '400px',
+        maxWidth: '450px',
         width: '100%',
         textAlign: 'center',
         boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
       }}>
-        <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ color: '#1E3A8A', margin: 0 }}>
-            CureMigraine Login
-          </h2>
-        </div>
+        <h2 style={{ color: '#1E3A8A', margin: '0 0 1.5rem 0' }}>
+          CureMigraine Login
+        </h2>
 
         {error ? (
           <div style={{
@@ -140,6 +109,57 @@ export default function CureMigraineAuth() {
             >
               Go to Login
             </button>
+          </div>
+        ) : success ? (
+          <div>
+            <div style={{
+              background: '#D1FAE5',
+              border: '1px solid #10B981',
+              borderRadius: '8px',
+              padding: '1.5rem',
+              marginBottom: '1.5rem'
+            }}>
+              <p style={{ color: '#065F46', margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                ✓ Premium Activated!
+              </p>
+              <p style={{ color: '#065F46', margin: 0, fontSize: '0.9rem' }}>
+                Your CureMigraine subscription gives you full access to all Headache Journal features.
+              </p>
+            </div>
+            <p style={{ color: '#6B7280', marginBottom: '1.5rem' }}>
+              Log in or create an account with:<br/>
+              <strong>{userEmail}</strong>
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => navigate('/login')}
+                style={{
+                  background: '#3B82F6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1.5rem',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Log In
+              </button>
+              <button
+                onClick={() => navigate('/register')}
+                style={{
+                  background: 'white',
+                  color: '#3B82F6',
+                  border: '2px solid #3B82F6',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1.5rem',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Register
+              </button>
+            </div>
           </div>
         ) : (
           <div>
