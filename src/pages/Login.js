@@ -6,7 +6,7 @@ import logo from '../assets/logo.svg';
 // Helper function to get user-friendly error messages
 function getErrorMessage(error) {
   const errorCode = error.code || '';
-  const email = error.email || 'this email';
+  
   
   switch (errorCode) {
     case 'auth/user-not-found':
