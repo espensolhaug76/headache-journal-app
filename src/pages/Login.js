@@ -3,6 +3,31 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import logo from '../assets/logo.svg';
 
+// Helper function to get user-friendly error messages
+function getErrorMessage(error) {
+  const errorCode = error.code || '';
+  const email = error.email || 'this email';
+  
+  switch (errorCode) {
+    case 'auth/user-not-found':
+      return `No account found for this email. Please register first.`;
+    case 'auth/wrong-password':
+      return 'Incorrect password. Please try again.';
+    case 'auth/invalid-login-credentials':
+      return 'Invalid email or password. If you don\'t have an account, please register first.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/too-many-requests':
+      return 'Too many failed login attempts. Please try again later or reset your password.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact support.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your internet connection.';
+    default:
+      return error.message || 'An error occurred. Please try again.';
+  }
+}
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +50,7 @@ export default function Login() {
       await login(email, password);
       navigate('/dashboard');
     } catch (error) {
-      setError('Failed to log in: ' + error.message);
+      setError(getErrorMessage(error));
     }
 
     setLoading(false);
@@ -60,7 +85,11 @@ export default function Login() {
       setShowForgotPassword(false);
       setResetEmail('');
     } catch (error) {
-      setError('Failed to reset password: ' + error.message);
+      if (error.code === 'auth/user-not-found') {
+        setError('No account found with this email address.');
+      } else {
+        setError('Failed to reset password: ' + error.message);
+      }
     }
 
     setLoading(false);
