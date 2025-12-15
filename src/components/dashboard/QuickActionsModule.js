@@ -34,7 +34,7 @@ const ActionButton = ({ icon, label, primary = false, to }) => {
 
 export default function QuickActionsModule({ showQuickActions, setShowQuickActions }) {
   const handleBackToCureMigraine = () => {
-    window.location.href = 'https://client.curemigraine.org/dashboard/profile';
+    window.location.href = 'https://client.themigraineplan.com/dashboard/profile';
   };
 
   return (

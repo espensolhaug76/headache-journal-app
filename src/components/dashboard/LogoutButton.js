@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function LogoutButton({ onLogout }) {
   const handleBackToCureMigraine = () => {
-    window.location.href = 'https://client.curemigraine.org/dashboard/profile';
+    window.location.href = 'https://client.themigraineplan.com/dashboard/profile';
   };
 
   return (

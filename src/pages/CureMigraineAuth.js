@@ -25,7 +25,7 @@ export default function CureMigraineAuth() {
       try {
         setStatus('Verifying token with CureMigraine...');
         
-        const response = await fetch('https://api.curemigraine.org/journal/verify-token', {
+        const response = await fetch('https://api.themigraineplan.com/journal/verify-token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
