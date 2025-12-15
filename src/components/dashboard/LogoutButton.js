@@ -30,7 +30,7 @@ export default function LogoutButton({ onLogout }) {
           gap: '0.5rem'
         }}>
         <i className="fas fa-arrow-left"></i>
-        Back to CureMigraine
+        Back to the program
       </button>
       <button 
         onClick={onLogout}
