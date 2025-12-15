@@ -33,31 +33,65 @@ const ActionButton = ({ icon, label, primary = false, to }) => {
 };
 
 export default function QuickActionsModule({ showQuickActions, setShowQuickActions }) {
+  const handleBackToCureMigraine = () => {
+    window.location.href = 'https://client.curemigraine.org/dashboard/profile';
+  };
+
   return (
     <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-      <button
-        onClick={() => setShowQuickActions(!showQuickActions)}
-        style={{
-          background: showQuickActions ? '#4682B4' : '#FFFFFF',
-          border: '1px solid #E5E7EB',
-          borderRadius: '12px',
-          color: showQuickActions ? 'white' : '#4682B4',
-          padding: '1rem 2rem',
-          cursor: 'pointer',
-          fontSize: '1rem',
-          fontWeight: '600',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          margin: '0 auto',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          transition: 'all 0.2s ease'
-        }}
-      >
-        <i className="fas fa-plus"></i>
-        <span>Quick Actions</span>
-        <i className={`fas fa-chevron-${showQuickActions ? 'up' : 'down'}`} style={{ fontSize: '0.8rem', marginLeft: '0.5rem' }}></i>
-      </button>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        gap: '0.75rem',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={() => setShowQuickActions(!showQuickActions)}
+          style={{
+            background: showQuickActions ? '#4682B4' : '#FFFFFF',
+            border: '1px solid #E5E7EB',
+            borderRadius: '12px',
+            color: showQuickActions ? 'white' : '#4682B4',
+            padding: '1rem 2rem',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <i className="fas fa-plus"></i>
+          <span>Quick Actions</span>
+          <i className={`fas fa-chevron-${showQuickActions ? 'up' : 'down'}`} style={{ fontSize: '0.8rem', marginLeft: '0.5rem' }}></i>
+        </button>
+        
+        <button
+          onClick={handleBackToCureMigraine}
+          title="Back to CureMigraine Program"
+          style={{
+            background: '#1E3A8A',
+            border: 'none',
+            borderRadius: '12px',
+            color: 'white',
+            padding: '1rem',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            boxShadow: '0 2px 8px rgba(30, 58, 138, 0.3)',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <i className="fas fa-graduation-cap"></i>
+          <span style={{ display: 'none' }}>Program</span>
+        </button>
+      </div>
 
       {showQuickActions && (
         <div style={{
