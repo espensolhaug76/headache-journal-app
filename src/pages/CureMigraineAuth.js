@@ -82,7 +82,7 @@ export default function CureMigraineAuth() {
         boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
       }}>
         <h2 style={{ color: '#1E3A8A', margin: '0 0 1.5rem 0' }}>
-          CureMigraine Login
+          Journal Login
         </h2>
 
         {error ? (
@@ -123,7 +123,7 @@ export default function CureMigraineAuth() {
                 ✓ Premium Activated!
               </p>
               <p style={{ color: '#065F46', margin: 0, fontSize: '0.9rem' }}>
-                Your CureMigraine subscription gives you full access to all Headache Journal features.
+                Your subscription gives you full access to all Headache Journal features.
               </p>
             </div>
             <p style={{ color: '#6B7280', marginBottom: '1.5rem' }}>
